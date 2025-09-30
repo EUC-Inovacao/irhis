@@ -1,3 +1,22 @@
 {
-  "expo": {}
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "30ab9e48-97cc-4b26-a201-84a3f181af65"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.eucinovacao.irhismvp",
+      "buildNumber": "8",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSMotionUsageDescription": "This app uses motion/accelerometer data to improve the experience.",
+        "NSCameraUsageDescription": "Camera is used to capture images.",
+        "NSPhotoLibraryUsageDescription": "Allows selecting photos from your library.",
+        "NSPhotoLibraryAddUsageDescription": "Allows saving images to your library.",
+        "NSLocationWhenInUseUsageDescription": "Used to access your location while using the app.",
+        "NSMicrophoneUsageDescription": "Microphone is used for audio features."
+      }
+    }
+  }
 }

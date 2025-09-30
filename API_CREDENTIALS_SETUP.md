@@ -60,3 +60,4 @@ Authorization: Bearer SEU_TOKEN_AQUI
 - ⏳ Aguardando credenciais de autenticação
 
 **Próximo passo**: Configurar o token quando receber as credenciais!
+
