@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "demoirhisn",
+    "slug": "demoirhisn",
+    "version": "1.0.1",
+    "orientation": "portrait",
+    "icon": "./assets/logo.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.eucinovacao.irhismvp",
+      "buildNumber": "8",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSMotionUsageDescription": "This app uses motion/accelerometer data to improve the experience.",
+        "NSCameraUsageDescription": "Camera is used to capture images.",
+        "NSPhotoLibraryUsageDescription": "Allows selecting photos from your library.",
+        "NSPhotoLibraryAddUsageDescription": "Allows saving images to your library.",
+        "NSLocationWhenInUseUsageDescription": "Used to access your location while using the app.",
+        "NSMicrophoneUsageDescription": "Microphone is used for audio features.",
+        "NSBluetoothAlwaysUsageDescription": "This app uses Bluetooth to connect to Movella DOT sensors for movement analysis.",
+        "NSBluetoothPeripheralUsageDescription": "This app uses Bluetooth to connect to Movella DOT sensors for movement analysis.",
+        "UIBackgroundModes": ["bluetooth-central"]
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": ["expo-asset", "expo-font"],
+    "extra": {
+      "eas": {
+        "projectId": "836afe2f-53a4-4d8d-b4c8-43bfd5fe46b4"
+      }
+    },
+    "owner": "joaosi98",
+    "android": {
+      "package": "com.joaosi98.irhis"
+    }
+  }
+}

@@ -1,0 +1,50 @@
+diff --git a/node_modules/react-native/Libraries/NativeComponent/ViewConfigIgnore.js b/node_modules/react-native/Libraries/NativeComponent/ViewConfigIgnore.js
+index 155b1bf..dd87805 100644
+--- a/node_modules/react-native/Libraries/NativeComponent/ViewConfigIgnore.js
++++ b/node_modules/react-native/Libraries/NativeComponent/ViewConfigIgnore.js
+@@ -34,9 +34,7 @@ export function DynamicallyInjectedByGestureHandler<T: {...}>(object: T): T {
+  *
+  * TODO(T110872225): Remove this logic, after achieving platform-consistency
+  */
+-export function ConditionallyIgnoredEventHandlers<
+-  const T: {+[name: string]: true},
+->(value: T): T | void {
++export function ConditionallyIgnoredEventHandlers(value) {
+   if (Platform.OS === 'ios') {
+     return value;
+   }
+diff --git a/node_modules/react-native/src/private/components/virtualview/VirtualView.js b/node_modules/react-native/src/private/components/virtualview/VirtualView.js
+index 051e596..2f02ff7 100644
+--- a/node_modules/react-native/src/private/components/virtualview/VirtualView.js
++++ b/node_modules/react-native/src/private/components/virtualview/VirtualView.js
+@@ -90,23 +90,26 @@ function createVirtualView(initialState: State): VirtualViewComponent {
+               thresholdRect: event.nativeEvent.thresholdRect,
+             });
+ 
+-      match (mode) {
+-        VirtualViewMode.Visible => {
++      switch (mode) {
++        case VirtualViewMode.Visible: {
+           setState(NotHidden);
+           emitModeChange?.();
++          break;
+         }
+-        VirtualViewMode.Prerender => {
++        case VirtualViewMode.Prerender: {
+           startTransition(() => {
+             setState(NotHidden);
+             emitModeChange?.();
+           });
++          break;
+         }
+-        VirtualViewMode.Hidden => {
++        case VirtualViewMode.Hidden: {
+           const {height} = event.nativeEvent.targetRect;
+           startTransition(() => {
+             setState(height as HiddenHeight);
+             emitModeChange?.();
+           });
++          break;
+         }
+       }
+     };
