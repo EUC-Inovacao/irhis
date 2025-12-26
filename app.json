@@ -17,6 +17,9 @@
         "NSLocationWhenInUseUsageDescription": "Used to access your location while using the app.",
         "NSMicrophoneUsageDescription": "Microphone is used for audio features."
       }
+    },
+    "android": {
+      "package": "com.eucinovacao.irhismvp"
     }
   }
 }
