@@ -203,3 +203,21 @@ export interface AnalysisResult {
   };
   missingSensors?: string[];
 }
+export type RootStackParamList = {
+  Home: undefined;
+  Login: undefined;
+  Signup: undefined;
+
+  PatientDetail: { patient: Patient }; 
+  CreatePatient: undefined;
+  Profile: undefined;
+  BleConnection: undefined;
+  
+  ExerciseDetail: { exercise: any }; 
+
+  // Novas Rotas da Task IRHIS-25
+  ChangePassword: undefined;
+  PrivacyNotice: undefined;
+  HelpCenter: undefined;
+  About: undefined;
+};

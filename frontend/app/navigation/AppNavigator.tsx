@@ -20,17 +20,12 @@ import ProfileScreen from '@screens/ProfileScreen';
 import MovellaScreen from '@screens/MovellaScreen';
 import CreatePatientScreen from '@screens/CreatePatientScreen';
 import BleConnectionScreen from '@screens/BleConnectionScreen';
+import ChangePasswordScreen from '../screens/ChangePasswordScreen';
+import PrivacyNoticeScreen from '../screens/PrivacyNoticeScreen';
+import HelpCenterScreen from '../screens/HelpCenterScreen';
+import AboutScreen from '../screens/AboutScreen';
+import type { RootStackParamList } from '../types';
 
-type RootStackParamList = {
-  Home: undefined;
-  Login: undefined;
-  Signup: undefined;
-  PatientDetail: { patientId: string; role: string };
-  ExerciseDetail: { exercise: any };
-  CreatePatient: undefined;
-  Profile: undefined;
-  BleConnection: undefined;
-};
 
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator();
@@ -222,6 +217,27 @@ const AppNavigator = () => {
                 headerBackTitle: 'Back',
               }}
             />
+            {/* Novas Rotas da Task IRHIS-25 */}
+            <Stack.Screen 
+              name="ChangePassword" 
+              component={ChangePasswordScreen} 
+              options={{ headerShown: false }} 
+            />
+            <Stack.Screen 
+              name="PrivacyNotice" 
+              component={PrivacyNoticeScreen} 
+              options={{ headerShown: false }} 
+            />
+            <Stack.Screen 
+              name="HelpCenter" 
+              component={HelpCenterScreen} 
+              options={{ headerShown: false }} 
+            />
+            <Stack.Screen 
+              name="About" 
+              component={AboutScreen} 
+              options={{ headerShown: false }} 
+            />
           </>
         ) : (
           <>
@@ -235,6 +251,7 @@ const AppNavigator = () => {
               component={SignupScreen}
               options={{ headerShown: false }}
             />
+            
           </>
         )}
       </Stack.Navigator>
