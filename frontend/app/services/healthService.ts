@@ -136,8 +136,41 @@ class HealthService {
       const startDate = new Date();
       startDate.setHours(0, 0, 0, 0);
 
-      const result = await Pedometer.getStepCountAsync(startDate, endDate);
-      const steps = result?.steps || this._latestData.steps || 0;
+      let steps = 0;
+      
+      // On Android, getStepCountAsync with date ranges may not be supported
+      // Use watchStepCount subscription data as fallback
+      if (Platform.OS === 'android') {
+        // For Android, prefer using the latest step count from watchStepCount
+        steps = this._latestData.steps || this.lastStepCount || 0;
+        
+        // Try to get step count for today if available, but don't fail if it's not supported
+        try {
+          const result = await Pedometer.getStepCountAsync(startDate, endDate);
+          if (result?.steps !== undefined && result.steps > 0) {
+            steps = result.steps;
+          }
+        } catch (error: any) {
+          // getStepCountAsync not supported on this Android device/version
+          // Use fallback from watchStepCount subscription
+          // Suppress expected Android limitation warnings - this is normal behavior
+          const isExpectedAndroidLimitation = error?.message?.includes('not supported on Android') || 
+                                             error?.message?.includes('date range');
+          if (!isExpectedAndroidLimitation && __DEV__) {
+            // Only log unexpected errors in development
+            console.warn('Pedometer.getStepCountAsync error on Android:', error);
+          }
+        }
+      } else {
+        // iOS - use getStepCountAsync as before
+        try {
+          const result = await Pedometer.getStepCountAsync(startDate, endDate);
+          steps = result?.steps || this._latestData.steps || 0;
+        } catch (error) {
+          console.warn('Error getting step count, using fallback:', error);
+          steps = this._latestData.steps || this.lastStepCount || 0;
+        }
+      }
 
       const caloriesPerStep = 0.04;
       const stepLength = 0.762;
@@ -194,8 +227,55 @@ class HealthService {
       const endDate = new Date(date);
       endDate.setHours(23, 59, 59, 999);
 
-      const result = await Pedometer.getStepCountAsync(startDate, endDate);
-      const steps = result?.steps || 0;
+      let steps = 0;
+      
+      // On Android, getStepCountAsync with date ranges may not be supported
+      // Use watchStepCount subscription data as fallback
+      if (Platform.OS === 'android') {
+        // For Android, check if the requested date is today
+        const today = new Date();
+        const isToday = date === today.toISOString().split('T')[0];
+        
+        if (isToday) {
+          // If requesting today's data, use the latest step count from watchStepCount
+          steps = this._latestData.steps || this.lastStepCount || 0;
+        } else {
+          // For past dates on Android, we can't reliably get historical data
+          // Return 0 or use a fallback - this is a limitation of the Android Pedometer API
+          // Suppress warning - this is expected behavior on Android
+          steps = 0;
+        }
+        
+        // Try to get step count if available, but don't fail if it's not supported
+        try {
+          const result = await Pedometer.getStepCountAsync(startDate, endDate);
+          if (result?.steps !== undefined && result.steps > 0) {
+            steps = result.steps;
+          }
+        } catch (error: any) {
+          // getStepCountAsync not supported on this Android device/version
+          // Use fallback from watchStepCount subscription or 0 for historical dates
+          // Suppress expected Android limitation warnings - this is normal behavior
+          const isExpectedAndroidLimitation = error?.message?.includes('not supported on Android') || 
+                                             error?.message?.includes('date range');
+          if (!isExpectedAndroidLimitation && __DEV__) {
+            // Only log unexpected errors in development
+            console.warn('Pedometer.getStepCountAsync error on Android:', error);
+          }
+        }
+      } else {
+        // iOS - use getStepCountAsync as before
+        try {
+          const result = await Pedometer.getStepCountAsync(startDate, endDate);
+          steps = result?.steps || 0;
+        } catch (error) {
+          console.warn('Error getting daily step count, using fallback:', error);
+          // For iOS, if it's today, use latest data; otherwise return 0
+          const today = new Date();
+          const isToday = date === today.toISOString().split('T')[0];
+          steps = isToday ? (this._latestData.steps || this.lastStepCount || 0) : 0;
+        }
+      }
 
       const caloriesPerStep = 0.04;
       const stepLength = 0.762;
