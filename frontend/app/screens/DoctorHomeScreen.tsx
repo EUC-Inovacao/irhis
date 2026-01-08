@@ -67,12 +67,25 @@ const DoctorHomeScreen = ({ navigation }: any) => {
                     <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>Welcome back,</Text>
                     <Text style={[styles.title, { color: colors.text }]}>{user?.name}</Text>
                 </View>
-                <TouchableOpacity
-                    style={[styles.addButton, { backgroundColor: colors.primary + '15' }]}
-                    onPress={() => navigation.navigate('CreatePatient')}
-                >
-                    <Ionicons name="person-add-outline" size={24} color={colors.primary} />
-                </TouchableOpacity>
+                {/* Agrupamos os botões numa View para ficarem lado a lado à direita */}
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                    
+                    {/* NOVO: Botão de Invite (Carta) - Igual ao Figma */}
+                    <TouchableOpacity
+                        style={[styles.addButton, { backgroundColor: colors.primary + '15' }]}
+                        onPress={() => alert('Invite feature coming soon')}
+                    >
+                        <Ionicons name="mail-outline" size={24} color={colors.primary} />
+                    </TouchableOpacity>
+
+                    {/* Botão Existente (Adicionar Paciente) */}
+                    <TouchableOpacity
+                        style={[styles.addButton, { backgroundColor: colors.primary + '15' }]}
+                        onPress={() => navigation.navigate('CreatePatient')}
+                    >
+                        <Ionicons name="person-add-outline" size={24} color={colors.primary} />
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <View style={styles.statsGrid}>

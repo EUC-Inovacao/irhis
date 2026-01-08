@@ -97,13 +97,13 @@ const PatientPickerModal: React.FC<PatientPickerModalProps> = ({
                     <View
                       style={[
                         styles.avatar,
-                        { backgroundColor: colors.purple[100] },
+                        { backgroundColor: colors.primary + '15' },
                       ]}
                     >
                       <Text
                         style={[
                           styles.avatarText,
-                          { color: colors.purple[600] },
+                          { color: colors.primary },
                         ]}
                       >
                         {item.name

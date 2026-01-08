@@ -109,13 +109,13 @@ const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
           <View
             style={[
               styles.exerciseIcon,
-              { backgroundColor: colors.purple[100] },
+              { backgroundColor: colors.primary + '15' },
             ]}
           >
             <Ionicons
               name={getCategoryIcon(item.category) as any}
               size={20}
-              color={colors.purple[500]}
+              color={colors.primary}
             />
           </View>
           <View style={styles.exerciseItemInfo}>

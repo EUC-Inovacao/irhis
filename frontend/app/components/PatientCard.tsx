@@ -33,8 +33,8 @@ const PatientCard = ({ item, navigation }: { item: Patient; navigation: any }) =
         >
             <View style={styles.patientHeader}>
                 <View style={styles.patientInfo}>
-                    <View style={[styles.avatar, { backgroundColor: colors.purple[100] }]}>
-                        <Text style={[styles.avatarText, { color: colors.purple[600] }]}>
+                    <View style={[styles.avatar, { backgroundColor: colors.primary + '15' }]}>
+                        <Text style={[styles.avatarText, { color: colors.primary }]}>
                             {item.name.split(' ').map(n => n[0]).join('')}
                         </Text>
                     </View>
@@ -47,9 +47,9 @@ const PatientCard = ({ item, navigation }: { item: Patient; navigation: any }) =
                                     : 'No exercises assigned'}
                             </Text>
                             {totalExercises > 0 && (
-                                <View style={[styles.exerciseBadge, { backgroundColor: colors.purple[100] }]}>
-                                    <Ionicons name="fitness-outline" size={12} color={colors.purple[500]} />
-                                    <Text style={[styles.exerciseBadgeText, { color: colors.purple[500] }]}>
+                                <View style={[styles.exerciseBadge, { backgroundColor: colors.primary + '15' }]}>
+                                    <Ionicons name="fitness-outline" size={12} color={colors.primary} />
+                                    <Text style={[styles.exerciseBadgeText, { color: colors.primary }]}>
                                         {totalExercises}
                                     </Text>
                                 </View>
@@ -57,8 +57,8 @@ const PatientCard = ({ item, navigation }: { item: Patient; navigation: any }) =
                         </View>
                     </View>
                 </View>
-                <View style={[styles.progressBadge, { backgroundColor: colors.purple[50] }]}>
-                    <Text style={[styles.progressText, { color: colors.purple[500] }]}>
+                <View style={[styles.progressBadge, { backgroundColor: colors.primary + '15' }]}>
+                    <Text style={[styles.progressText, { color: colors.primary }]}>
                         {`${Math.round(progress)}%`}
                     </Text>
                 </View>
@@ -69,7 +69,7 @@ const PatientCard = ({ item, navigation }: { item: Patient; navigation: any }) =
                     style={[
                         styles.progressFill, 
                         { 
-                            backgroundColor: colors.purple[500],
+                            backgroundColor: colors.primary,
                             width: `${progress}%` 
                         }
                     ]} 

@@ -61,11 +61,12 @@ const CustomHeader: React.FC<StackHeaderProps> = ({ navigation, route, options }
             style={styles.avatarButton}
             onPress={() => navigation.navigate('Profile')}
           >
-            <View style={[styles.avatarPlaceholder, { backgroundColor: colors.purple[100] }]}>
-              <Text style={[styles.avatarText, { color: colors.purple[600] }]}>
-                {user?.name?.charAt(0) || 'U'}
-              </Text>
-            </View>
+            {/* MUDANÇA: Usar primary + '15' para fundo claro, e primary para o texto */}
+          <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary + '15' }]}>
+            <Text style={[styles.avatarText, { color: colors.primary }]}>
+              {user?.name?.charAt(0) || 'U'}
+            </Text>
+          </View>
           </TouchableOpacity>
         </View>
       </View>

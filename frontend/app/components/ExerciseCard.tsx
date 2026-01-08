@@ -108,14 +108,14 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
               {
                 backgroundColor: isCompleted
                   ? colors.success + "15"
-                  : colors.purple[100],
+                  : colors.primary + "15",
               },
             ]}
           >
             <Ionicons
               name={getCategoryIcon(category) as any}
               size={24}
-              color={isCompleted ? colors.success : colors.purple[500]}
+              color={isCompleted ? colors.success : colors.primary}
             />
           </View>
           <View style={styles.exerciseDetails}>

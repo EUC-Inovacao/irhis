@@ -42,8 +42,8 @@ const CreatePatientScreen = ({ navigation }: any) => {
     const renderPatientItem = ({ item }: { item: Patient }) => (
         <View style={[styles.patientCard, { backgroundColor: colors.card }]}>
             <View style={styles.patientInfo}>
-                <View style={[styles.avatar, { backgroundColor: colors.purple[100] }]}>
-                    <Text style={[styles.avatarText, { color: colors.purple[600] }]}>
+                <View style={[styles.avatar, { backgroundColor: colors.primary + '20' }]}>
+                    <Text style={[styles.avatarText, { color: colors.primary }]}>
                         {item.name.split(' ').map(n => n[0]).join('')}
                     </Text>
                 </View>

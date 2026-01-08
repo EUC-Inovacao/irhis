@@ -102,29 +102,18 @@ const PatientHomeScreen = ({ navigation }: any) => {
                         <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>Welcome back,</Text>
                         <Text style={[styles.title, { color: colors.text }]}>{patient.name}</Text>
                     </View>
-                    {!isConnected ? (
-                        <TouchableOpacity 
-                            style={[styles.connectButton, { backgroundColor: colors.purple[500] }]}
-                            onPress={connectDevice}
-                        >
-                            <Ionicons name="watch-outline" size={20} color={colors.white} />
-                            <Text style={[styles.connectButtonText, { color: colors.white }]}>
-                                Connect Watch
-                            </Text>
-                        </TouchableOpacity>
-                    ) : (
-                        <TouchableOpacity 
-                            style={[styles.refreshButton, { backgroundColor: colors.card }]}
-                            onPress={refreshHealthData}
-                            disabled={isLoading}
-                        >
-                            <Ionicons 
-                                name={isLoading ? "sync" : "refresh-outline"} 
-                                size={24} 
-                                color={colors.text} 
-                            />
-                        </TouchableOpacity>
-                    )}
+                    {/* Botão Connect Watch removido conforme ticket IRHIS-18 */}
+                    <TouchableOpacity 
+                        style={[styles.refreshButton, { backgroundColor: colors.card }]}
+                        onPress={refreshHealthData}
+                        disabled={isLoading}
+                    >
+                        <Ionicons 
+                            name={isLoading ? "sync" : "refresh-outline"} 
+                            size={24} 
+                            color={colors.text} 
+                        />
+                    </TouchableOpacity>
                 </View>
 
                 <View style={[styles.progressCard, { backgroundColor: colors.card }]}>
@@ -140,15 +129,16 @@ const PatientHomeScreen = ({ navigation }: any) => {
                 {isConnected && healthData && (
                     <View style={styles.statsGrid}>
                         <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-                            <View style={[styles.statIcon, { backgroundColor: colors.purple[50] }]}>
-                                <Ionicons name="walk-outline" size={24} color={colors.purple[500]} />
+                            {/* MUDANÇA: Usar primary (Azul) com transparência no fundo, igual aos outros cards */}
+                            <View style={[styles.statIcon, { backgroundColor: colors.primary + '15' }]}>
+                                <Ionicons name="walk-outline" size={24} color={colors.primary} />
                             </View>
                             <Text style={[styles.statValue, { color: colors.text }]}>
                                 {healthData.steps.toLocaleString()}
                             </Text>
                             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Steps</Text>
                         </View>
-
+                        
                         <View style={[styles.statCard, { backgroundColor: colors.card }]}>
                             <View style={[styles.statIcon, { backgroundColor: colors.success + '15' }]}>
                                 <Ionicons name="flame-outline" size={24} color={colors.success} />
