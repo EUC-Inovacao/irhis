@@ -4,24 +4,31 @@
  * Based on Movella DOT BLE Service Specification (Document XD0506P, Revision C)
  */
 
-import { Platform } from 'react-native';
+import { Platform, PermissionsAndroid } from 'react-native';
 import { BleManager, Device, State, Characteristic } from 'react-native-ble-plx';
 import * as THREE from 'three';
 
 // BLE Manager instance - Only works with Development Client, not Expo Go
 let bleManagerInstance: BleManager | null = null;
 let BleManagerAvailable = false;
+let BleManagerError: Error | null = null;
 
 try {
   // Try to create BleManager instance
+  // This will fail in Expo Go because the native module is not available
   bleManagerInstance = new BleManager();
   BleManagerAvailable = true;
   console.log('✅ react-native-ble-plx initialized');
 } catch (error: any) {
   // Module not available - this is expected in Expo Go
   BleManagerAvailable = false;
+  BleManagerError = error instanceof Error ? error : new Error(String(error));
   if (__DEV__) {
     console.log('react-native-ble-plx module check:', error?.message || 'not available');
+    // Check for the specific "createClient of null" error
+    if (error?.message?.includes('createClient') || error?.message?.includes('null')) {
+      console.warn('⚠️ BLE native module not linked. This is expected in Expo Go. Use a Development Build for BLE support.');
+    }
   }
 }
 
@@ -294,6 +301,64 @@ export class MovellaBleService {
   }
 
   /**
+   * Check and request Android BLE permissions
+   * Required for BLE scanning on Android
+   */
+  private async checkAndroidPermissions(): Promise<boolean> {
+    if (Platform.OS !== 'android') {
+      return true; // iOS handles permissions differently
+    }
+
+    try {
+      const apiLevel = Platform.Version as number;
+      
+      // Android 12+ (API 31+) uses new permission model
+      if (apiLevel >= 31) {
+        const permissions = [
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        ];
+
+        const results = await PermissionsAndroid.requestMultiple(permissions);
+        
+        const allGranted = permissions.every(
+          permission => results[permission] === PermissionsAndroid.RESULTS.GRANTED
+        );
+
+        if (!allGranted) {
+          console.warn('⚠️ [BLE] Some Android permissions were denied:', results);
+          return false;
+        }
+
+        return true;
+      } else {
+        // Android < 12 uses legacy permissions
+        const permissions = [
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+        ];
+
+        const results = await PermissionsAndroid.requestMultiple(permissions);
+        
+        const locationGranted = 
+          results[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED ||
+          results[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED;
+
+        if (!locationGranted) {
+          console.warn('⚠️ [BLE] Location permission denied (required for BLE scanning on Android < 12)');
+          return false;
+        }
+
+        return true;
+      }
+    } catch (error) {
+      console.error('❌ [BLE] Error checking Android permissions:', error);
+      return false;
+    }
+  }
+
+  /**
    * Initialize BLE manager
    * Uses react-native-ble-plx library
    * NOTE: Requires Development Client - does NOT work with Expo Go
@@ -302,22 +367,49 @@ export class MovellaBleService {
     try {
       // Check if JavaScript module is available
       if (!BleManagerAvailable || !bleManagerInstance) {
-        const errorMsg = 
-          "❌ BLE não disponível no Expo Go!\n\n" +
-          "O react-native-ble-plx requer um Development Client.\n\n" +
-          "Para usar Bluetooth, você precisa:\n" +
-          "1. Criar um build de desenvolvimento:\n" +
-          "   cd frontend\n" +
-          "   npx eas build --profile development --platform ios\n\n" +
-          "2. Instalar o app no iPhone\n\n" +
-          "3. Rodar: npx expo start --dev-client\n\n" +
-          "Ou fazer build local:\n" +
-          "   npx expo prebuild\n" +
-          "   npx expo run:ios --device";
+        const isExpoGo = BleManagerError?.message?.includes('createClient') || 
+                        BleManagerError?.message?.includes('null') ||
+                        !BleManagerError;
         
-        console.warn(errorMsg);
+        const platform = Platform.OS === 'android' ? 'Android' : 'iOS';
+        const buildCommand = Platform.OS === 'android' 
+          ? 'npx eas build --profile development --platform android'
+          : 'npx eas build --profile development --platform ios';
+        const runCommand = Platform.OS === 'android'
+          ? 'npx expo run:android'
+          : 'npx expo run:ios --device';
+        
+        const errorMsg = isExpoGo
+          ? `❌ BLE not available in Expo Go!\n\n` +
+            `react-native-ble-plx requires a Development Build.\n\n` +
+            `To use Bluetooth on ${platform}:\n` +
+            `1. Create a development build:\n` +
+            `   cd frontend\n` +
+            `   ${buildCommand}\n\n` +
+            `2. Install the app on your device\n\n` +
+            `3. Run: npx expo start --dev-client\n\n` +
+            `Or build locally:\n` +
+            `   npx expo prebuild\n` +
+            `   ${runCommand}`
+          : `❌ BLE Manager initialization failed!\n\n` +
+            `Error: ${BleManagerError?.message || 'Unknown error'}\n\n` +
+            `Please ensure:\n` +
+            `1. You're using a Development Build (not Expo Go)\n` +
+            `2. Native modules are properly linked\n` +
+            `3. Run 'npx expo prebuild' and rebuild the app`;
+        
+        console.warn(`[BLE] ${errorMsg}`);
         this.isInitialized = false;
         return;
+      }
+      
+      // Check Android permissions before proceeding
+      if (Platform.OS === 'android') {
+        const hasPermissions = await this.checkAndroidPermissions();
+        if (!hasPermissions) {
+          console.warn('⚠️ [BLE] Android BLE permissions not granted. BLE features will be limited.');
+          // Don't return false - allow initialization but features will fail gracefully
+        }
       }
       
       console.log("🔍 [BLE] Setting bleManager instance");
@@ -329,11 +421,12 @@ export class MovellaBleService {
       await new Promise(resolve => setTimeout(resolve, 100));
       
       this.isInitialized = true;
-      console.log("✅ [BLE] BLE Manager inicializado com sucesso!");
+      console.log("✅ [BLE] BLE Manager initialized successfully!");
       console.log("✅ [BLE] isInitialized:", this.isInitialized);
       console.log("✅ [BLE] bleManager:", !!this.bleManager);
+      console.log("✅ [BLE] Platform:", Platform.OS);
     } catch (error) {
-      console.warn("BLE Manager não disponível. Funcionalidades BLE desabilitadas.", error);
+      console.warn("❌ [BLE] BLE Manager not available. BLE features disabled.", error);
       this.isInitialized = false;
     }
   }

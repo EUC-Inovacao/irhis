@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Switch, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Switch, TextInput, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@context/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
 import { useHealthGoals } from '../context/HealthGoalsContext';

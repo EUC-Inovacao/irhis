@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@theme/ThemeContext';
 import { useAuth } from '@context/AuthContext';
 import { usePatients } from '@context/PatientContext';

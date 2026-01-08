@@ -3,7 +3,8 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator, StackNavigationProp } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { StackHeaderProps } from '@react-navigation/stack';
 
 import { useTheme } from '@theme/ThemeContext';
