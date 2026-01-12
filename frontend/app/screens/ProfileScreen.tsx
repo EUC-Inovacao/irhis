@@ -7,18 +7,14 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../types';
 
-// Definir o tipo de navegação para este ecrã
 type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Profile'>;
 
 const ProfileScreen = () => {
     const { colors, isDark, toggleTheme } = useTheme(); 
-    const { user, logout } = useAuth(); // Nota: Confirma se a tua função de sair se chama 'logout' ou 'signOut' no AuthContext
+    const { user, logout } = useAuth();
     const navigation = useNavigation<ProfileScreenNavigationProp>();
 
-    // Estado local para simular o 2FA 
     const [isTwoFactorEnabled, setIsTwoFactorEnabled] = useState(false);
-    
-    // Estado local para Dark Mode (caso o ThemeContext não tenha toggleTheme exposto ainda)
     const [isDarkModeLocal, setIsDarkModeLocal] = useState(false);
 
     const handleSignOut = () => {
@@ -46,9 +42,11 @@ const ProfileScreen = () => {
 
     const handle2FA = (value: boolean) => {
         if (value) {
-            Alert.alert("Two-Factor Authentication", "This would open the 2FA setup flow.");
+            // Em vez de Alert, navegamos para o ecrã novo!
+            navigation.navigate('TwoFactorSetup'); // Certifica-te que registas isto no AppNavigator
             setIsTwoFactorEnabled(true);
         } else {
+            // Para desligar, mantemos o alerta de segurança
             Alert.alert(
                 "Disable 2FA", 
                 "Are you sure? This will lower your account security.",
@@ -60,7 +58,6 @@ const ProfileScreen = () => {
         }
     };
 
-    // Componente auxiliar para as linhas de menu
     const MenuItem = ({ icon, label, onPress, isDestructive = false, showChevron = true, valueElement }: any) => (
         <TouchableOpacity 
             style={[styles.menuItem, { borderBottomColor: colors.border }]} 
@@ -128,7 +125,7 @@ const ProfileScreen = () => {
                 />
             </View>
 
-            {/* 3. SECÇÃO: PRIVACY */}
+            {/* 3. SECÇÃO ÚNICA: PRIVACY & COMPLIANCE (JUNTOS) */}
             <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Privacy & Compliance</Text>
             <View style={[styles.sectionContainer, { backgroundColor: colors.card }]}>
                 <MenuItem 
@@ -136,11 +133,6 @@ const ProfileScreen = () => {
                     icon="document-text-outline"
                     onPress={() => navigation.navigate('PrivacyNotice')}
                 />
-            </View>
-
-            {/* 4. SECÇÃO: SUPPORT & ABOUT */}
-            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Support</Text>
-            <View style={[styles.sectionContainer, { backgroundColor: colors.card }]}>
                 <MenuItem 
                     label="Help Center" 
                     icon="help-buoy-outline"
@@ -154,9 +146,8 @@ const ProfileScreen = () => {
                 />
             </View>
 
-            {/* 5. SECÇÃO: APPEARANCE */}
-            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Appearance</Text>
-            <View style={[styles.sectionContainer, { backgroundColor: colors.card }]}>
+            {/* 4. SECÇÃO: DARK MODE */}
+            <View style={[styles.sectionContainer, { backgroundColor: colors.card, marginTop: 8 }]}>
                 <MenuItem 
                     label="Dark Mode" 
                     icon="moon-outline"
@@ -171,7 +162,7 @@ const ProfileScreen = () => {
                 />
             </View>
 
-            {/* 6. LOGOUT */}
+            {/* 5. LOGOUT */}
             <TouchableOpacity 
                 style={[styles.logoutButton, { borderColor: colors.error }]} 
                 onPress={handleSignOut}
@@ -193,7 +184,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         padding: 16,
         borderRadius: 16,
-        marginBottom: 24,
+        marginBottom: 16, // Alterado de 24 para 16
         alignItems: 'center',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,

@@ -21,6 +21,7 @@ import MovellaScreen from '@screens/MovellaScreen';
 import CreatePatientScreen from '@screens/CreatePatientScreen';
 import BleConnectionScreen from '@screens/BleConnectionScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
+import TwoFactorSetupScreen from '../screens/TwoFactorSetupScreen';
 import PrivacyNoticeScreen from '../screens/PrivacyNoticeScreen';
 import HelpCenterScreen from '../screens/HelpCenterScreen';
 import AboutScreen from '../screens/AboutScreen';
@@ -221,6 +222,11 @@ const AppNavigator = () => {
             <Stack.Screen 
               name="ChangePassword" 
               component={ChangePasswordScreen} 
+              options={{ headerShown: false }} 
+            />
+            <Stack.Screen 
+              name="TwoFactorSetup" 
+              component={TwoFactorSetupScreen} 
               options={{ headerShown: false }} 
             />
             <Stack.Screen 

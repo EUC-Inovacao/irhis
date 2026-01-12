@@ -217,6 +217,7 @@ export type RootStackParamList = {
 
   // Novas Rotas da Task IRHIS-25
   ChangePassword: undefined;
+  TwoFactorSetup: undefined;
   PrivacyNotice: undefined;
   HelpCenter: undefined;
   About: undefined;
