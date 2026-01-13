@@ -117,60 +117,62 @@ const PatientHomeScreen = ({ navigation }: any) => {
                     </TouchableOpacity>
                 </View>
 
-                <View style={[styles.progressCard, { backgroundColor: colors.card }]}>
-                    <ActivityRings data={activityData} size={180} />
+                <View style={[styles.progressCard, { backgroundColor: colors.primary, marginBottom: 20 }]}>
+                    {/* <ActivityRings data={activityData} size={180} /> */}
                     <View style={styles.progressInfo}>
-                        <Text style={[styles.progressTitle, { color: colors.text }]}>Today's Progress</Text>
-                        <Text style={[styles.progressText, { color: colors.textSecondary }]}>
-                            {`${completedExercises} of ${totalExercises} exercises completed`}
+                        <Text style={[styles.progressTitle, { color: "#FFF" }]}>Today's Progress</Text>
+                        <Text style={[styles.progressText, { color: "rgba(255,255,255,0.9)" }]}>
+                        {`${completedExercises} of ${totalExercises} exercises completed`}
                         </Text>
                     </View>
                 </View>
 
+                {/*
                 {isConnected && healthData && (
-                    <View style={styles.statsGrid}>
-                        <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-                            {/* MUDANÇA: Usar primary (Azul) com transparência no fundo, igual aos outros cards */}
-                            <View style={[styles.statIcon, { backgroundColor: colors.primary + '15' }]}>
-                                <Ionicons name="walk-outline" size={24} color={colors.primary} />
-                            </View>
-                            <Text style={[styles.statValue, { color: colors.text }]}>
-                                {healthData.steps.toLocaleString()}
-                            </Text>
-                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Steps</Text>
-                        </View>
-                        
-                        <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-                            <View style={[styles.statIcon, { backgroundColor: colors.success + '15' }]}>
-                                <Ionicons name="flame-outline" size={24} color={colors.success} />
-                            </View>
-                            <Text style={[styles.statValue, { color: colors.text }]}>
-                                {healthData.calories}
-                            </Text>
-                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Calories</Text>
-                        </View>
-
-                        <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-                            <View style={[styles.statIcon, { backgroundColor: colors.info + '15' }]}>
-                                <Ionicons name="heart-outline" size={24} color={colors.info} />
-                            </View>
-                            <Text style={[styles.statValue, { color: colors.text }]}>
-                                {healthData.heartRate?.current || '--'}
-                            </Text>
-                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>BPM</Text>
-                        </View>
-
-                        <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-                            <View style={[styles.statIcon, { backgroundColor: colors.warning + '15' }]}>
-                                <Ionicons name="walk-outline" size={24} color={colors.warning} />
-                            </View>
-                            <Text style={[styles.statValue, { color: colors.text }]}>
-                                {(healthData.distance / 1000).toFixed(1)}
-                            </Text>
-                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>KM</Text>
-                        </View>
+                <View style={styles.statsGrid}>
+                    <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+                    <View style={[styles.statIcon, { backgroundColor: colors.primary + '15' }]}>
+                        <Ionicons name="walk-outline" size={24} color={colors.primary} />
                     </View>
-                )}
+                    <Text style={[styles.statValue, { color: colors.text }]}>
+                        {healthData.steps.toLocaleString()}
+                    </Text>
+                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Steps</Text>
+                    </View>
+
+                    <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+                            <View style={[styles.statIcon, { backgroundColor: colors.success + '15' }]}>
+                        <Ionicons name="flame-outline" size={24} color={colors.success} />
+                    </View>
+                    <Text style={[styles.statValue, { color: colors.text }]}>
+                        {healthData.calories}
+                    </Text>
+                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Calories</Text>
+                    </View>
+
+                    <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+                    <View style={[styles.statIcon, { backgroundColor: colors.info + '15' }]}>
+                        <Ionicons name="heart-outline" size={24} color={colors.info} />
+                    </View>
+                    <Text style={[styles.statValue, { color: colors.text }]}>
+                        {healthData.heartRate?.current || '--'}
+                    </Text>
+                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>BPM</Text>
+                    </View>
+
+                    <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+                            <View style={[styles.statIcon, { backgroundColor: colors.warning + '15' }]}>
+                        <Ionicons name="walk-outline" size={24} color={colors.warning} />
+                    </View>
+                    <Text style={[styles.statValue, { color: colors.text }]}>
+                        {(healthData.distance / 1000).toFixed(1)}
+                    </Text>
+                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>KM</Text>
+                    </View>
+                </View>
+                ))}
+                */}
+
 
                 <WeeklyFeedbackCard onSubmit={handleWeeklyFeedbackSubmit} />
 
@@ -241,14 +243,12 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     progressCard: {
-        borderRadius: 16,
-        padding: 20,
-        marginBottom: 24,
-        alignItems: 'center',
+        borderRadius: 14,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
     },
     progressInfo: {
-        width: '100%',
-        marginTop: 20,
+        gap: 1,
     },
     progressTitle: {
         fontSize: 18,
