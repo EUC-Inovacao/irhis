@@ -210,7 +210,9 @@ export type RootStackParamList = {
 
   PatientDetail: { patient: Patient }; 
   CreatePatient: undefined;
-  Profile: undefined;
+  
+  Profile: { twoFactorEnabled?: boolean } | undefined;
+  
   BleConnection: undefined;
   
   ExerciseDetail: { exercise: any }; 

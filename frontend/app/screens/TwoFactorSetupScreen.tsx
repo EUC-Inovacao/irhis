@@ -1,26 +1,31 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context'; 
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '../types';
 
 const TwoFactorSetupScreen = () => {
     const { colors } = useTheme();
-    const navigation = useNavigation();
+    const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+
+    const handleEnable = () => {
+        navigation.navigate('Profile', { twoFactorEnabled: true });
+    };
 
     return (
-        <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-            {/* Header */}
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+            
             <View style={[styles.header, { borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <Ionicons name="chevron-back" size={24} color={colors.text} />
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: colors.text }]}>Two-Factor Authentication</Text>
-                <View style={{ width: 24 }} />
             </View>
 
             <ScrollView contentContainerStyle={styles.content}>
-                {/* Ícone do Cadeado */}
                 <View style={styles.iconContainer}>
                     <View style={[styles.iconCircle, { backgroundColor: '#E0F2FE' }]}> 
                         <Ionicons name="lock-closed-outline" size={48} color={colors.primary} />
@@ -32,7 +37,6 @@ const TwoFactorSetupScreen = () => {
                     Add an extra layer of security with two-factor authentication
                 </Text>
 
-                {/* Caixa Azul de Info */}
                 <View style={[styles.infoBox, { backgroundColor: '#E0F2FE', borderColor: '#BAE6FD' }]}>
                     <Text style={[styles.infoTitle, { color: '#0369A1' }]}>Why enable 2FA:</Text>
                     <View style={styles.bulletPoint}>
@@ -50,11 +54,10 @@ const TwoFactorSetupScreen = () => {
                 </View>
             </ScrollView>
 
-            {/* Footer com Botões */}
             <View style={[styles.footer, { borderTopColor: colors.border }]}>
                 <TouchableOpacity 
                     style={[styles.primaryButton, { backgroundColor: colors.primary }]}
-                    onPress={() => alert("Flow continues to QR Code...")} // Aqui ligarias ao próximo ecrã se existisse
+                    onPress={handleEnable}
                 >
                     <Text style={styles.primaryButtonText}>Enable Two-Factor Auth</Text>
                 </TouchableOpacity>
@@ -71,19 +74,32 @@ const TwoFactorSetupScreen = () => {
 };
 
 const styles = StyleSheet.create({
-    safeArea: { flex: 1 },
+    safeArea: {
+        flex: 1,
+    },
     header: {
-        height: 56,
+        height: 48,
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'flex-start', // Esquerda
         paddingHorizontal: 16,
         borderBottomWidth: 1,
     },
-    backButton: { padding: 4 },
-    headerTitle: { fontSize: 18, fontWeight: '600' },
-    content: { padding: 24, alignItems: 'center' },
-    iconContainer: { marginVertical: 32 },
+    backButton: {
+        padding: 4,
+        marginRight: 8,
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+    },
+    content: {
+        padding: 22,
+    },
+    iconContainer: {
+        alignItems: 'center',
+        marginVertical: 32,
+    },
     iconCircle: {
         width: 100,
         height: 100,
@@ -91,19 +107,42 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    title: { fontSize: 22, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' },
-    description: { fontSize: 16, textAlign: 'center', marginBottom: 32, paddingHorizontal: 16 },
+    title: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        marginBottom: 8,
+        textAlign: 'left',
+    },
+    description: {
+        fontSize: 16,
+        textAlign: 'left', 
+        marginBottom: 32,
+    },
     infoBox: {
         width: '100%',
         padding: 16,
         borderRadius: 12,
         borderWidth: 1,
     },
-    infoTitle: { fontWeight: 'bold', marginBottom: 8 },
-    bulletPoint: { flexDirection: 'row', marginBottom: 4 },
-    bullet: { marginRight: 8, fontWeight: 'bold' },
-    infoText: { flex: 1 },
-    footer: { padding: 24, borderTopWidth: 1 },
+    infoTitle: {
+        fontWeight: 'bold',
+        marginBottom: 8,
+    },
+    bulletPoint: {
+        flexDirection: 'row',
+        marginBottom: 4,
+    },
+    bullet: {
+        marginRight: 8,
+        fontWeight: 'bold',
+    },
+    infoText: {
+        flex: 1,
+    },
+    footer: {
+        padding: 24,
+        borderTopWidth: 1,
+    },
     primaryButton: {
         height: 50,
         borderRadius: 25,
@@ -111,9 +150,18 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 16,
     },
-    primaryButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
-    secondaryButton: { alignItems: 'center', padding: 8 },
-    secondaryButtonText: { fontWeight: '600' },
+    primaryButtonText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
+    secondaryButton: {
+        alignItems: 'center',
+        padding: 8,
+    },
+    secondaryButtonText: {
+        fontWeight: '600',
+    },
 });
 
 export default TwoFactorSetupScreen;

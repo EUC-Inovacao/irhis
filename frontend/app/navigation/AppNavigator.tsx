@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createStackNavigator, StackNavigationProp } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -150,7 +150,7 @@ const DoctorTabNavigator = () => {
 };
 
 const AppNavigator = () => {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme(); 
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -161,12 +161,34 @@ const AppNavigator = () => {
     );
   }
 
+  const navigationTheme = isDark ? {
+      ...DarkTheme,
+      colors: {
+        ...DarkTheme.colors,
+        background: colors.background,
+        card: colors.card,
+        text: colors.text,
+        border: colors.border,
+      },
+  } : {
+      ...DefaultTheme,
+      colors: {
+        ...DefaultTheme.colors,
+        background: colors.background,
+        card: colors.card,
+        text: colors.text,
+        border: colors.border,
+      },
+  };
+
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={navigationTheme}>
       <Stack.Navigator
         initialRouteName={user ? 'Home' : 'Login'}
         screenOptions={{
-          header: (props) => <CustomHeader {...props} />,
+          headerStyle: { backgroundColor: colors.card },
+          headerTintColor: colors.text,
+          header: (props) => <CustomHeader {...props} />, 
         }}
       >
         {user ? (

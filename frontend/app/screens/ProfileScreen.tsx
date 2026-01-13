@@ -1,21 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context'; 
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../types';
 
 type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Profile'>;
+type ProfileScreenRouteProp = RouteProp<RootStackParamList, 'Profile'>;
 
 const ProfileScreen = () => {
     const { colors, isDark, toggleTheme } = useTheme(); 
     const { user, logout } = useAuth();
     const navigation = useNavigation<ProfileScreenNavigationProp>();
+    const route = useRoute<ProfileScreenRouteProp>();
 
     const [isTwoFactorEnabled, setIsTwoFactorEnabled] = useState(false);
     const [isDarkModeLocal, setIsDarkModeLocal] = useState(false);
+
+    // CORREÇÃO: Verifica se voltámos do ecrã de setup com sucesso
+    useEffect(() => {
+        if (route.params?.twoFactorEnabled) {
+            setIsTwoFactorEnabled(true);
+            // Limpa o parâmetro para não disparar novamente
+            navigation.setParams({ twoFactorEnabled: undefined });
+        }
+    }, [route.params]);
 
     const handleSignOut = () => {
         Alert.alert(
@@ -42,11 +54,9 @@ const ProfileScreen = () => {
 
     const handle2FA = (value: boolean) => {
         if (value) {
-            // Em vez de Alert, navegamos para o ecrã novo!
-            navigation.navigate('TwoFactorSetup'); // Certifica-te que registas isto no AppNavigator
-            setIsTwoFactorEnabled(true);
+            // Apenas navega. O toggle visual só muda se o setup for concluído.
+            navigation.navigate('TwoFactorSetup'); 
         } else {
-            // Para desligar, mantemos o alerta de segurança
             Alert.alert(
                 "Disable 2FA", 
                 "Are you sure? This will lower your account security.",
@@ -61,11 +71,18 @@ const ProfileScreen = () => {
     const MenuItem = ({ icon, label, onPress, isDestructive = false, showChevron = true, valueElement }: any) => (
         <TouchableOpacity 
             style={[styles.menuItem, { borderBottomColor: colors.border }]} 
-            onPress={onPress}
+            onPress={onPress} 
             disabled={!onPress}
         >
             <View style={styles.menuItemLeft}>
-                {icon && <Ionicons name={icon} size={22} color={isDestructive ? colors.error : colors.text} style={{ marginRight: 12 }} />}
+                {icon && (
+                    <Ionicons 
+                        name={icon} 
+                        size={22} 
+                        color={isDestructive ? colors.error : colors.text} 
+                        style={{ marginRight: 12 }} 
+                    />
+                )}
                 <Text style={[
                     styles.menuItemLabel, 
                     { color: isDestructive ? colors.error : colors.text }
@@ -108,41 +125,41 @@ const ProfileScreen = () => {
             <View style={[styles.sectionContainer, { backgroundColor: colors.card }]}>
                 <MenuItem 
                     label="Change Password" 
-                    icon="lock-closed-outline"
-                    onPress={() => navigation.navigate('ChangePassword')}
+                    icon="lock-closed-outline" 
+                    onPress={() => navigation.navigate('ChangePassword')} 
                 />
                 <MenuItem 
                     label="Two-Factor Authentication" 
-                    icon="shield-checkmark-outline"
-                    showChevron={false}
+                    icon="shield-checkmark-outline" 
+                    showChevron={false} 
                     valueElement={
                         <Switch 
                             value={isTwoFactorEnabled} 
-                            onValueChange={handle2FA}
-                            trackColor={{ false: colors.border, true: colors.primary }}
+                            onValueChange={handle2FA} 
+                            trackColor={{ false: colors.border, true: colors.primary }} 
                         />
-                    }
+                    } 
                 />
             </View>
 
-            {/* 3. SECÇÃO ÚNICA: PRIVACY & COMPLIANCE (JUNTOS) */}
+            {/* 3. SECÇÃO: PRIVACY & COMPLIANCE */}
             <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Privacy & Compliance</Text>
             <View style={[styles.sectionContainer, { backgroundColor: colors.card }]}>
                 <MenuItem 
                     label="Privacy Notice" 
-                    icon="document-text-outline"
-                    onPress={() => navigation.navigate('PrivacyNotice')}
+                    icon="document-text-outline" 
+                    onPress={() => navigation.navigate('PrivacyNotice')} 
                 />
                 <MenuItem 
                     label="Help Center" 
-                    icon="help-buoy-outline"
-                    onPress={() => navigation.navigate('HelpCenter')}
+                    icon="help-buoy-outline" 
+                    onPress={() => navigation.navigate('HelpCenter')} 
                 />
                 <MenuItem 
                     label="About" 
-                    icon="information-circle-outline"
-                    valueElement={<Text style={{ color: colors.textSecondary, marginRight: 8 }}>v1.0.0</Text>}
-                    onPress={() => navigation.navigate('About')}
+                    icon="information-circle-outline" 
+                    valueElement={<Text style={{ color: colors.textSecondary, marginRight: 8 }}>v1.0.0</Text>} 
+                    onPress={() => navigation.navigate('About')} 
                 />
             </View>
 
@@ -150,15 +167,15 @@ const ProfileScreen = () => {
             <View style={[styles.sectionContainer, { backgroundColor: colors.card, marginTop: 8 }]}>
                 <MenuItem 
                     label="Dark Mode" 
-                    icon="moon-outline"
-                    showChevron={false}
+                    icon="moon-outline" 
+                    showChevron={false} 
                     valueElement={
                         <Switch 
                             value={toggleTheme ? isDark : isDarkModeLocal} 
-                            onValueChange={handleToggleTheme}
-                            trackColor={{ false: colors.border, true: colors.primary }}
+                            onValueChange={handleToggleTheme} 
+                            trackColor={{ false: colors.border, true: colors.primary }} 
                         />
-                    }
+                    } 
                 />
             </View>
 
@@ -184,7 +201,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         padding: 16,
         borderRadius: 16,
-        marginBottom: 16, // Alterado de 24 para 16
+        marginBottom: 16,
         alignItems: 'center',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,

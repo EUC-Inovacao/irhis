@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, SafeAreaView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
@@ -30,39 +31,25 @@ const ChangePasswordScreen = () => {
 
     const handleSave = () => {
         if (isValid) {
-            Alert.alert(
-                "Success", 
-                "Password updated successfully.",
-                [{ text: "OK", onPress: () => navigation.goBack() }]
-            );
+            Alert.alert("Success", "Password updated successfully.", [{ text: "OK", onPress: () => navigation.goBack() }]);
         }
     };
 
     const Requirement = ({ label, met }: { label: string, met: boolean }) => (
         <View style={styles.requirementRow}>
-            <Ionicons 
-                name={met ? "checkmark-circle" : "ellipse-outline"} 
-                size={16} 
-                color={met ? colors.success : colors.textSecondary} 
-            />
-            <Text style={[
-                styles.requirementText, 
-                { color: met ? colors.text : colors.textSecondary }
-            ]}>
-                {label}
-            </Text>
+            <Ionicons name={met ? "checkmark-circle" : "ellipse-outline"} size={16} color={met ? colors.success : colors.textSecondary} />
+            <Text style={[styles.requirementText, { color: met ? colors.text : colors.textSecondary }]}>{label}</Text>
         </View>
     );
 
     return (
-        <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
             
             <View style={[styles.navHeader, { borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <Ionicons name="chevron-back" size={24} color={colors.text} />
                 </TouchableOpacity>
                 <Text style={[styles.navTitle, { color: colors.text }]}>Create a New Password</Text>
-                <View style={{ width: 24 }} />
             </View>
 
             <ScrollView contentContainerStyle={styles.container}>
@@ -76,20 +63,16 @@ const ChangePasswordScreen = () => {
                 <View style={styles.inputGroup}>
                     <Text style={[styles.label, { color: colors.text }]}>Password</Text>
                     <View style={[styles.inputContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                        <TextInput
-                            style={[styles.input, { color: colors.text }]}
-                            value={password}
-                            onChangeText={setPassword}
-                            placeholder="Enter password"
-                            placeholderTextColor={colors.textSecondary}
-                            secureTextEntry={!showPassword}
+                        <TextInput 
+                            style={[styles.input, { color: colors.text }]} 
+                            value={password} 
+                            onChangeText={setPassword} 
+                            placeholder="Enter password" 
+                            placeholderTextColor={colors.textSecondary} 
+                            secureTextEntry={!showPassword} 
                         />
                         <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                            <Ionicons 
-                                name={showPassword ? "eye-outline" : "eye-off-outline"} 
-                                size={20} 
-                                color={colors.textSecondary} 
-                            />
+                            <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={colors.textSecondary} />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -97,20 +80,16 @@ const ChangePasswordScreen = () => {
                 <View style={styles.inputGroup}>
                     <Text style={[styles.label, { color: colors.text }]}>Confirm Password</Text>
                     <View style={[styles.inputContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                        <TextInput
-                            style={[styles.input, { color: colors.text }]}
-                            value={confirmPassword}
-                            onChangeText={setConfirmPassword}
-                            placeholder="Confirm password"
-                            placeholderTextColor={colors.textSecondary}
-                            secureTextEntry={!showConfirm}
+                        <TextInput 
+                            style={[styles.input, { color: colors.text }]} 
+                            value={confirmPassword} 
+                            onChangeText={setConfirmPassword} 
+                            placeholder="Confirm password" 
+                            placeholderTextColor={colors.textSecondary} 
+                            secureTextEntry={!showConfirm} 
                         />
                         <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)}>
-                            <Ionicons 
-                                name={showConfirm ? "eye-outline" : "eye-off-outline"} 
-                                size={20} 
-                                color={colors.textSecondary} 
-                            />
+                            <Ionicons name={showConfirm ? "eye-outline" : "eye-off-outline"} size={20} color={colors.textSecondary} />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -127,11 +106,8 @@ const ChangePasswordScreen = () => {
 
             <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
                 <TouchableOpacity 
-                    style={[
-                        styles.button, 
-                        { backgroundColor: isValid ? colors.primary : colors.border }
-                    ]}
-                    onPress={handleSave}
+                    style={[styles.button, { backgroundColor: isValid ? colors.primary : colors.border }]} 
+                    onPress={handleSave} 
                     disabled={!isValid}
                 >
                     <Text style={styles.buttonText}>Continue</Text>
@@ -146,15 +122,16 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     navHeader: {
-        height: 56,
+        height: 48,
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'flex-start',
         paddingHorizontal: 16,
         borderBottomWidth: 1,
     },
     backButton: {
         padding: 4,
+        marginRight: 8,
     },
     navTitle: {
         fontSize: 18,
