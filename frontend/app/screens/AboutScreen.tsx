@@ -1,26 +1,29 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 
-const AboutScreen = ({ navigation }: any) => {
+const AboutScreen = () => {
     const { colors } = useTheme();
+    const navigation = useNavigation();
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
             <View style={[styles.header, { borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color={colors.text} />
+                    <Ionicons name="chevron-back" size={24} color={colors.text} />
                 </TouchableOpacity>
                 <Text style={[styles.title, { color: colors.text }]}>About</Text>
             </View>
 
             <View style={styles.content}>
-                
-                <Image source={require('../../assets/logo.png')} style={styles.logo} />
-
-                <Text style={[styles.appName, { color: colors.text }]}>IRHIS</Text>
-                <Text style={[styles.version, { color: colors.textSecondary }]}>Version 1.0.0 (Beta)</Text>
+                <View style={styles.logoContainer}>
+                    <Image source={require('../../assets/logo.png')} style={styles.logo} />
+                    <Text style={[styles.appName, { color: colors.text }]}>IRHIS</Text>
+                    <Text style={[styles.version, { color: colors.textSecondary }]}>Version 1.0.0 (Beta)</Text>
+                </View>
 
                 <View style={[styles.infoContainer, { backgroundColor: colors.card }]}>
                     <Text style={[styles.description, { color: colors.text }]}>
@@ -31,43 +34,49 @@ const AboutScreen = ({ navigation }: any) => {
                     </Text>
                 </View>
 
-                <Text style={[styles.footer, { color: colors.textSecondary }]}>
-                    © 2026 EUC Inovação. All rights reserved.
-                </Text>
+                <View style={styles.footerContainer}>
+                    <Text style={[styles.footer, { color: colors.textSecondary }]}>
+                        © 2026 EUC Inovação. All rights reserved.
+                    </Text>
+                </View>
             </View>
         </SafeAreaView>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
-    header: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        padding: 16, 
-        borderBottomWidth: 1 
+    container: {
+        flex: 1,
     },
-    backButton: { marginRight: 16 },
-    title: { fontSize: 20, fontWeight: 'bold' },
-    content: { 
-        flex: 1, 
-        alignItems: 'center', 
+    header: {
+        height: 48,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        borderBottomWidth: 1,
+        justifyContent: 'flex-start',
+    },
+    backButton: {
+        marginRight: 16,
+    },
+    title: {
+        fontSize: 20,
+        fontWeight: 'bold',
+    },
+    content: {
+        flex: 1,
         padding: 24,
-        paddingTop: 40
+        paddingTop: 40,
+    },
+    logoContainer: {
+        alignItems: 'center',
+        marginBottom: 32,
     },
     logo: {
-    width: 120,
-    height: 120,
-    resizeMode: "contain",
-    marginBottom: 24,
-  },
-    iconContainer: {
-        width: 100,
-        height: 100,
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 24,
+        width: 120,
+        height: 120,
+        resizeMode: "contain",
+        marginBottom: 16,
     },
     appName: {
         fontSize: 28,
@@ -95,10 +104,14 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         lineHeight: 20,
     },
+    footerContainer: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+    },
     footer: {
         fontSize: 12,
-        position: 'absolute',
-        bottom: 40,
+        marginBottom: 16,
     }
 });
 

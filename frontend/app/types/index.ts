@@ -210,7 +210,10 @@ export type RootStackParamList = {
 
   PatientDetail: { patient: Patient }; 
   CreatePatient: undefined;
-  Profile: undefined;
+  
+  // CORREÇÃO AQUI: Agora aceita o parâmetro opcional
+  Profile: { twoFactorEnabled?: boolean } | undefined;
+  
   BleConnection: undefined;
   
   ExerciseDetail: { exercise: any }; 
