@@ -27,6 +27,12 @@ import HelpCenterScreen from '../screens/HelpCenterScreen';
 import AboutScreen from '../screens/AboutScreen';
 import type { RootStackParamList } from '../types';
 
+import TokenEntryScreen from '../screens/onboarding/TokenEntryScreen';
+import PrivacyTermsScreen from '../screens/onboarding/PrivacyTermsScreen';
+import LegalBasisScreen from '../screens/onboarding/LegalBasisScreen';
+import CreatePasswordOnboardingScreen from '../screens/onboarding/CreatePasswordOnboardingScreen';
+import OnboardingTwoFactorScreen from '../screens/onboarding/OnboardingTwoFactorScreen';
+import OnboardingTwoFactorVerifyScreen from '../screens/onboarding/OnboardingTwoFactorVerifyScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator();
@@ -279,7 +285,37 @@ const AppNavigator = () => {
               component={SignupScreen}
               options={{ headerShown: false }}
             />
-            
+            {/* NOVAS ROTAS ONBOARDING */}
+            <Stack.Screen
+              name="TokenEntry" 
+              component={TokenEntryScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="OnboardingPrivacy"
+              component={PrivacyTermsScreen}
+              options={{ headerShown: false }}
+              />
+            <Stack.Screen
+              name="OnboardingLegal"
+              component={LegalBasisScreen}
+              options={{ headerShown: false }}
+              />
+            <Stack.Screen
+              name="OnboardingPassword"
+              component={CreatePasswordOnboardingScreen}
+              options={{ headerShown: false }}
+              />
+            <Stack.Screen
+              name="OnboardingTwoFactor"
+              component={OnboardingTwoFactorScreen}
+              options={{ headerShown: false }}
+              />
+            <Stack.Screen
+              name="OnboardingTwoFactorVerify"
+              component={OnboardingTwoFactorVerifyScreen}
+              options={{ headerShown: false }}
+              />
           </>
         )}
       </Stack.Navigator>

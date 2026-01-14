@@ -9,11 +9,12 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../theme/ThemeContext";
 import SegmentedControl from "../components/SegmentedControl";
-import { useAuth } from "@context/AuthContext";
+import { useAuth } from "../context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 
 const LoginScreen = ({ navigation }: any) => {
@@ -48,102 +49,118 @@ const LoginScreen = ({ navigation }: any) => {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.container}
       >
-        <View style={styles.header}>
-          <Image
-            source={require("../../assets/logo.png")}
-            style={styles.logo}
-          />
-          <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>
-            Welcome back to
-          </Text>
-          <Text style={[styles.title, { color: colors.text }]}>TwinRehab</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Sign in to continue your rehabilitation journey
-          </Text>
-        </View>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'space-between' }} showsVerticalScrollIndicator={false}>
+            <View style={styles.header}>
+            <Image
+                source={require("../../assets/logo.png")}
+                style={styles.logo}
+            />
+            <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>
+                Welcome back to
+            </Text>
+            <Text style={[styles.title, { color: colors.text }]}>TwinRehab</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                Sign in to continue your rehabilitation journey
+            </Text>
+            </View>
 
-        <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <Ionicons
-              name="mail-outline"
-              size={20}
-              color={colors.textSecondary}
-              style={styles.inputIcon}
-            />
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: colors.card, color: colors.text },
-              ]}
-              placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              placeholderTextColor={colors.textSecondary}
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Ionicons
-              name="lock-closed-outline"
-              size={20}
-              color={colors.textSecondary}
-              style={styles.inputIcon}
-            />
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: colors.card, color: colors.text },
-              ]}
-              placeholder="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              placeholderTextColor={colors.textSecondary}
-            />
-            <TouchableOpacity
-              style={styles.passwordToggle}
-              onPress={() => setShowPassword(!showPassword)}
-            >
-              <Ionicons
-                name={showPassword ? "eye-off-outline" : "eye-outline"}
+            <View style={styles.form}>
+            <View style={styles.inputContainer}>
+                <Ionicons
+                name="mail-outline"
                 size={20}
                 color={colors.textSecondary}
-              />
+                style={styles.inputIcon}
+                />
+                <TextInput
+                style={[
+                    styles.input,
+                    { backgroundColor: colors.card, color: colors.text },
+                ]}
+                placeholder="Email"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                placeholderTextColor={colors.textSecondary}
+                />
+            </View>
+
+            <View style={styles.inputContainer}>
+                <Ionicons
+                name="lock-closed-outline"
+                size={20}
+                color={colors.textSecondary}
+                style={styles.inputIcon}
+                />
+                <TextInput
+                style={[
+                    styles.input,
+                    { backgroundColor: colors.card, color: colors.text },
+                ]}
+                placeholder="Password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                placeholderTextColor={colors.textSecondary}
+                />
+                <TouchableOpacity
+                style={styles.passwordToggle}
+                onPress={() => setShowPassword(!showPassword)}
+                >
+                <Ionicons
+                    name={showPassword ? "eye-off-outline" : "eye-outline"}
+                    size={20}
+                    color={colors.textSecondary}
+                />
+                </TouchableOpacity>
+            </View>
+
+            <SegmentedControl
+                options={["Patient", "Doctor"]}
+                selectedValue={role}
+                onValueChange={setRole}
+            />
+
+            <TouchableOpacity
+                style={[styles.button, { backgroundColor: colors.purple[600] }]}
+                onPress={handleLogin}
+                disabled={loading}
+            >
+                <Text style={[styles.buttonText, { color: colors.white }]}>
+                {loading ? "Continuing..." : "Continue"}
+                </Text>
             </TouchableOpacity>
-          </View>
 
-          <SegmentedControl
-            options={["Patient", "Doctor"]}
-            selectedValue={role}
-            onValueChange={setRole}
-          />
+            {/* Link para Sign Up */}
+            <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
+                <Text style={[styles.linkText, { color: colors.purple[600] }]}>
+                Don't have an account?{" "}
+                <Text style={{ fontWeight: "600" }}>Sign Up</Text>
+                </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.purple[600] }]}
-            onPress={handleLogin}
-            disabled={loading}
-          >
-            <Text style={[styles.buttonText, { color: colors.white }]}>
-              {loading ? "Continuing..." : "Continue"}
-            </Text>
-          </TouchableOpacity>
+            {/* --- NOVO: Botão para Ativar Conta (Onboarding) --- */}
+            <View style={styles.activationContainer}>
+                <Text style={[styles.activationLabel, { color: colors.textSecondary }]}>
+                    Received an invite from your doctor?
+                </Text>
+                <TouchableOpacity onPress={() => navigation.navigate("TokenEntry")}>
+                    <Text style={[styles.activationLink, { color: colors.purple[600] }]}>
+                        Activate Account
+                    </Text>
+                </TouchableOpacity>
+            </View>
 
-          <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
-            <Text style={[styles.linkText, { color: colors.purple[600] }]}>
-              Don't have an account?{" "}
-              <Text style={{ fontWeight: "600" }}>Sign Up</Text>
-            </Text>
-          </TouchableOpacity>
-        </View>
+            </View>
 
-        <View style={styles.footer}>
-          <Image
-            source={require("../../assets/eu.png")}
-            style={styles.footerImage}
-          />
-        </View>
+            <View style={styles.footer}>
+            <Image
+                source={require("../../assets/eu.png")}
+                style={styles.footerImage}
+            />
+            </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -155,7 +172,6 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    justifyContent: "space-between",
   },
   header: {
     alignItems: "center",
@@ -221,9 +237,27 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 14,
   },
+  // NOVOS ESTILOS PARA O BOTÃO DE ATIVAÇÃO
+  activationContainer: {
+    marginTop: 24,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+    paddingTop: 16,
+  },
+  activationLabel: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  activationLink: {
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  // FIM NOVOS ESTILOS
   footer: {
     alignItems: "center",
     paddingBottom: 24,
+    marginTop: 20,
   },
   footerImage: {
     width: 200,

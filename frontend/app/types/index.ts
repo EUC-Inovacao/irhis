@@ -223,4 +223,12 @@ export type RootStackParamList = {
   PrivacyNotice: undefined;
   HelpCenter: undefined;
   About: undefined;
+
+  // NOVAS ROTAS IRHIS-46 (ONBOARDING):
+  TokenEntry: undefined;
+  OnboardingPrivacy: { token: string }; // Recebe o token do passo anterior
+  OnboardingLegal: { token: string };   // Recebe o token
+  OnboardingPassword: { token: string; legalBasis: 'consent' | 'secrecy' }; // Recebe token + base legal
+  OnboardingTwoFactor: { token: string };
+  OnboardingTwoFactorVerify: { token: string };
 };
