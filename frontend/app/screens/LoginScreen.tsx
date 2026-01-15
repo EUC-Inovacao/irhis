@@ -134,7 +134,7 @@ const LoginScreen = ({ navigation }: any) => {
             {/* --- NOVO: Botão para Ativar Conta (Onboarding) --- */}
             <View style={styles.activationContainer}>
                 <Text style={[styles.activationLabel, { color: colors.textSecondary }]}>
-                    Received an invite from your doctor?
+                    Received an invite?
                 </Text>
                 <TouchableOpacity onPress={() => navigation.navigate("TokenEntry")}>
                     <Text style={[styles.activationLink, { color: colors.purple[600] }]}>
