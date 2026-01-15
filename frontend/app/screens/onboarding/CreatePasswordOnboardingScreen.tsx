@@ -19,6 +19,11 @@ const CreatePasswordOnboardingScreen = () => {
 
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    
+    // Estados para controlar a visibilidade
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
     const [hasMinLength, setHasMinLength] = useState(false);
     const [hasUpperCase, setHasUpperCase] = useState(false);
     const [hasNumber, setHasNumber] = useState(false);
@@ -47,25 +52,45 @@ const CreatePasswordOnboardingScreen = () => {
                     Create a secure password for your account
                 </Text>
 
+                {/* PASSWORD INPUT */}
                 <Text style={[styles.label, { color: colors.text }]}>Password</Text>
-                <TextInput 
-                    style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-                    secureTextEntry
-                    placeholder="********"
-                    placeholderTextColor={colors.textSecondary}
-                    value={password}
-                    onChangeText={setPassword}
-                />
+                <View style={[styles.inputContainer, { borderColor: colors.border }]}>
+                    <TextInput 
+                        style={[styles.input, { color: colors.text }]}
+                        secureTextEntry={!showPassword}
+                        placeholder="********"
+                        placeholderTextColor={colors.textSecondary}
+                        value={password}
+                        onChangeText={setPassword}
+                    />
+                    <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+                        <Ionicons 
+                            name={showPassword ? "eye-outline" : "eye-off-outline"} 
+                            size={20} 
+                            color={colors.textSecondary} 
+                        />
+                    </TouchableOpacity>
+                </View>
 
+                {/* CONFIRM PASSWORD INPUT */}
                 <Text style={[styles.label, { color: colors.text }]}>Confirm Password</Text>
-                <TextInput 
-                    style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-                    secureTextEntry
-                    placeholder="********"
-                    placeholderTextColor={colors.textSecondary}
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                />
+                <View style={[styles.inputContainer, { borderColor: colors.border }]}>
+                    <TextInput 
+                        style={[styles.input, { color: colors.text }]}
+                        secureTextEntry={!showConfirmPassword}
+                        placeholder="********"
+                        placeholderTextColor={colors.textSecondary}
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                    />
+                    <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeIcon}>
+                        <Ionicons 
+                            name={showConfirmPassword ? "eye-outline" : "eye-off-outline"} 
+                            size={20} 
+                            color={colors.textSecondary} 
+                        />
+                    </TouchableOpacity>
+                </View>
 
                 <View style={styles.requirementsBox}>
                     <Text style={styles.reqTitle}>Password requirements:</Text>
@@ -105,7 +130,20 @@ const styles = StyleSheet.create({
     content: { padding: 24 },
     description: { marginBottom: 24, fontSize: 14 },
     label: { fontWeight: 'bold', marginBottom: 8, fontSize: 14 },
-    input: { borderWidth: 1, borderRadius: 8, height: 50, paddingHorizontal: 16, marginBottom: 16, fontSize: 16 },
+    
+    // ATUALIZADO: Container para Input + Ícone
+    inputContainer: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        borderWidth: 1, 
+        borderRadius: 8, 
+        height: 50, 
+        paddingHorizontal: 16, 
+        marginBottom: 16 
+    },
+    input: { flex: 1, fontSize: 16, height: '100%' },
+    eyeIcon: { padding: 4 },
+
     requirementsBox: { backgroundColor: '#BFDBFE', padding: 16, borderRadius: 8, marginTop: 8 },
     reqTitle: { color: '#1E3A8A', marginBottom: 8, fontWeight: 'bold', fontSize: 14 },
     reqItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
