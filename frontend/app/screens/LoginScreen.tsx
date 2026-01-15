@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../theme/ThemeContext";
-import SegmentedControl from "../components/SegmentedControl";
+// REMOVIDO: import SegmentedControl from "../components/SegmentedControl";
 import { useAuth } from "../context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -22,7 +22,7 @@ const LoginScreen = ({ navigation }: any) => {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("Patient");
+  // REMOVIDO: const [role, setRole] = useState("Patient");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -33,7 +33,8 @@ const LoginScreen = ({ navigation }: any) => {
     }
     setLoading(true);
     try {
-      await login(email, password, role.toLowerCase() as "patient" | "doctor");
+      // ATUALIZADO: Já não enviamos a role, o backend decide quem é
+      await login(email, password); 
     } catch (error: any) {
       Alert.alert("Login Failed", error?.message || "Invalid credentials.");
     } finally {
@@ -116,11 +117,7 @@ const LoginScreen = ({ navigation }: any) => {
                 </TouchableOpacity>
             </View>
 
-            <SegmentedControl
-                options={["Patient", "Doctor"]}
-                selectedValue={role}
-                onValueChange={setRole}
-            />
+            {/* REMOVIDO: SegmentedControl */}
 
             <TouchableOpacity
                 style={[styles.button, { backgroundColor: colors.purple[600] }]}
@@ -128,17 +125,11 @@ const LoginScreen = ({ navigation }: any) => {
                 disabled={loading}
             >
                 <Text style={[styles.buttonText, { color: colors.white }]}>
-                {loading ? "Continuing..." : "Continue"}
+                {loading ? "Signing in..." : "Sign In"}
                 </Text>
             </TouchableOpacity>
 
-            {/* Link para Sign Up */}
-            <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
-                <Text style={[styles.linkText, { color: colors.purple[600] }]}>
-                Don't have an account?{" "}
-                <Text style={{ fontWeight: "600" }}>Sign Up</Text>
-                </Text>
-            </TouchableOpacity>
+            {/* REMOVIDO: Link para Sign Up */}
 
             {/* --- NOVO: Botão para Ativar Conta (Onboarding) --- */}
             <View style={styles.activationContainer}>
@@ -147,7 +138,7 @@ const LoginScreen = ({ navigation }: any) => {
                 </Text>
                 <TouchableOpacity onPress={() => navigation.navigate("TokenEntry")}>
                     <Text style={[styles.activationLink, { color: colors.purple[600] }]}>
-                        Activate Account
+                        Redeem Invite & Activate
                     </Text>
                 </TouchableOpacity>
             </View>
@@ -233,11 +224,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  linkText: {
-    textAlign: "center",
-    fontSize: 14,
-  },
-  // NOVOS ESTILOS PARA O BOTÃO DE ATIVAÇÃO
+  // REMOVIDO: Styles do linkText que já não é usado
+  
+  // ESTILOS PARA O BOTÃO DE ATIVAÇÃO
   activationContainer: {
     marginTop: 24,
     alignItems: 'center',
@@ -253,7 +242,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "bold",
   },
-  // FIM NOVOS ESTILOS
   footer: {
     alignItems: "center",
     paddingBottom: 24,

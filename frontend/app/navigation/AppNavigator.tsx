@@ -33,6 +33,7 @@ import LegalBasisScreen from '../screens/onboarding/LegalBasisScreen';
 import CreatePasswordOnboardingScreen from '../screens/onboarding/CreatePasswordOnboardingScreen';
 import OnboardingTwoFactorScreen from '../screens/onboarding/OnboardingTwoFactorScreen';
 import OnboardingTwoFactorVerifyScreen from '../screens/onboarding/OnboardingTwoFactorVerifyScreen';
+import CreatePasswordDoctorScreen from '../screens/onboarding/CreatePasswordDoctorScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator();
@@ -314,6 +315,11 @@ const AppNavigator = () => {
             <Stack.Screen
               name="OnboardingTwoFactorVerify"
               component={OnboardingTwoFactorVerifyScreen}
+              options={{ headerShown: false }}
+              />
+            <Stack.Screen
+              name="CreatePasswordDoctor"
+              component={CreatePasswordDoctorScreen}
               options={{ headerShown: false }}
               />
           </>

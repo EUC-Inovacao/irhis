@@ -231,4 +231,5 @@ export type RootStackParamList = {
   OnboardingPassword: { token: string; legalBasis: 'consent' | 'secrecy' }; // Recebe token + base legal
   OnboardingTwoFactor: { token: string };
   OnboardingTwoFactorVerify: { token: string };
+  CreatePasswordDoctor: { token: string }; // NOVA ROTA
 };

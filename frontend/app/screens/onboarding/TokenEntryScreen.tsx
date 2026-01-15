@@ -21,10 +21,16 @@ const TokenEntryScreen = () => {
             return;
         }
         setIsLoading(true);
-        // Simulação de validação
         setTimeout(() => {
             setIsLoading(false);
-            navigation.navigate('OnboardingPrivacy', { token: token });
+            
+            // SIMULAÇÃO: Se o token começar por "DOC", é Doutor
+            if (token.toUpperCase().startsWith("DOC")) {
+                navigation.navigate('CreatePasswordDoctor', { token: token });
+            } else {
+                // Senão, é Paciente (fluxo normal com Termos)
+                navigation.navigate('OnboardingPrivacy', { token: token });
+            }
         }, 1000);
     };
 
