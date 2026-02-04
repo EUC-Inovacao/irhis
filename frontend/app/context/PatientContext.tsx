@@ -10,6 +10,7 @@ import type { Patient, Session } from "../types";
 import {
   getOrCreateLocalPatient,
   assignLocalPatientToDoctor,
+  listLocalPatientsForDoctor,
 } from "@services/localPatientService";
 import {
   getAssignedExercises,
@@ -34,6 +35,7 @@ import {
   type RecentActivityItem,
   type TrendsData,
 } from "@services/doctorService";
+import { assignPatientToDoctor } from "@services/patientService";
 import { useAuth } from "./AuthContext";
 
 /** Session-based exercise shape compatible with AssignedExerciseWithDetails for list/card display */

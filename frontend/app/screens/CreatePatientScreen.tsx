@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { usePatients } from '@context/PatientContext';
-import { listLocalUnassignedPatients } from '@services/localPatientService';
+import { getUnassignedPatients } from "@services/patientService";
+import { assignPatientToDoctor } from "@services/patientService";
 import type { Patient } from '../types';
 
 const CreatePatientScreen = ({ navigation }: any) => {
@@ -16,7 +17,7 @@ const CreatePatientScreen = ({ navigation }: any) => {
     const fetchUnassignedPatients = useCallback(async () => {
         try {
             setLoading(true);
-            const data = await listLocalUnassignedPatients();
+            const data = await getUnassignedPatients();
             setUnassignedPatients(data);
         } catch (error) {
             console.error('Failed to fetch unassigned patients:', error);

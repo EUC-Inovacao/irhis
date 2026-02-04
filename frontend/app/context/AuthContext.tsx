@@ -1,7 +1,9 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import api from '@services/api';
+import * as RemoteAuth from '@services/auth';
 
-// CORREÇÃO 1: Adicionar 'id' e 'name' à interface para não dar erro no AppNavigator
+
 interface User {
   id: string;
   name: string;
@@ -10,7 +12,6 @@ interface User {
   token?: string;
 }
 
-// Definir o formato do Contexto
 interface AuthContextData {
   user: User | null;
   loading: boolean;
@@ -19,6 +20,9 @@ interface AuthContextData {
 }
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
+
+const STORAGE_TOKEN_KEY = '@IRHIS:token';
+const STORAGE_USER_KEY = '@IRHIS:user';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -29,47 +33,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   async function loadStorageData() {
-    const storageUser = await AsyncStorage.getItem('@IRHIS:user');
-    const storageToken = await AsyncStorage.getItem('@IRHIS:token');
+    const storageUser = await AsyncStorage.getItem(STORAGE_USER_KEY);
+    const storageToken = await AsyncStorage.getItem(STORAGE_TOKEN_KEY);
 
     if (storageUser && storageToken) {
       setUser(JSON.parse(storageUser));
+      api.defaults.headers.common.Authorization = `Bearer ${storageToken}`;
     }
     setLoading(false);
   }
 
   async function login(email: string, password: string) {
     setLoading(true);
-    
-    // Simulação: Decide se é doutor ou paciente
-    const detectedRole = email.toLowerCase().startsWith('doc') ? 'doctor' : 'patient';
-    
-    // Simulação: Cria um nome fictício para não dar erro de "missing name"
-    const detectedName = detectedRole === 'doctor' ? 'Dr. Teste' : 'Paciente Teste';
 
-    // Simular delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    const detectedRole: 'doctor' | 'patient' =
+      email.toLowerCase().startsWith('doc') ? 'doctor' : 'patient';
 
-    // CORREÇÃO 2: Preencher o objeto User completo
-    const mockUser: User = {
-      id: 'user-123', // ID Fictício
-      name: detectedName, // Nome Fictício
-      email,
-      role: detectedRole,
-      token: 'fake-jwt-token',
-    };
+    const { token, user: loggedUser } = await RemoteAuth.login(email, password, detectedRole);
 
-    setUser(mockUser);
+    const userToStore: User = { ...loggedUser, token };
 
-    await AsyncStorage.setItem('@IRHIS:user', JSON.stringify(mockUser));
-    await AsyncStorage.setItem('@IRHIS:token', 'fake-jwt-token');
-    
+    setUser(userToStore);
+
+    api.defaults.headers.common.Authorization = `Bearer ${token}`;
+
+    await AsyncStorage.setItem(STORAGE_USER_KEY, JSON.stringify(userToStore));
+    await AsyncStorage.setItem(STORAGE_TOKEN_KEY, token);
+
     setLoading(false);
   }
 
   async function logout() {
     setUser(null);
-    await AsyncStorage.clear();
+    await AsyncStorage.multiRemove([STORAGE_USER_KEY, STORAGE_TOKEN_KEY]);
+    delete api.defaults.headers.common.Authorization;
   }
 
   return (
