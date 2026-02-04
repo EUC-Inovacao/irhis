@@ -24,9 +24,15 @@ import {
   getDoctorsMePatients,
   getDoctorsMeDashboard,
   getDoctorsMeLatestFeedback,
+  getDoctorsMeMetricsSummary,
+  getDoctorsMeRecentActivity,
+  getDoctorsMeTrends,
   type DoctorPatientItem,
   type DashboardKPIs,
   type LatestFeedbackItem,
+  type MetricsSummaryItem,
+  type RecentActivityItem,
+  type TrendsData,
 } from "@services/doctorService";
 import { useAuth } from "./AuthContext";
 
@@ -52,9 +58,18 @@ interface PatientContextData {
   dashboardKpis: DashboardKPIs | null;
   /** Doctor dashboard: latest feedback entries */
   latestFeedback: LatestFeedbackItem[];
+  /** Doctor dashboard: metrics summary */
+  metricsSummary: MetricsSummaryItem[];
+  /** Doctor dashboard: recent activity */
+  recentActivity: RecentActivityItem[];
+  /** Doctor dashboard: trends data */
+  trends: TrendsData | null;
   /** Doctor dashboard load error */
   doctorDashboardError: string | null;
   fetchPatients: () => Promise<void>;
+  fetchMetricsSummary: () => Promise<void>;
+  fetchRecentActivity: () => Promise<void>;
+  fetchTrends: () => Promise<void>;
   fetchAssignedExercises: (patientId: string) => Promise<void>;
   fetchPatientSessions: (patientId: string) => Promise<void>;
   createSession: (patientId: string, dto: CreateSessionDto) => Promise<Session>;
@@ -94,6 +109,9 @@ export const PatientContext = createContext<PatientContextData>({
   doctorPatientsItems: [],
   dashboardKpis: null,
   latestFeedback: [],
+  metricsSummary: [],
+  recentActivity: [],
+  trends: null,
   doctorDashboardError: null,
   fetchPatients: async () => {},
   fetchAssignedExercises: async () => {},
@@ -101,6 +119,9 @@ export const PatientContext = createContext<PatientContextData>({
   createSession: async () => ({} as Session),
   assignPatient: async () => {},
   updatePatient: async () => {},
+  fetchMetricsSummary: async () => {},
+  fetchRecentActivity: async () => {},
+  fetchTrends: async () => {},
 });
 
 export const PatientProvider: React.FC<{ children: ReactNode }> = ({
@@ -124,6 +145,13 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
   const [latestFeedback, setLatestFeedback] = useState<LatestFeedbackItem[]>(
     []
   );
+  const [metricsSummary, setMetricsSummary] = useState<MetricsSummaryItem[]>(
+    []
+  );
+  const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>(
+    []
+  );
+  const [trends, setTrends] = useState<TrendsData | null>(null);
   const [doctorDashboardError, setDoctorDashboardError] = useState<string | null>(
     null
   );
@@ -162,16 +190,22 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
     setDoctorDashboardError(null);
     try {
       if (user.role === "doctor") {
-        const [patientsRes, kpisRes, feedbackRes] = await Promise.all([
+        const [patientsRes, kpisRes, feedbackRes, metricsRes, activityRes, trendsRes] = await Promise.all([
           getDoctorsMePatients().catch((e) => {
             throw e;
           }),
           getDoctorsMeDashboard().catch(() => null),
           getDoctorsMeLatestFeedback().catch(() => []),
+          getDoctorsMeMetricsSummary().catch(() => []),
+          getDoctorsMeRecentActivity().catch(() => []),
+          getDoctorsMeTrends().catch(() => null),
         ]);
         setDoctorPatientsItems(patientsRes.items);
         setDashboardKpis(kpisRes);
         setLatestFeedback(Array.isArray(feedbackRes) ? feedbackRes : []);
+        setMetricsSummary(Array.isArray(metricsRes) ? metricsRes : []);
+        setRecentActivity(Array.isArray(activityRes) ? activityRes : []);
+        setTrends(trendsRes);
         const confirmed =
           patientsRes.confirmed ??
           patientsRes.items.filter((x) => x.type === "patient");
@@ -206,6 +240,9 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
         setDoctorPatientsItems([]);
         setDashboardKpis(null);
         setLatestFeedback([]);
+        setMetricsSummary([]);
+        setRecentActivity([]);
+        setTrends(null);
         try {
           await fetchPatientSessions(local.id);
         } catch {
@@ -238,6 +275,9 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
         setDoctorPatientsItems([]);
         setDashboardKpis(null);
         setLatestFeedback([]);
+        setMetricsSummary([]);
+        setRecentActivity([]);
+        setTrends(null);
       }
     } finally {
       setLoading(false);
@@ -314,6 +354,39 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
+  const fetchMetricsSummary = useCallback(async () => {
+    if (user?.role !== "doctor") return;
+    try {
+      const data = await getDoctorsMeMetricsSummary();
+      setMetricsSummary(data);
+    } catch (error) {
+      console.error("Failed to fetch metrics summary:", error);
+      setMetricsSummary([]);
+    }
+  }, [user]);
+
+  const fetchRecentActivity = useCallback(async () => {
+    if (user?.role !== "doctor") return;
+    try {
+      const data = await getDoctorsMeRecentActivity();
+      setRecentActivity(data);
+    } catch (error) {
+      console.error("Failed to fetch recent activity:", error);
+      setRecentActivity([]);
+    }
+  }, [user]);
+
+  const fetchTrends = useCallback(async () => {
+    if (user?.role !== "doctor") return;
+    try {
+      const data = await getDoctorsMeTrends();
+      setTrends(data);
+    } catch (error) {
+      console.error("Failed to fetch trends:", error);
+      setTrends(null);
+    }
+  }, [user]);
+
   return (
     <PatientContext.Provider
       value={{
@@ -324,6 +397,9 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
         doctorPatientsItems,
         dashboardKpis,
         latestFeedback,
+        metricsSummary,
+        recentActivity,
+        trends,
         doctorDashboardError,
         fetchPatients,
         fetchAssignedExercises,
@@ -331,6 +407,9 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
         createSession,
         assignPatient,
         updatePatient,
+        fetchMetricsSummary,
+        fetchRecentActivity,
+        fetchTrends,
       }}
     >
       {children}

@@ -8,6 +8,17 @@ export const login = async (email: string, password: string, role: 'patient' | '
     return response.data;
   } catch (error: any) {
     console.error('Login error:', error);
+    
+    // Provide helpful error messages for common issues
+    if (error.response?.status === 503 || error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
+      const apiUrl = api.defaults.baseURL;
+      throw new Error(
+        `Cannot connect to backend server at ${apiUrl}. ` +
+        `Please ensure the backend is running on port 5001. ` +
+        `Run: cd backend && python app.py`
+      );
+    }
+    
     const msg = error.response?.data?.error || error.message || 'Invalid credentials';
     throw Object.assign(new Error(msg), { response: error.response });
   }
@@ -24,6 +35,17 @@ export const signup = async (
     return response.data;
   } catch (error: any) {
     console.error('Signup error:', error);
+    
+    // Provide helpful error messages for common issues
+    if (error.response?.status === 503 || error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
+      const apiUrl = api.defaults.baseURL;
+      throw new Error(
+        `Cannot connect to backend server at ${apiUrl}. ` +
+        `Please ensure the backend is running on port 5001. ` +
+        `Run: cd backend && python app.py`
+      );
+    }
+    
     if (error.response?.status === 409) {
       throw Object.assign(new Error('An account with this email already exists. Please login instead.'), { response: error.response });
     }

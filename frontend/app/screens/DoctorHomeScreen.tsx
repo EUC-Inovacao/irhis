@@ -1,6 +1,5 @@
 import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { usePatients } from '../context/PatientContext';
@@ -39,6 +38,9 @@ const DoctorHomeScreen = ({ navigation }: any) => {
         doctorPatientsItems,
         dashboardKpis,
         latestFeedback,
+        metricsSummary,
+        recentActivity,
+        trends,
         doctorDashboardError,
         patients,
         assignedExercises,
@@ -117,6 +119,87 @@ const DoctorHomeScreen = ({ navigation }: any) => {
                 </View>
             )}
 
+            {metricsSummary.length > 0 && (
+                <View style={[styles.quickView, { backgroundColor: colors.card }]}>
+                    <Text style={[styles.quickViewTitle, { color: colors.text }]}>Latest metrics</Text>
+                    {metricsSummary.slice(0, 5).map((metric, idx) => (
+                        <View key={idx} style={styles.quickViewRow}>
+                            <Text style={[styles.quickViewName, { color: colors.text }]} numberOfLines={1}>{metric.patientName}</Text>
+                            <Text style={[styles.quickViewMeta, { color: colors.textSecondary }]}>
+                                {metric.joint} {metric.side ? `(${metric.side})` : ''} · {metric.avgROM !== undefined ? `ROM: ${metric.avgROM.toFixed(1)}°` : metric.avgVelocity !== undefined ? `Velocity: ${metric.avgVelocity.toFixed(2)}` : '—'}
+                            </Text>
+                            {metric.date ? <Text style={[styles.quickViewComment, { color: colors.textSecondary }]} numberOfLines={1}>
+                                {new Date(metric.date).toLocaleDateString()}
+                            </Text> : null}
+                        </View>
+                    ))}
+                </View>
+            )}
+
+            {recentActivity.length > 0 && (
+                <View style={[styles.quickView, { backgroundColor: colors.card }]}>
+                    <Text style={[styles.quickViewTitle, { color: colors.text }]}>Recent activity</Text>
+                    {recentActivity.slice(0, 5).map((activity, idx) => (
+                        <View key={idx} style={styles.quickViewRow}>
+                            <Text style={[styles.quickViewName, { color: colors.text }]} numberOfLines={1}>{activity.patientName}</Text>
+                            <Text style={[styles.quickViewMeta, { color: colors.textSecondary }]}>
+                                {activity.type === 'session' ? 'Session' : 'Feedback'} · {activity.label}
+                            </Text>
+                            {activity.date ? <Text style={[styles.quickViewComment, { color: colors.textSecondary }]} numberOfLines={1}>
+                                {new Date(activity.date).toLocaleDateString()}
+                            </Text> : null}
+                        </View>
+                    ))}
+                </View>
+            )}
+
+            {trends !== null && (
+                <View style={[styles.quickView, { backgroundColor: colors.card }]}>
+                    <Text style={[styles.quickViewTitle, { color: colors.text }]}>Trends (last 30 days)</Text>
+                    <View style={[styles.quickViewRow, { marginBottom: 4 }]}>
+                        <Text style={[styles.quickViewMeta, { color: colors.textSecondary }]}>
+                            Avg. Pain: {trends.avgPain.toFixed(1)}/10
+                        </Text>
+                    </View>
+                    <View style={[styles.quickViewRow, { marginBottom: 4 }]}>
+                        <Text style={[styles.quickViewMeta, { color: colors.textSecondary }]}>
+                            Avg. Fatigue: {trends.avgFatigue.toFixed(1)}/10
+                        </Text>
+                    </View>
+                    <View style={[styles.quickViewRow, { marginBottom: 0 }]}>
+                        <Text style={[styles.quickViewMeta, { color: colors.textSecondary }]}>
+                            Avg. Difficulty: {trends.avgDifficulty.toFixed(1)}/10
+                        </Text>
+                    </View>
+                </View>
+            )}
+
+            {(() => {
+                const confirmedPatients = doctorPatientsItems.filter((x) => x.type === 'patient');
+                const patientsNeedingAttention = confirmedPatients.filter((item) => {
+                    if (item.type !== 'patient') return false;
+                    const patient = patients[item.id];
+                    return patient && (!patient.recovery_process || patient.recovery_process.length === 0);
+                });
+                
+                return patientsNeedingAttention.length > 0 ? (
+                    <View style={[styles.quickView, { backgroundColor: colors.card }]}>
+                        <Text style={[styles.quickViewTitle, { color: colors.text }]}>Patients needing attention</Text>
+                        {patientsNeedingAttention.slice(0, 5).map((item) => {
+                            if (item.type !== 'patient') return null;
+                            return (
+                                <View key={item.id} style={styles.quickViewRow}>
+                                    <Text style={[styles.quickViewName, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
+                                    <Text style={[styles.quickViewMeta, { color: colors.textSecondary }]}>
+                                        No exercises assigned
+                                    </Text>
+                                </View>
+                            );
+                        })}
+                    </View>
+                ) : null;
+            })()}
+
             {latestFeedback.length > 0 && (
                 <View style={[styles.quickView, { backgroundColor: colors.card }]}>
                     <Text style={[styles.quickViewTitle, { color: colors.text }]}>Latest feedback</Text>
@@ -161,7 +244,7 @@ const DoctorHomeScreen = ({ navigation }: any) => {
 
     if (doctorDashboardError) {
         return (
-            <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+            <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
                 <View style={[styles.errorContainer, { backgroundColor: colors.card }]}>
                     <Ionicons name="cloud-offline-outline" size={48} color={colors.textSecondary} />
                     <Text style={[styles.errorTitle, { color: colors.text }]}>Failed to load dashboard</Text>
@@ -170,12 +253,12 @@ const DoctorHomeScreen = ({ navigation }: any) => {
                         <Text style={styles.retryButtonText}>Try again</Text>
                     </TouchableOpacity>
                 </View>
-            </SafeAreaView>
+            </View>
         );
     }
 
     return (
-        <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+        <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
             <FlatList
                 data={doctorPatientsItems}
                 renderItem={renderItem}
@@ -196,7 +279,7 @@ const DoctorHomeScreen = ({ navigation }: any) => {
                     </View>
                 }
             />
-        </SafeAreaView>
+        </View>
     );
 };
 
@@ -206,12 +289,13 @@ const styles = StyleSheet.create({
     },
     contentContainer: {
         padding: 16,
+        paddingTop: 0,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 24,
+        marginBottom: 16,
     },
     welcomeText: {
         fontSize: 16,
@@ -241,9 +325,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: 4,
     },
     badgeText: { color: '#fff', fontSize: 11, fontWeight: 'bold' },
-    quickView: { padding: 16, borderRadius: 12, marginBottom: 24 },
+    quickView: { padding: 16, borderRadius: 12, marginBottom: 16 },
     quickViewTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
-    quickViewRow: { marginBottom: 12 },
+    quickViewRow: { marginBottom: 8 },
     quickViewName: { fontSize: 14, fontWeight: '600' },
     quickViewMeta: { fontSize: 12, marginTop: 2 },
     quickViewComment: { fontSize: 12, marginTop: 4, fontStyle: 'italic' },
@@ -256,7 +340,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: 12,
-        marginBottom: 24,
+        marginBottom: 16,
     },
     statCard: {
         flex: 1,

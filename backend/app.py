@@ -262,6 +262,103 @@ def get_doctor_patients(current_user, doctor_id):
 
     return jsonify(list(patients.values()))
 
+@app.route('/doctors/me/patients', methods=['GET'])
+@token_required
+def get_doctors_me_patients(current_user):
+    if current_user['role'] != 'doctor':
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    doctor_id = current_user['id']
+    patient_ids = doctors_patients.get(doctor_id, [])
+    
+    # Get search and sort parameters
+    search = request.args.get('search', '').lower()
+    sort = request.args.get('sort', 'name')
+    
+    confirmed_items = []
+    for patient_id in patient_ids:
+        if patient_id not in patients:
+            continue
+        
+        patient = patients[patient_id]
+        user = users.get(patient_id, {})
+        
+        # Apply search filter
+        if search and search not in patient.get('name', '').lower():
+            continue
+        
+        # Get last feedback timestamp
+        last_feedback_at = None
+        feedback_list = patient.get('feedback', [])
+        if feedback_list:
+            timestamps = [f.get('timestamp') for f in feedback_list if f.get('timestamp')]
+            if timestamps:
+                last_feedback_at = max(timestamps)
+        
+        # Get last session timestamp (from feedback sessionId or movement_analyses)
+        last_session_at = None
+        if feedback_list:
+            session_timestamps = [f.get('timestamp') for f in feedback_list if f.get('sessionId')]
+            if session_timestamps:
+                last_session_at = max(session_timestamps)
+        
+        # Count sessions (from feedback with sessionId)
+        session_count = len([f for f in feedback_list if f.get('sessionId')])
+        
+        # Get last metrics from movement_analyses
+        last_avg_rom = None
+        last_avg_velocity = None
+        movement_analyses = patient.get('movement_analyses', [])
+        if movement_analyses:
+            # Get most recent analysis
+            latest_analysis = max(movement_analyses, key=lambda x: x.get('timestamp', ''))
+            result = latest_analysis.get('result', {})
+            if isinstance(result, dict):
+                # Try to extract ROM and velocity from result
+                if 'rom' in result:
+                    last_avg_rom = result['rom']
+                elif 'avgROM' in result:
+                    last_avg_rom = result['avgROM']
+                if 'velocity' in result:
+                    last_avg_velocity = result['velocity']
+                elif 'avgVelocity' in result:
+                    last_avg_velocity = result['avgVelocity']
+        
+        confirmed_items.append({
+            "type": "patient",
+            "id": patient_id,
+            "name": patient.get('name', ''),
+            "email": user.get('email', ''),
+            "nif": "",  # NIF not in current structure
+            "status": "Confirmed",
+            "lastSessionAt": last_session_at,
+            "lastFeedbackAt": last_feedback_at,
+            "sessionCount": session_count,
+            "lastAvgROM": last_avg_rom,
+            "lastAvgVelocity": last_avg_velocity
+        })
+    
+    # Sort confirmed items
+    if sort == 'name':
+        confirmed_items.sort(key=lambda x: x.get('name', ''))
+    elif sort == 'last_activity':
+        confirmed_items.sort(key=lambda x: x.get('lastFeedbackAt') or x.get('lastSessionAt') or '', reverse=True)
+    elif sort == 'progress':
+        # Sort by sessionCount as proxy for progress
+        confirmed_items.sort(key=lambda x: x.get('sessionCount', 0), reverse=True)
+    
+    # For now, pending items are empty (no invites structure)
+    pending_items = []
+    
+    # Combine items
+    all_items = confirmed_items + pending_items
+    
+    return jsonify({
+        "items": all_items,
+        "confirmed": confirmed_items,
+        "pending": pending_items
+    })
+
 @app.route('/patients/unassigned', methods=['GET'])
 @token_required
 def get_unassigned_patients(current_user):
@@ -368,6 +465,163 @@ def update_patient_feedback(current_user, patient_id):
 
     print(f"Updated patient {patient_id} with feedback")
     return jsonify(patients[patient_id])
+
+@app.route('/doctors/me/metrics-summary', methods=['GET'])
+@token_required
+def get_doctors_me_metrics_summary(current_user):
+    if current_user['role'] != 'doctor':
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    doctor_id = current_user['id']
+    patient_ids = doctors_patients.get(doctor_id, [])
+    
+    metrics_summary = []
+    for patient_id in patient_ids:
+        if patient_id not in patients:
+            continue
+        
+        patient = patients[patient_id]
+        movement_analyses = patient.get('movement_analyses', [])
+        
+        for analysis in movement_analyses:
+            result = analysis.get('result', {})
+            if isinstance(result, dict):
+                # Extract metrics
+                joint = result.get('joint', 'Unknown')
+                side = result.get('side', '')
+                avg_rom = result.get('avgROM') or result.get('rom')
+                avg_velocity = result.get('avgVelocity') or result.get('velocity')
+                
+                metrics_summary.append({
+                    "patientId": patient_id,
+                    "patientName": patient.get('name', ''),
+                    "joint": joint,
+                    "side": side,
+                    "avgROM": avg_rom,
+                    "avgVelocity": avg_velocity,
+                    "date": analysis.get('timestamp', ''),
+                    "exerciseType": analysis.get('exercise_type', 'general')
+                })
+    
+    # Sort by date (most recent first) and return top 5
+    metrics_summary.sort(key=lambda x: x.get('date', ''), reverse=True)
+    return jsonify(metrics_summary[:5])
+
+@app.route('/doctors/me/recent-activity', methods=['GET'])
+@token_required
+def get_doctors_me_recent_activity(current_user):
+    if current_user['role'] != 'doctor':
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    doctor_id = current_user['id']
+    patient_ids = doctors_patients.get(doctor_id, [])
+    
+    # Calculate date 7 days ago
+    seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    
+    recent_activity = []
+    for patient_id in patient_ids:
+        if patient_id not in patients:
+            continue
+        
+        patient = patients[patient_id]
+        patient_name = patient.get('name', '')
+        
+        # Get feedback from last 7 days
+        feedback_list = patient.get('feedback', [])
+        for feedback in feedback_list:
+            timestamp_str = feedback.get('timestamp')
+            if not timestamp_str:
+                continue
+            
+            try:
+                feedback_date = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                if feedback_date >= seven_days_ago:
+                    recent_activity.append({
+                        "type": "feedback",
+                        "patientId": patient_id,
+                        "patientName": patient_name,
+                        "label": f"Pain: {feedback.get('pain', 'N/A')}/10, Fatigue: {feedback.get('fatigue', 'N/A')}/10",
+                        "date": timestamp_str,
+                        "sessionId": feedback.get('sessionId')
+                    })
+            except:
+                pass
+        
+        # Get sessions from movement_analyses (last 7 days)
+        movement_analyses = patient.get('movement_analyses', [])
+        for analysis in movement_analyses:
+            timestamp_str = analysis.get('timestamp')
+            if not timestamp_str:
+                continue
+            
+            try:
+                analysis_date = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                if analysis_date >= seven_days_ago:
+                    exercise_type = analysis.get('exercise_type', 'general')
+                    recent_activity.append({
+                        "type": "session",
+                        "patientId": patient_id,
+                        "patientName": patient_name,
+                        "label": f"Exercise: {exercise_type}",
+                        "date": timestamp_str,
+                        "sessionId": analysis.get('id')
+                    })
+            except:
+                pass
+    
+    # Sort by date (most recent first) and return top 5
+    recent_activity.sort(key=lambda x: x.get('date', ''), reverse=True)
+    return jsonify(recent_activity[:5])
+
+@app.route('/doctors/me/trends', methods=['GET'])
+@token_required
+def get_doctors_me_trends(current_user):
+    if current_user['role'] != 'doctor':
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    doctor_id = current_user['id']
+    patient_ids = doctors_patients.get(doctor_id, [])
+    
+    # Calculate date 30 days ago
+    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+    
+    pain_scores = []
+    fatigue_scores = []
+    difficulty_scores = []
+    
+    for patient_id in patient_ids:
+        if patient_id not in patients:
+            continue
+        
+        feedback_list = patients[patient_id].get('feedback', [])
+        for feedback in feedback_list:
+            timestamp_str = feedback.get('timestamp')
+            if not timestamp_str:
+                continue
+            
+            try:
+                feedback_date = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                if feedback_date >= thirty_days_ago:
+                    if 'pain' in feedback:
+                        pain_scores.append(feedback['pain'])
+                    if 'fatigue' in feedback:
+                        fatigue_scores.append(feedback['fatigue'])
+                    if 'difficulty' in feedback:
+                        difficulty_scores.append(feedback['difficulty'])
+            except:
+                pass
+    
+    # Calculate averages
+    avg_pain = sum(pain_scores) / len(pain_scores) if pain_scores else 0
+    avg_fatigue = sum(fatigue_scores) / len(fatigue_scores) if fatigue_scores else 0
+    avg_difficulty = sum(difficulty_scores) / len(difficulty_scores) if difficulty_scores else 0
+    
+    return jsonify({
+        "avgPain": round(avg_pain, 2),
+        "avgFatigue": round(avg_fatigue, 2),
+        "avgDifficulty": round(avg_difficulty, 2)
+    })
 
 # Movement Analysis API Integration
 MOVEMENT_API_BASE_URL = "https://eucp-movement-analysis-api-dev.azurewebsites.net"

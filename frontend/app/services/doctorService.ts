@@ -8,6 +8,11 @@ export interface DoctorPatientConfirmed {
   email: string;
   nif: string;
   status: "Confirmed";
+  lastSessionAt?: string;
+  lastFeedbackAt?: string;
+  sessionCount?: number;
+  lastAvgROM?: number;
+  lastAvgVelocity?: number;
 }
 
 /** Pending invite from GET /doctors/me/patients */
@@ -130,4 +135,45 @@ export async function resendInvite(inviteId: string): Promise<{ token: string }>
 
 export async function revokeInvite(inviteId: string): Promise<void> {
   await api.post(`/invites/${inviteId}/revoke`);
+}
+
+export interface MetricsSummaryItem {
+  patientId: string;
+  patientName: string;
+  joint: string;
+  side: string;
+  avgROM?: number;
+  avgVelocity?: number;
+  date: string;
+  exerciseType: string;
+}
+
+export async function getDoctorsMeMetricsSummary(): Promise<MetricsSummaryItem[]> {
+  const response = await api.get<MetricsSummaryItem[]>("/doctors/me/metrics-summary");
+  return response.data;
+}
+
+export interface RecentActivityItem {
+  type: "session" | "feedback";
+  patientId: string;
+  patientName: string;
+  label: string;
+  date: string;
+  sessionId?: string;
+}
+
+export async function getDoctorsMeRecentActivity(): Promise<RecentActivityItem[]> {
+  const response = await api.get<RecentActivityItem[]>("/doctors/me/recent-activity");
+  return response.data;
+}
+
+export interface TrendsData {
+  avgPain: number;
+  avgFatigue: number;
+  avgDifficulty: number;
+}
+
+export async function getDoctorsMeTrends(): Promise<TrendsData> {
+  const response = await api.get<TrendsData>("/doctors/me/trends");
+  return response.data;
 }
