@@ -5,6 +5,7 @@ export interface User {
   role: "patient" | "doctor";
 }
 
+/** @deprecated Use Session from API instead */
 export interface RecoveryProcess {
   id: string;
   name: string;
@@ -15,6 +16,47 @@ export interface RecoveryProcess {
   targetRepetitions?: number;
   targetSets?: number;
   videoUrl?: string;
+}
+
+/** Session from API (GET/POST /patients/:id/sessions) */
+export interface SessionMetric {
+  ID?: string;
+  SessionID?: string;
+  Joint?: string;
+  Side?: string;
+  Repetitions?: number;
+  MinVelocity?: number;
+  MaxVelocity?: number;
+  AvgVelocity?: number;
+  P95Velocity?: number;
+  MinROM?: number;
+  MaxROM?: number;
+  AvgROM?: number;
+  CenterMassDisplacement?: string;
+  TimeCreated?: string;
+}
+
+export interface SessionFeedback {
+  ID?: string;
+  UserID?: string;
+  SessionID?: string;
+  Pain?: number;
+  Fatigue?: number;
+  Difficulty?: number;
+  Comments?: string;
+  TimeCreated?: string;
+}
+
+export interface Session {
+  id: string;
+  relationId?: string;
+  exerciseType: string;
+  exerciseDescription?: string;
+  repetitions?: number | null;
+  duration?: string | null;
+  timeCreated: string;
+  metrics?: SessionMetric[];
+  feedback?: SessionFeedback[];
 }
 
 export interface WeeklyLog {
@@ -208,14 +250,19 @@ export type RootStackParamList = {
   Login: undefined;
   Signup: undefined;
 
-  PatientDetail: { patient: Patient }; 
+  PatientDetail: { patient: Patient };
   CreatePatient: undefined;
+  InvitePatient: undefined;
+  ManageInvites: undefined;
+  PatientList: undefined;
   
   Profile: { twoFactorEnabled?: boolean } | undefined;
   
   BleConnection: undefined;
   
-  ExerciseDetail: { exercise: any }; 
+  ExerciseDetail: { exercise: any };
+  ExerciseHistory: undefined;
+  ExerciseHistoryDetail: { session: Session };
 
   // Novas Rotas da Task IRHIS-25
   ChangePassword: undefined;
@@ -226,10 +273,21 @@ export type RootStackParamList = {
 
   // NOVAS ROTAS IRHIS-46 (ONBOARDING):
   TokenEntry: undefined;
-  OnboardingPrivacy: { token: string }; // Recebe o token do passo anterior
-  OnboardingLegal: { token: string };   // Recebe o token
-  OnboardingPassword: { token: string; legalBasis: 'consent' | 'secrecy' }; // Recebe token + base legal
+  TokenInvalid: { reason: string };
+  OnboardingPrivacy: { token: string; role?: string; inviteeName?: string; email?: string };
+  OnboardingLegal: { token: string; role?: string; inviteeName?: string; email?: string; acceptedTermsAt: string };
+  OnboardingPassword: {
+    token: string;
+    acceptedTermsAt: string;
+    consentClinicalDataAt?: string;
+    nif?: string;
+    legalBasis?: 'consent' | 'secrecy';
+    role?: string;
+    inviteeName?: string;
+    email?: string;
+  };
   OnboardingTwoFactor: { token: string };
   OnboardingTwoFactorVerify: { token: string };
   CreatePasswordDoctor: { token: string }; // NOVA ROTA
+  RegistrationComplete: { token: string; user: User };
 };

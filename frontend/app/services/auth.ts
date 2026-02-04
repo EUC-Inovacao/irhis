@@ -6,9 +6,10 @@ export const login = async (email: string, password: string, role: 'patient' | '
   try {
     const response = await api.post('/login', { email, password, role });
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Login error:', error);
-    throw error;
+    const msg = error.response?.data?.error || error.message || 'Invalid credentials';
+    throw Object.assign(new Error(msg), { response: error.response });
   }
 };
 
@@ -21,9 +22,13 @@ export const signup = async (
   try {
     const response = await api.post('/signup', { name, email, password, role });
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Signup error:', error);
-    throw error;
+    if (error.response?.status === 409) {
+      throw Object.assign(new Error('An account with this email already exists. Please login instead.'), { response: error.response });
+    }
+    const msg = error.response?.data?.error || error.message || 'Failed to create account. Please try again.';
+    throw Object.assign(new Error(msg), { response: error.response });
   }
 };
 

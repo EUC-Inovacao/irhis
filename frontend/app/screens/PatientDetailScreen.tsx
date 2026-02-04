@@ -28,7 +28,7 @@ import PatientFeedbackSection from "@components/PatientFeedbackSection";
 const PatientDetailScreen = ({ route, navigation }: any) => {
   const { colors } = useTheme();
   const { patientId, role } = route.params;
-  const { patients, updatePatient, assignPatient } = usePatients();
+  const { patients, updatePatient, assignPatient, assignedExercises } = usePatients();
   const patientData = patients[patientId];
   const { healthData } = useHealth();
 
@@ -44,12 +44,33 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
     patientData?.movementData?.[0]
   );
 
+  const listFromContext = assignedExercises[patientId] ?? [];
+
   useEffect(() => {
     if (patientData) {
-      setExercises(patientData.recovery_process);
       setMedications(patientData.medications || []);
     }
   }, [patientData]);
+
+  useEffect(() => {
+    if (listFromContext.length > 0) {
+      setExercises(
+        listFromContext.map((ex) => ({
+          id: ex.id,
+          name: (ex as any).exerciseType?.name ?? (ex as any).name ?? "Exercise",
+          completed: ex.completed === 1,
+          targetRepetitions: (ex as any).targetReps ?? 10,
+          targetSets: (ex as any).targetSets ?? 3,
+          instructions: "",
+          assignedDate: (ex as any).timeCreated,
+        }))
+      );
+    } else if (patientData?.recovery_process?.length) {
+      setExercises(patientData.recovery_process);
+    } else {
+      setExercises([]);
+    }
+  }, [patientId, listFromContext.length, patientData?.recovery_process]);
 
   const handleToggleComplete = (
     id: string,

@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
-import { RecoveryProcess, Patient } from '../types';
-import * as patientService from '@services/patientService';
-import { usePatients } from '@context/PatientContext';
+import { Patient } from '../types';
+import { usePatients, SessionAsExercise } from '@context/PatientContext';
 
 interface AssignedExercisesCardProps {
     patient: Patient;
@@ -12,16 +11,52 @@ interface AssignedExercisesCardProps {
     navigation?: any;
 }
 
+type ExerciseItem = {
+    id: string;
+    name: string;
+    targetRepetitions: number;
+    targetSets: number;
+    instructions: string;
+    isNew?: boolean;
+};
+
 const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, isEditable, navigation }) => {
     const { colors } = useTheme();
-    const { updatePatient } = usePatients();
+    const { assignedExercises, sessionsByPatient, fetchPatientSessions, createSession } = usePatients();
     const [isEditing, setIsEditing] = useState(false);
-    const [exercises, setExercises] = useState(patient.recovery_process);
+    const listFromContext = assignedExercises[patient.id] ?? [];
+    const toItem = (ex: SessionAsExercise): ExerciseItem => ({
+        id: ex.id,
+        name: ex.exerciseType?.name ?? (ex as any).name ?? 'Exercise',
+        targetRepetitions: ex.targetReps ?? ex.exerciseType?.targetReps ?? 10,
+        targetSets: ex.targetSets ?? ex.exerciseType?.targetSets ?? 3,
+        instructions: '',
+        isNew: false,
+    });
+    const listKey = useMemo(
+        () => listFromContext.map((e) => e.id).join(','),
+        [listFromContext]
+    );
+    const [exercises, setExercises] = useState<ExerciseItem[]>(() => listFromContext.map(toItem));
+
+    useEffect(() => {
+        if (!isEditing) {
+            setExercises(listFromContext.map(toItem));
+        }
+    }, [patient.id, listKey, isEditing]);
 
     const handleSave = async () => {
         try {
-            const updatedPatient = await patientService.updateRecoveryProcess(patient.id, exercises);
-            updatePatient(patient.id, updatedPatient);
+            const newOnes = exercises.filter(e => e.id.startsWith('new_') || (e as any).isNew);
+            for (const ex of newOnes) {
+                await createSession(patient.id, {
+                    exerciseType: ex.name,
+                    exerciseDescription: ex.instructions,
+                    repetitions: ex.targetRepetitions,
+                    duration: undefined,
+                });
+            }
+            await fetchPatientSessions(patient.id);
             setIsEditing(false);
             Alert.alert('Success', 'Exercise plan updated.');
         } catch (error) {
@@ -29,31 +64,30 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
         }
     };
 
-    const handleExerciseChange = (id: string, field: keyof RecoveryProcess, value: string | number) => {
-        setExercises(currentExercises =>
-            currentExercises.map(ex => (ex.id === id ? { ...ex, [field]: value } : ex))
+    const handleExerciseChange = (id: string, field: keyof ExerciseItem, value: string | number) => {
+        setExercises(current =>
+            current.map(ex => (ex.id === id ? { ...ex, [field]: value } : ex))
         );
     };
 
     const handleAddNewExercise = () => {
-        const newExercise: RecoveryProcess = {
+        setExercises(current => [...current, {
             id: `new_${Date.now()}`,
             name: 'New Exercise',
-            completed: false,
             targetRepetitions: 10,
             targetSets: 3,
             instructions: '',
-        };
-        setExercises(current => [...current, newExercise]);
+            isNew: true,
+        }]);
     };
 
-    const handleExercisePress = (exercise: RecoveryProcess) => {
+    const handleExercisePress = (exercise: ExerciseItem) => {
         if (!isEditable && navigation) {
             navigation.navigate('ExerciseDetail', { exercise });
         }
     };
-    
-    const renderExercise = ({ item }: { item: RecoveryProcess }) => {
+
+    const renderExercise = ({ item }: { item: ExerciseItem }) => {
         if (isEditing) {
             return (
                 <View style={styles.editExerciseContainer}>
@@ -67,14 +101,14 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
                         <TextInput
                             style={[styles.input, styles.repsInput, { color: colors.text }]}
                             value={String(item.targetRepetitions)}
-                            onChangeText={text => handleExerciseChange(item.id, 'targetRepetitions', Number(text))}
+                            onChangeText={text => handleExerciseChange(item.id, 'targetRepetitions', Number(text) || 0)}
                             keyboardType="number-pad"
                         />
                         <Text style={{ color: colors.text }}>reps</Text>
                         <TextInput
                             style={[styles.input, styles.setsInput, { color: colors.text }]}
                             value={String(item.targetSets)}
-                            onChangeText={text => handleExerciseChange(item.id, 'targetSets', Number(text))}
+                            onChangeText={text => handleExerciseChange(item.id, 'targetSets', Number(text) || 0)}
                             keyboardType="number-pad"
                         />
                         <Text style={{ color: colors.text }}>sets</Text>
@@ -90,7 +124,7 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
         }
 
         return (
-            <TouchableOpacity 
+            <TouchableOpacity
                 style={styles.exerciseContainer}
                 onPress={() => handleExercisePress(item)}
                 disabled={isEditable}

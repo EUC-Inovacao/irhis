@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../types';
+import { validateInviteToken } from '../../services/inviteService';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'TokenEntry'>;
 
@@ -15,9 +16,10 @@ const TokenEntryScreen = () => {
     const [token, setToken] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleContinue = () => {
-        if (token.length < 6) {
-            Alert.alert("Invalid Token", "Please enter a valid invitation token.");
+    const handleContinue = async () => {
+        const trimmed = token.trim();
+        if (trimmed.length < 6) {
+            Alert.alert("Invalid token", "Please enter a valid invite token.");
             return;
         }
         setIsLoading(true);

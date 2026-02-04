@@ -16,7 +16,7 @@ const PrivacyTermsScreen = () => {
     const navigation = useNavigation<NavProp>();
     const route = useRoute<RouteProps>();
     const [isChecked, setIsChecked] = useState(false);
-    const { token } = route.params;
+    const { token, role, inviteeName, email } = route.params;
 
     return (
         <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
@@ -92,7 +92,13 @@ const PrivacyTermsScreen = () => {
             <View style={[styles.footer, { borderTopColor: colors.border }]}>
                 <TouchableOpacity 
                     style={[styles.button, { backgroundColor: isChecked ? '#2563EB' : '#E0E0E0' }]} 
-                    onPress={() => navigation.navigate('OnboardingLegal', { token })}
+                    onPress={() => navigation.navigate('OnboardingLegal', {
+                        token,
+                        role,
+                        inviteeName,
+                        email,
+                        acceptedTermsAt: new Date().toISOString(),
+                    })}
                     disabled={!isChecked}
                 >
                     <Text style={[styles.buttonText, { color: isChecked ? 'white' : '#A0A0A0' }]}>Continue</Text>

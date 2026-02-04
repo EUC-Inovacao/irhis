@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme/ThemeContext';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from '../../types';
+import { RootStackParamList, User } from '../../types';
 import ProgressStepper from '../../components/ProgressStepper';
+import { completeSignup } from '../../services/inviteService';
 
 type NavProp = StackNavigationProp<RootStackParamList, 'OnboardingPassword'>;
 type RouteProps = RouteProp<RootStackParamList, 'OnboardingPassword'>;
@@ -15,7 +16,7 @@ const CreatePasswordOnboardingScreen = () => {
     const { colors } = useTheme();
     const navigation = useNavigation<NavProp>();
     const route = useRoute<RouteProps>();
-    const { token, legalBasis } = route.params;
+    const { token, acceptedTermsAt, consentClinicalDataAt, nif } = route.params;
 
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -27,6 +28,8 @@ const CreatePasswordOnboardingScreen = () => {
     const [hasMinLength, setHasMinLength] = useState(false);
     const [hasUpperCase, setHasUpperCase] = useState(false);
     const [hasNumber, setHasNumber] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     useEffect(() => {
         setHasMinLength(password.length >= 8);
@@ -35,6 +38,34 @@ const CreatePasswordOnboardingScreen = () => {
     }, [password]);
 
     const isValid = hasMinLength && hasUpperCase && hasNumber && (password === confirmPassword) && password.length > 0;
+
+    const handleSubmit = async () => {
+        if (!isValid || isSubmitting) return;
+        setErrorMessage(null);
+        setIsSubmitting(true);
+        try {
+            const payload = {
+                token,
+                password,
+                acceptedTermsAt,
+                ...(consentClinicalDataAt && { consentClinicalDataAt }),
+                ...(nif && { nif }),
+            };
+            const result = await completeSignup(payload);
+            const user: User = {
+              id: result.user.id,
+              email: result.user.email,
+              name: result.user.name,
+              role: (result.user.role?.toLowerCase() === 'doctor' ? 'doctor' : 'patient') as 'patient' | 'doctor',
+            };
+            navigation.navigate('RegistrationComplete', { token: result.token, user });
+        } catch (err: any) {
+            const msg = err.response?.data?.error || err.message || 'Failed to complete registration. Try again.';
+            setErrorMessage(msg);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     return (
         <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
@@ -107,15 +138,22 @@ const CreatePasswordOnboardingScreen = () => {
                         <Text style={[styles.reqText, { color: hasNumber ? '#16A34A' : '#6B7280' }]}>One number</Text>
                     </View>
                 </View>
+
+                {errorMessage ? (
+                    <View style={styles.errorBox}>
+                        <Ionicons name="alert-circle" size={18} color="#DC2626" />
+                        <Text style={styles.errorText}>{errorMessage}</Text>
+                    </View>
+                ) : null}
             </ScrollView>
 
             <View style={[styles.footer, { borderTopColor: colors.border }]}>
                 <TouchableOpacity 
-                    style={[styles.button, { backgroundColor: isValid ? '#0284C7' : '#93C5FD' }]}
-                    onPress={() => isValid && navigation.navigate('OnboardingTwoFactor', { token })}
-                    disabled={!isValid}
+                    style={[styles.button, { backgroundColor: isValid && !isSubmitting ? '#0284C7' : '#93C5FD' }]}
+                    onPress={handleSubmit}
+                    disabled={!isValid || isSubmitting}
                 >
-                    <Text style={styles.buttonText}>Continue</Text>
+                    <Text style={styles.buttonText}>{isSubmitting ? 'A concluir...' : 'Concluir registo'}</Text>
                 </TouchableOpacity>
             </View>
         </SafeAreaView>
@@ -148,6 +186,8 @@ const styles = StyleSheet.create({
     reqTitle: { color: '#1E3A8A', marginBottom: 8, fontWeight: 'bold', fontSize: 14 },
     reqItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
     reqText: { marginLeft: 8, fontSize: 13 },
+    errorBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEE2E2', padding: 12, borderRadius: 8, marginTop: 16, gap: 8 },
+    errorText: { color: '#DC2626', fontSize: 14, flex: 1 },
     footer: { padding: 24, borderTopWidth: 1 },
     button: { height: 50, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
     buttonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },

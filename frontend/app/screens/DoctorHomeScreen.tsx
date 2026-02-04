@@ -1,12 +1,13 @@
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { usePatients } from '../context/PatientContext';
 import { Ionicons } from '@expo/vector-icons';
-import type { Patient } from '../types';
+import type { DoctorPatientItem } from '../services/doctorService';
 import PatientCard from '@components/PatientCard';
+import PendingInviteCard from '@components/PendingInviteCard';
 import { useFocusEffect } from '@react-navigation/native';
 
 interface StatCardProps {
@@ -34,52 +35,50 @@ const StatCard: React.FC<StatCardProps> = ({ icon, value, label, color }) => {
 const DoctorHomeScreen = ({ navigation }: any) => {
     const { colors } = useTheme();
     const { user } = useAuth();
-    const { patients, assignedExercises, fetchPatients, loading } = usePatients();
+    const {
+        doctorPatientsItems,
+        dashboardKpis,
+        latestFeedback,
+        doctorDashboardError,
+        patients,
+        assignedExercises,
+        fetchPatients,
+        loading,
+    } = usePatients();
 
     useFocusEffect(
         useCallback(() => {
             fetchPatients();
         }, [fetchPatients])
     );
-    
-    const patientList = Object.values(patients);
 
-    const totalPatients = patientList.length;
-    // Calculate stats based on assigned exercises
-    const activePatients = patientList.filter(p => {
-        const exercises = assignedExercises[p.id] || [];
-        return exercises.some(ex => ex.completed === 0);
-    }).length;
-    const completedPatients = patientList.filter(p => {
-        const exercises = assignedExercises[p.id] || [];
-        return exercises.length > 0 && exercises.every(ex => ex.completed === 1);
-    }).length;
-    const averageProgress = patientList.reduce((acc, patient) => {
-        const exercises = assignedExercises[patient.id] || [];
-        const completed = exercises.filter(ex => ex.completed === 1).length;
-        const total = exercises.length;
-        return acc + (total > 0 ? (completed / total) * 100 : 0);
-    }, 0) / (totalPatients || 1);
+    const pendingCount = doctorPatientsItems.filter((x) => x.type === 'pending').length;
 
     const renderHeader = () => (
         <>
             <View style={styles.header}>
                 <View>
-                    <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>Welcome back,</Text>
+                    <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>Welcome,</Text>
                     <Text style={[styles.title, { color: colors.text }]}>{user?.name}</Text>
                 </View>
-                {/* Agrupamos os botões numa View para ficarem lado a lado à direita */}
                 <View style={{ flexDirection: 'row', gap: 12 }}>
-                    
-                    {/* NOVO: Botão de Invite (Carta) - Igual ao Figma */}
                     <TouchableOpacity
                         style={[styles.addButton, { backgroundColor: colors.primary + '15' }]}
-                        onPress={() => alert('Invite feature coming soon')}
+                        onPress={() => navigation.navigate('ManageInvites')}
                     >
                         <Ionicons name="mail-outline" size={24} color={colors.primary} />
+                        {pendingCount > 0 && (
+                            <View style={[styles.badge, { backgroundColor: colors.primary }]}>
+                                <Text style={styles.badgeText}>{pendingCount > 99 ? '99+' : pendingCount}</Text>
+                            </View>
+                        )}
                     </TouchableOpacity>
-
-                    {/* Botão Existente (Adicionar Paciente) */}
+                    <TouchableOpacity
+                        style={[styles.addButton, { backgroundColor: colors.primary + '15' }]}
+                        onPress={() => navigation.navigate('InvitePatient')}
+                    >
+                        <Ionicons name="mail-open-outline" size={24} color={colors.primary} />
+                    </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.addButton, { backgroundColor: colors.primary + '15' }]}
                         onPress={() => navigation.navigate('CreatePatient')}
@@ -89,38 +88,70 @@ const DoctorHomeScreen = ({ navigation }: any) => {
                 </View>
             </View>
 
-            <View style={styles.statsGrid}>
-                <StatCard 
-                    icon="people" 
-                    value={totalPatients} 
-                    label="Total Patients"
-                    color={colors.purple[500]}
-                />
-                <StatCard 
-                    icon="fitness" 
-                    value={activePatients} 
-                    label="Active Patients"
-                    color={colors.success}
-                />
-                <StatCard 
-                    icon="checkmark-circle" 
-                    value={completedPatients} 
-                    label="Completed"
-                    color={colors.info}
-                />
-                <StatCard 
-                    icon="trending-up" 
-                    value={`${Math.round(averageProgress)}%`} 
-                    label="Avg. Progress"
-                    color={colors.warning}
-                />
-            </View>
+            {dashboardKpis !== null && (
+                <View style={styles.statsGrid}>
+                    <StatCard
+                        icon="people"
+                        value={dashboardKpis.totalPatients}
+                        label="Total Patients"
+                        color={colors.purple[500]}
+                    />
+                    <StatCard
+                        icon="fitness"
+                        value={dashboardKpis.activePatients}
+                        label="Active"
+                        color={colors.success}
+                    />
+                    <StatCard
+                        icon="checkmark-circle"
+                        value={dashboardKpis.completedPatients}
+                        label="Completed"
+                        color={colors.info}
+                    />
+                    <StatCard
+                        icon="trending-up"
+                        value={dashboardKpis.totalPatients > 0 ? `${Math.round(dashboardKpis.avgProgress)}%` : '—'}
+                        label="Avg. Progress"
+                        color={colors.warning}
+                    />
+                </View>
+            )}
 
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Patient List</Text>
+            {latestFeedback.length > 0 && (
+                <View style={[styles.quickView, { backgroundColor: colors.card }]}>
+                    <Text style={[styles.quickViewTitle, { color: colors.text }]}>Latest feedback</Text>
+                    {latestFeedback.slice(0, 5).map((fb) => (
+                        <View key={fb.id} style={styles.quickViewRow}>
+                            <Text style={[styles.quickViewName, { color: colors.text }]} numberOfLines={1}>{fb.patientName}</Text>
+                            <Text style={[styles.quickViewMeta, { color: colors.textSecondary }]}>
+                                Pain {fb.pain ?? '—'}/10 · Fatigue {fb.fatigue ?? '—'}/10 · Difficulty {fb.difficulty ?? '—'}/10
+                            </Text>
+                            {fb.comments ? <Text style={[styles.quickViewComment, { color: colors.textSecondary }]} numberOfLines={2}>{fb.comments}</Text> : null}
+                        </View>
+                    ))}
+                </View>
+            )}
+
+            <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Patient List</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('PatientList')} style={styles.tableLink}>
+                    <Ionicons name="grid-outline" size={20} color={colors.primary} />
+                    <Text style={[styles.tableLinkText, { color: colors.primary }]}>View table</Text>
+                </TouchableOpacity>
+            </View>
         </>
     );
 
-    if (loading && patientList.length === 0) {
+    const renderItem = ({ item }: { item: DoctorPatientItem }) => {
+        if (item.type === 'pending') {
+            return <PendingInviteCard item={item} onPress={() => navigation.navigate('ManageInvites')} />;
+        }
+        const patient = patients[item.id];
+        if (!patient) return null;
+        return <PatientCard item={patient} navigation={navigation} />;
+    };
+
+    if (loading && doctorPatientsItems.length === 0 && !doctorDashboardError) {
         return (
             <View style={[styles.safeArea, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
                 <ActivityIndicator size="large" color={colors.primary} />
@@ -128,21 +159,40 @@ const DoctorHomeScreen = ({ navigation }: any) => {
         );
     }
 
+    if (doctorDashboardError) {
+        return (
+            <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+                <View style={[styles.errorContainer, { backgroundColor: colors.card }]}>
+                    <Ionicons name="cloud-offline-outline" size={48} color={colors.textSecondary} />
+                    <Text style={[styles.errorTitle, { color: colors.text }]}>Failed to load dashboard</Text>
+                    <Text style={[styles.errorText, { color: colors.textSecondary }]}>{doctorDashboardError}</Text>
+                    <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={() => fetchPatients()}>
+                        <Text style={styles.retryButtonText}>Try again</Text>
+                    </TouchableOpacity>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
     return (
         <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
             <FlatList
-                data={patientList}
-                renderItem={({ item }) => <PatientCard item={item} navigation={navigation} />}
-                keyExtractor={item => item.id}
+                data={doctorPatientsItems}
+                renderItem={renderItem}
+                keyExtractor={(item) => item.id}
                 ListHeaderComponent={renderHeader}
                 contentContainerStyle={styles.contentContainer}
+                refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchPatients} colors={[colors.primary]} />}
                 ListEmptyComponent={
                     <View style={[styles.emptyContainer, { backgroundColor: colors.card }]}>
                         <Ionicons name="people-outline" size={48} color={colors.textSecondary} />
-                        <Text style={[styles.emptyTitle, { color: colors.text }]}>No Patients Found</Text>
+                        <Text style={[styles.emptyTitle, { color: colors.text }]}>No patients assigned yet</Text>
                         <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                            There are currently no patients in the system.
+                            Invite a patient to get started.
                         </Text>
+                        <TouchableOpacity style={[styles.assignButton, { backgroundColor: colors.primary }]} onPress={() => navigation.navigate('InvitePatient')}>
+                            <Text style={[styles.assignButtonText, { color: '#fff' }]}>Invite Patient</Text>
+                        </TouchableOpacity>
                     </View>
                 }
             />
@@ -177,7 +227,31 @@ const styles = StyleSheet.create({
         borderRadius: 22,
         justifyContent: 'center',
         alignItems: 'center',
+        position: 'relative',
     },
+    badge: {
+        position: 'absolute',
+        top: -2,
+        right: -2,
+        minWidth: 18,
+        height: 18,
+        borderRadius: 9,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+    },
+    badgeText: { color: '#fff', fontSize: 11, fontWeight: 'bold' },
+    quickView: { padding: 16, borderRadius: 12, marginBottom: 24 },
+    quickViewTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
+    quickViewRow: { marginBottom: 12 },
+    quickViewName: { fontSize: 14, fontWeight: '600' },
+    quickViewMeta: { fontSize: 12, marginTop: 2 },
+    quickViewComment: { fontSize: 12, marginTop: 4, fontStyle: 'italic' },
+    errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, margin: 16, borderRadius: 12 },
+    errorTitle: { fontSize: 18, fontWeight: '600', marginTop: 16, marginBottom: 8, textAlign: 'center' },
+    errorText: { fontSize: 14, textAlign: 'center', marginBottom: 24 },
+    retryButton: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
+    retryButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
     statsGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
@@ -208,11 +282,10 @@ const styles = StyleSheet.create({
     statLabel: {
         fontSize: 14,
     },
-    sectionTitle: {
-        fontSize: 20,
-        fontWeight: '600',
-        marginBottom: 16,
-    },
+    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+    sectionTitle: { fontSize: 20, fontWeight: '600' },
+    tableLink: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    tableLinkText: { fontSize: 14, fontWeight: '600' },
     emptyContainer: {
         alignItems: 'center',
         padding: 32,
