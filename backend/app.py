@@ -28,7 +28,10 @@ from db import (
     create_manual_patient,
     insert_session_metrics,
     get_metrics_by_session,
-    get_metrics_by_patient
+    get_metrics_by_patient,
+    insert_patient_feedback,
+    get_feedback_by_patient,
+    check_session_patient
 )
 
 
@@ -125,57 +128,32 @@ def login():
         }
     }), 200
 
-
 @app.route('/signup', methods=['POST'])
 def signup():
-    data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
-    role = data.get('role')
-    name = data.get('name')
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
 
-    if not all([email, password, role, name]):
-        return jsonify({"error": "Missing required fields"}), 400
-
-    # Check if email already exists
     if any(user['email'] == email for user in users.values()):
         return jsonify({"error": "Email already registered"}), 409
 
-    # Create new user
-    user_id = str(len(users) + 1)
-    hashed_password = generate_password_hash(password)
-    
-    users[user_id] = {
-        "id": user_id,
-        "email": email,
-        "password": hashed_password,
-        "role": role,
-        "name": name
-    }
+    required = ['email', 'password', 'first_name', 'last_name', 'role']
+    missing = [field for field in required if not data.get(field)]
 
-    if role == 'patient':
-        patients[user_id] = {
-            "id": user_id,
-            "name": name,
-            "recovery_process": [],
-            "details": default_patient_details
-        }
+    if missing:
+        return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
 
-    # Generate token
-    token = PyJWT.encode({
-        'user_id': user_id,
-        'exp': datetime.now(timezone.utc) + timedelta(days=1)
-    }, app.config['SECRET_KEY'])
-
-    return jsonify({
-        "token": token,
-        "user": {
-            "id": user_id,
-            "email": email,
-            "name": name,
-            "role": role
-        }
-    })
+    try:
+        user_id, role = create_user_signup(data)
+        return jsonify({
+            "message": f"{role} registered successfully",
+            "user_id": user_id
+        }), 201
+        
+    except Exception as e:
+        if "Duplicate entry" in str(e):
+            return jsonify({"error": "Email already registered"}), 409
+        return jsonify({"error": "Internal server error during registration"}), 500
 
 @app.route('/me', methods=['GET'])
 @token_required
@@ -870,6 +848,54 @@ def get_specific_session_metrics(current_user, session_id):
             return jsonify({"message": "No metrics found for this session"}), 404
             
         return jsonify(metrics), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/sessions/<session_id>/feedback', methods=['POST'])
+@token_required
+def post_session_feedback(current_user, session_id):
+
+    if current_user['role'].lower() != 'patient':
+        return jsonify({"error": "Only patients can submit feedback"}), 403
+
+    if not check_session_patient(session_id, current_user['id']):
+        return jsonify({"error": "Session not found or does not belong to this user"}), 404
+
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    required_fields = ['pain', 'fatigue', 'difficulty']
+    missing = [field for field in required_fields if data.get(field) is None]
+    if missing:
+        return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
+
+    try:
+        feedback_id = insert_patient_feedback(current_user['id'], session_id, data)
+        return jsonify({
+            "message": "Feedback submitted successfully", 
+            "id": feedback_id
+        }), 201
+    except Exception as e:
+        return jsonify({"error": "Internal server error while persisting feedback"}), 500
+
+
+@app.route('/patients/<patient_id>/feedback', methods=['GET'])
+@token_required
+def get_patient_feedback_history(current_user, patient_id):
+    try:
+
+        if current_user['role'].lower() == 'doctor':
+            doctor_id = current_user['id']
+            patient_id = session['PatientID'] 
+
+            relation = get_patient_doctor_relation(patient_id, doctor_id)
+        
+            if not relation:
+                return jsonify({"error": "Patient not associated with this doctor"}), 403
+        
+        feedbacks = get_feedback_by_patient(patient_id)
+        return jsonify(feedbacks), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

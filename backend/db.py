@@ -66,6 +66,37 @@ def execute(sql: str, params: Optional[dict[str, Any]] = None) -> None:
     with _engine.begin() as connection:
         connection.execute(text(sql), params or {})
 
+def create_user_signup(data):
+    user_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+    role = data.get('role', 'Patient').capitalize()
+    
+    hashed_pw = generate_password_hash(data['password'])
+    
+    execute(
+        """
+        INSERT INTO users (ID, Email, Password, FirstName, LastName, Role, Active, Deleted, TimeCreated)
+        VALUES (:id, :email, :password, :fname, :lname, :role, 1, 0, :now)
+        """,
+        {
+            "id": user_id,
+            "email": data['email'],
+            "password": hashed_pw,
+            "fname": data['first_name'],
+            "lname": data['last_name'],
+            "role": role,
+            "now": now
+        }
+    )
+
+    if role == 'Patient':
+        execute(
+            "INSERT INTO patient (UserID) VALUES (:user_id)",
+            {"user_id": user_id}
+        )
+    
+    return user_id, role
+
 def create_manual_patient(user_data, patient_data, doctor_id):
     user_id = str(uuid.uuid4())
     temp_email = f"paciente_{user_id[:8]}@irhis_sistema.com"
@@ -421,5 +452,60 @@ def get_metrics_by_session(session_id: str):
     for row in rows:
         if row.get('TimeCreated'):
             row['TimeCreated'] = str(row['TimeCreated'])
+            
+    return rows
+
+def check_session_patient(session_id, patient_id):
+
+    result = fetch_one(
+        """
+        SELECT s.ID 
+        FROM session s
+        JOIN patientdoctor pd ON s.RelationID = pd.ID
+        WHERE s.ID = :session_id AND pd.PatientID = :patient_id
+        """,
+        {"session_id": session_id, "patient_id": patient_id}
+    )
+    return result is not None
+
+def insert_patient_feedback(user_id, session_id, data):
+    new_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+    
+    execute(
+        """
+        INSERT INTO patientfeedback (
+            ID, UserID, SessionID, Pain, Fatigue, Difficulty, Comments, TimeCreated
+        )
+        VALUES (:id, :user_id, :session_id, :pain, :fatigue, :difficulty, :comments, :now)
+        """,
+        {
+            "id": new_id,
+            "user_id": user_id,
+            "session_id": session_id,
+            "pain": data.get('pain'),
+            "fatigue": data.get('fatigue'),
+            "difficulty": data.get('difficulty'),
+            "comments": data.get('comments'),
+            "now": now
+        }
+    )
+    return new_id
+
+def get_feedback_by_patient(patient_id):
+    rows = fetch_all(
+        """
+        SELECT f.*, s.ExerciseType, s.TimeCreated as SessionDate
+        FROM patientfeedback f
+        JOIN session s ON f.SessionID = s.ID
+        WHERE f.UserID = :patient_id
+        ORDER BY f.TimeCreated DESC
+        """,
+        {"patient_id": patient_id}
+    )
+    
+    for row in rows:
+        if row.get('TimeCreated'): row['TimeCreated'] = str(row['TimeCreated'])
+        if row.get('SessionDate'): row['SessionDate'] = str(row['SessionDate'])
             
     return rows
