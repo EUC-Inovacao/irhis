@@ -423,3 +423,58 @@ def get_metrics_by_session(session_id: str):
             row['TimeCreated'] = str(row['TimeCreated'])
             
     return rows
+
+def check_session_patient(session_id, patient_id):
+
+    result = fetch_one(
+        """
+        SELECT s.ID 
+        FROM session s
+        JOIN patientdoctor pd ON s.RelationID = pd.ID
+        WHERE s.ID = :session_id AND pd.PatientID = :patient_id
+        """,
+        {"session_id": session_id, "patient_id": patient_id}
+    )
+    return result is not None
+
+def insert_patient_feedback(user_id, session_id, data):
+    new_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+    
+    execute(
+        """
+        INSERT INTO patientfeedback (
+            ID, UserID, SessionID, Pain, Fatigue, Difficulty, Comments, TimeCreated
+        )
+        VALUES (:id, :user_id, :session_id, :pain, :fatigue, :difficulty, :comments, :now)
+        """,
+        {
+            "id": new_id,
+            "user_id": user_id,
+            "session_id": session_id,
+            "pain": data.get('pain'),
+            "fatigue": data.get('fatigue'),
+            "difficulty": data.get('difficulty'),
+            "comments": data.get('comments'),
+            "now": now
+        }
+    )
+    return new_id
+
+def get_feedback_by_patient(patient_id):
+    rows = fetch_all(
+        """
+        SELECT f.*, s.ExerciseType, s.TimeCreated as SessionDate
+        FROM patientfeedback f
+        JOIN session s ON f.SessionID = s.ID
+        WHERE f.UserID = :patient_id
+        ORDER BY f.TimeCreated DESC
+        """,
+        {"patient_id": patient_id}
+    )
+    
+    for row in rows:
+        if row.get('TimeCreated'): row['TimeCreated'] = str(row['TimeCreated'])
+        if row.get('SessionDate'): row['SessionDate'] = str(row['SessionDate'])
+            
+    return rows
