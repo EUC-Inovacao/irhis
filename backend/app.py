@@ -128,57 +128,32 @@ def login():
         }
     }), 200
 
-
 @app.route('/signup', methods=['POST'])
 def signup():
-    data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
-    role = data.get('role')
-    name = data.get('name')
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
 
-    if not all([email, password, role, name]):
-        return jsonify({"error": "Missing required fields"}), 400
-
-    # Check if email already exists
     if any(user['email'] == email for user in users.values()):
         return jsonify({"error": "Email already registered"}), 409
 
-    # Create new user
-    user_id = str(len(users) + 1)
-    hashed_password = generate_password_hash(password)
-    
-    users[user_id] = {
-        "id": user_id,
-        "email": email,
-        "password": hashed_password,
-        "role": role,
-        "name": name
-    }
+    required = ['email', 'password', 'first_name', 'last_name', 'role']
+    missing = [field for field in required if not data.get(field)]
 
-    if role == 'patient':
-        patients[user_id] = {
-            "id": user_id,
-            "name": name,
-            "recovery_process": [],
-            "details": default_patient_details
-        }
+    if missing:
+        return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
 
-    # Generate token
-    token = PyJWT.encode({
-        'user_id': user_id,
-        'exp': datetime.now(timezone.utc) + timedelta(days=1)
-    }, app.config['SECRET_KEY'])
-
-    return jsonify({
-        "token": token,
-        "user": {
-            "id": user_id,
-            "email": email,
-            "name": name,
-            "role": role
-        }
-    })
+    try:
+        user_id, role = create_user_signup(data)
+        return jsonify({
+            "message": f"{role} registered successfully",
+            "user_id": user_id
+        }), 201
+        
+    except Exception as e:
+        if "Duplicate entry" in str(e):
+            return jsonify({"error": "Email already registered"}), 409
+        return jsonify({"error": "Internal server error during registration"}), 500
 
 @app.route('/me', methods=['GET'])
 @token_required

@@ -66,6 +66,37 @@ def execute(sql: str, params: Optional[dict[str, Any]] = None) -> None:
     with _engine.begin() as connection:
         connection.execute(text(sql), params or {})
 
+def create_user_signup(data):
+    user_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+    role = data.get('role', 'Patient').capitalize()
+    
+    hashed_pw = generate_password_hash(data['password'])
+    
+    execute(
+        """
+        INSERT INTO users (ID, Email, Password, FirstName, LastName, Role, Active, Deleted, TimeCreated)
+        VALUES (:id, :email, :password, :fname, :lname, :role, 1, 0, :now)
+        """,
+        {
+            "id": user_id,
+            "email": data['email'],
+            "password": hashed_pw,
+            "fname": data['first_name'],
+            "lname": data['last_name'],
+            "role": role,
+            "now": now
+        }
+    )
+
+    if role == 'Patient':
+        execute(
+            "INSERT INTO patient (UserID) VALUES (:user_id)",
+            {"user_id": user_id}
+        )
+    
+    return user_id, role
+
 def create_manual_patient(user_data, patient_data, doctor_id):
     user_id = str(uuid.uuid4())
     temp_email = f"paciente_{user_id[:8]}@irhis_sistema.com"
