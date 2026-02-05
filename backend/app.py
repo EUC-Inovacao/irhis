@@ -1,15 +1,26 @@
 import os
 import base64
 import json
-from flask import Flask, jsonify, request
-from flask_cors import CORS
-from werkzeug.security import generate_password_hash, check_password_hash
 import jwt as PyJWT
-from datetime import datetime, timedelta, timezone
-from functools import wraps
 import zipfile
 import io
 import csv
+
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime, timedelta, timezone
+from functools import wraps
+from db import (
+    is_db_enabled,
+    list_doctor_patients,
+    list_unassigned_patients,
+    assign_patient_to_doctor,
+    get_doctor_patient_ids,
+    get_user_by_id,
+    get_user_for_login
+)
+
 
 app = Flask(__name__)
 CORS(app)
@@ -17,131 +28,45 @@ app.config['SECRET_KEY'] = 'your-secret-key'
 
 hashed_password_doctor = generate_password_hash('password')
 
-users = {
-    'doc1': {
-        "id": "doc1",
-        "email": "doctor@demo.com",
-        "password": hashed_password_doctor,
-        "role": "doctor",
-        "name": "Dr. Smith"
-    },
-    '1': { "id": "1", "email": "john.doe@demo.com", "password": generate_password_hash('password'), "role": "patient", "name": "John Doe" },
-    '2': { "id": "2", "email": "jane.smith@demo.com", "password": generate_password_hash('password'), "role": "patient", "name": "Jane Smith" },
-    '3': { "id": "3", "email": "robert.johnson@demo.com", "password": generate_password_hash('password'), "role": "patient", "name": "Robert Johnson" },
-    '4': { "id": "4", "email": "emily.williams@demo.com", "password": generate_password_hash('password'), "role": "patient", "name": "Emily Williams" },
-    '5': { "id": "5", "email": "michael.brown@demo.com", "password": generate_password_hash('password'), "role": "patient", "name": "Michael Brown" },
-    '6': { "id": "6", "email": "sarah.davis@demo.com", "password": generate_password_hash('password'), "role": "patient", "name": "Sarah Davis" },
-    '7': { "id": "7", "email": "david.wilson@demo.com", "password": generate_password_hash('password'), "role": "patient", "name": "David Wilson" }
-}
 
 default_patient_details = {
     "age": 0, "sex": "N/A", "height": 0, "weight": 0, "bmi": 0,
     "clinicalInfo": "No information provided."
 }
 
-patients = {
-    '1': { 
-        "id": '1', 
-        "name": 'John Doe', 
-        "recovery_process": [
-            { "id": "rp1", "name": "Knee Bends", "completed": True, "targetRepetitions": 12, "targetSets": 3, "instructions": "Go slow and steady." },
-            { "id": "rp2", "name": "Leg Raises", "completed": False, "targetRepetitions": 15, "targetSets": 3, "instructions": "Keep your leg straight." },
-        ],
-        "details": {
-            "age": 65, "sex": "Male", "height": 1.8, "weight": 85, "bmi": 26.2,
-            "clinicalInfo": "Post-op recovery from total knee replacement. Reports mild pain and swelling."
-        },
-        "feedback": [
-            {
-                "sessionId": "weekly_1703123456789",
-                "timestamp": "2023-12-21T10:30:00.000Z",
-                "pain": 3,
-                "fatigue": 4,
-                "difficulty": 5,
-                "comments": "Feeling much better this week. Pain has decreased significantly."
-            }
-        ]
-    },
-    '2': { 
-        "id": '2', 
-        "name": 'Jane Smith', 
-        "recovery_process": [
-            { "id": "rp3", "name": "Shoulder Pendulum", "completed": True, "targetRepetitions": 10, "targetSets": 4, "instructions": "Let your arm hang and swing gently." },
-        ],
-        "details": {
-            "age": 42, "sex": "Female", "height": 1.65, "weight": 60, "bmi": 22.0,
-            "clinicalInfo": "ACL reconstruction on the left knee. Currently non-weight bearing."
-        },
-        "feedback": [
-            {
-                "sessionId": "weekly_1703123456790",
-                "timestamp": "2023-12-20T14:15:00.000Z",
-                "pain": 6,
-                "fatigue": 7,
-                "difficulty": 8,
-                "comments": "Still experiencing some pain during exercises. Need to take more breaks."
-            }
-        ]
-    },
-    '3': { 
-        "id": '3', 
-        "name": 'Robert Johnson', 
-        "recovery_process": [],
-        "details": {
-            "age": 58, "sex": "Male", "height": 1.75, "weight": 95, "bmi": 31.0,
-            "clinicalInfo": "Chronic osteoarthritis in both knees. Focus on pain management and mobility."
-        }
-    },
-    '4': { "id": '4', "name": 'Emily Williams', "recovery_process": [], "details": default_patient_details },
-    '5': { "id": '5', "name": 'Michael Brown', "recovery_process": [], "details": default_patient_details },
-    '6': { 
-        "id": '6', 
-        "name": 'Sarah Davis', 
-        "recovery_process": [
-            { "id": "rp4", "name": "Hip Abduction", "completed": False, "targetRepetitions": 10, "targetSets": 3, "instructions": "Keep your back straight." },
-        ],
-        "details": {
-            "age": 35, "sex": "Female", "height": 1.68, "weight": 62, "bmi": 22.0,
-            "clinicalInfo": "Post-hip surgery recovery. Working on range of motion."
-        }
-    },
-    '7': { 
-        "id": '7', 
-        "name": 'David Wilson', 
-        "recovery_process": [
-            { "id": "rp5", "name": "Ankle Circles", "completed": True, "targetRepetitions": 20, "targetSets": 2, "instructions": "Move slowly in both directions." },
-            { "id": "rp6", "name": "Calf Raises", "completed": False, "targetRepetitions": 15, "targetSets": 3, "instructions": "Hold for 3 seconds at the top." },
-        ],
-        "details": {
-            "age": 45, "sex": "Male", "height": 1.82, "weight": 78, "bmi": 23.5,
-            "clinicalInfo": "Ankle sprain recovery. Focus on stability and strength."
-        }
-    }
-}
-
-doctors_patients = {
-    'doc1': ['1', '2', '3'] 
-}
 
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = None
+
         if 'Authorization' in request.headers:
-            token = request.headers['Authorization'].split(' ')[1]
+            parts = request.headers['Authorization'].split(' ')
+            if len(parts) == 2:
+                token = parts[1]
 
         if not token:
             return jsonify({'error': 'Token is missing'}), 401
-        
+
         try:
             data = PyJWT.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
-            current_user = users.get(data['user_id'])
-            if not current_user:
-                return jsonify({'error': 'Invalid token'}), 401
-        except Exception as e:
-            return jsonify({'error': 'Invalid token', 'details': str(e)}), 401
+            user_data = get_user_by_id(str(data['user_id']))
             
+            if not user_data:
+                return jsonify({'error': 'Invalid token'}), 401
+
+            current_user = {
+                'id': str(user_data.get('ID')),
+                'role': user_data.get('Role'),
+                'email': user_data.get('Email'),
+                'name': f"{user_data.get('FirstName','')} {user_data.get('LastName','')}".strip()
+            }
+
+        except Exception as e:
+            return jsonify({'error': 'Invalid token'}), 401
+
         return f(current_user, *args, **kwargs)
+
     return decorated
 
 @app.route("/")
@@ -151,6 +76,7 @@ def home():
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
+
     email = data.get('email')
     password = data.get('password')
     role = data.get('role')
@@ -158,31 +84,37 @@ def login():
     if not email or not password or not role:
         return jsonify({"error": "Missing email, password, or role"}), 400
 
-    # Find user by email
-    user = next((user for user in users.values() if user['email'] == email), None)
-    
-    if not user or not check_password_hash(user['password'], password):
+    if not is_db_enabled():
+        return jsonify({"error": "Database not configured"}), 500
+
+    user = get_user_for_login(email, role)
+
+    if not user:
         return jsonify({"error": "Invalid credentials"}), 401
 
-    # Verify role matches
-    if user['role'] != role:
-        return jsonify({"error": "Invalid role for this user"}), 401
+    if not check_password_hash(user["Password"], password):
+        return jsonify({"error": "Invalid credentials"}), 401
 
-    # Generate token
-    token = PyJWT.encode({
-        'user_id': user['id'],
-        'exp': datetime.now(timezone.utc) + timedelta(days=1)
-    }, app.config['SECRET_KEY'])
+    token = PyJWT.encode(
+        {
+            "user_id": str(user["ID"]),
+            "role": user["Role"],
+            "exp": datetime.now(timezone.utc) + timedelta(days=1),
+        },
+        app.config["SECRET_KEY"],
+        algorithm="HS256",
+    )
 
     return jsonify({
         "token": token,
         "user": {
-            "id": user['id'],
-            "email": user['email'],
-            "name": user['name'],
-            "role": user['role']
+            "id": str(user["ID"]),
+            "email": user["Email"],
+            "name": f"{user.get('FirstName','')} {user.get('LastName','')}".strip(),
+            "role": user["Role"],
         }
-    })
+    }), 200
+
 
 @app.route('/signup', methods=['POST'])
 def signup():
@@ -218,8 +150,6 @@ def signup():
             "recovery_process": [],
             "details": default_patient_details
         }
-    elif role == 'doctor':
-        doctors_patients[user_id] = []
 
     # Generate token
     token = PyJWT.encode({
@@ -257,48 +187,113 @@ def get_patient(current_user, patient_id):
 @app.route('/doctors/<doctor_id>/patients', methods=['GET'])
 @token_required
 def get_doctor_patients(current_user, doctor_id):
-    if current_user['role'] != 'doctor' or current_user['id'] != doctor_id:
+    if current_user['role'].lower() != 'doctor' or current_user['id'].lower() != doctor_id:
         return jsonify({"error": "Unauthorized"}), 403
 
-    return jsonify(list(patients.values()))
+    if not is_db_enabled():
+        return jsonify({"error": "Database not configured"}), 500
+
+    rows = list_doctor_patients(doctor_id)
+    return jsonify([
+        {
+            "id": r["id"],
+            "name": r.get("name") or "",
+            "recovery_process": [],
+            "details": default_patient_details,
+        }
+        for r in rows
+    ])
+
+
+@app.route('/doctors/me/patients', methods=['GET'])
+@token_required
+def get_doctors_me_patients(current_user):
+    if current_user['role'].lower() != 'doctor':
+        return jsonify({"error": "Unauthorized"}), 403
+
+    if not is_db_enabled():
+        return jsonify({"error": "Database not configured"}), 500
+
+    doctor_id = current_user['id']
+    search = request.args.get('search', '').lower()
+    sort = request.args.get('sort', 'name')
+
+    rows = list_doctor_patients(doctor_id)
+
+    items = []
+    for r in rows:
+        name = (r.get("name") or "").strip()
+
+        if search and search not in name.lower():
+            continue
+
+        items.append({
+            "type": "patient",
+            "id": str(r["id"]),
+            "name": name,
+            "email": r.get("email") or "",
+            "nif": "",
+            "status": "Confirmed",
+
+            "lastSessionAt": None,
+            "lastFeedbackAt": None,
+            "sessionCount": 0,
+            "lastAvgROM": None,
+            "lastAvgVelocity": None,
+        })
+
+    if sort == "name":
+        items.sort(key=lambda x: x.get("name", ""))
+
+    return jsonify({
+        "items": items,
+        "confirmed": items,
+        "pending": [],
+    })
+
 
 @app.route('/patients/unassigned', methods=['GET'])
 @token_required
 def get_unassigned_patients(current_user):
-    if current_user['role'] != 'doctor':
+    if current_user['role'].lower() != 'doctor':
         return jsonify({"error": "Unauthorized"}), 403
-    
-    assigned_patient_ids = {patient_id for patient_list in doctors_patients.values() for patient_id in patient_list}
-    
-    unassigned_patients = [
-        patient for patient_id, patient in patients.items() 
-        if patient_id not in assigned_patient_ids
-    ]
-    
-    return jsonify(unassigned_patients)
+
+    if not is_db_enabled():
+        return jsonify({"error": "Database not configured"}), 500
+
+    rows = list_unassigned_patients()
+    return jsonify([
+        {
+            "id": str(r["id"]),
+            "name": r.get("name") or "",
+            "recovery_process": [],
+            "details": default_patient_details,
+        }
+        for r in rows
+    ])
+
+
+
+
 
 @app.route('/patients/<patient_id>/assign-doctor', methods=['POST'])
 @token_required
 def assign_doctor(current_user, patient_id):
-    if current_user['role'] != 'doctor':
+    if current_user['role'].lower() != 'doctor':
         return jsonify({"error": "Only doctors can assign patients"}), 403
 
-    if patient_id not in patients:
-        return jsonify({"error": "Patient not found"}), 404
-
     doctor_id = current_user['id']
-    if doctor_id not in doctors_patients:
-        doctors_patients[doctor_id] = []
-    
-    if patient_id not in doctors_patients[doctor_id]:
-        doctors_patients[doctor_id].append(patient_id)
 
+    if not is_db_enabled():
+        return jsonify({"error": "Database not configured"}), 500
+
+    assign_patient_to_doctor(patient_id, doctor_id)
     return jsonify({"message": "Patient assigned successfully"})
 
 @app.route('/patients/<patient_id>/recovery-process', methods=['PUT'])
 @token_required
 def update_recovery_process(current_user, patient_id):
-    if current_user['role'] != 'doctor':
+    if current_user['role'].lower() != 'doctor':
         return jsonify({"error": "Only doctors can update exercises"}), 403
 
     if patient_id not in patients:
@@ -315,7 +310,7 @@ def update_recovery_process(current_user, patient_id):
 @app.route('/patients/<patient_id>/details', methods=['PUT'])
 @token_required
 def update_patient_details(current_user, patient_id):
-    if current_user['role'] != 'doctor':
+    if current_user['role'].lower() != 'doctor':
         return jsonify({"error": "Only doctors can update patient details"}), 403
 
     if patient_id not in patients:
@@ -368,6 +363,174 @@ def update_patient_feedback(current_user, patient_id):
 
     print(f"Updated patient {patient_id} with feedback")
     return jsonify(patients[patient_id])
+
+@app.route('/doctors/me/metrics-summary', methods=['GET'])
+@token_required
+def get_doctors_me_metrics_summary(current_user):
+    if current_user['role'].lower() != 'doctor':
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    doctor_id = current_user['id']
+
+    if not is_db_enabled():
+        return jsonify({"error": "Database not configured"}), 500
+    
+    patient_ids = get_doctor_patient_ids(doctor_id)
+    
+    metrics_summary = []
+    for patient_id in patient_ids:
+        if patient_id not in patients:
+            continue
+        
+        patient = patients[patient_id]
+        movement_analyses = patient.get('movement_analyses', [])
+        
+        for analysis in movement_analyses:
+            result = analysis.get('result', {})
+            if isinstance(result, dict):
+                # Extract metrics
+                joint = result.get('joint', 'Unknown')
+                side = result.get('side', '')
+                avg_rom = result.get('avgROM') or result.get('rom')
+                avg_velocity = result.get('avgVelocity') or result.get('velocity')
+                
+                metrics_summary.append({
+                    "patientId": patient_id,
+                    "patientName": patient.get('name', ''),
+                    "joint": joint,
+                    "side": side,
+                    "avgROM": avg_rom,
+                    "avgVelocity": avg_velocity,
+                    "date": analysis.get('timestamp', ''),
+                    "exerciseType": analysis.get('exercise_type', 'general')
+                })
+    
+    # Sort by date (most recent first) and return top 5
+    metrics_summary.sort(key=lambda x: x.get('date', ''), reverse=True)
+    return jsonify(metrics_summary[:5])
+
+@app.route('/doctors/me/recent-activity', methods=['GET'])
+@token_required
+def get_doctors_me_recent_activity(current_user):
+    if current_user['role'].lower() != 'doctor':
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    doctor_id = current_user['id']
+
+    if not is_db_enabled():
+        return jsonify({"error": "Database not configured"}), 500
+
+    patient_ids = get_doctor_patient_ids(doctor_id)
+    
+    # Calculate date 7 days ago
+    seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    
+    recent_activity = []
+    for patient_id in patient_ids:
+        if patient_id not in patients:
+            continue
+        
+        patient = patients[patient_id]
+        patient_name = patient.get('name', '')
+        
+        # Get feedback from last 7 days
+        feedback_list = patient.get('feedback', [])
+        for feedback in feedback_list:
+            timestamp_str = feedback.get('timestamp')
+            if not timestamp_str:
+                continue
+            
+            try:
+                feedback_date = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                if feedback_date >= seven_days_ago:
+                    recent_activity.append({
+                        "type": "feedback",
+                        "patientId": patient_id,
+                        "patientName": patient_name,
+                        "label": f"Pain: {feedback.get('pain', 'N/A')}/10, Fatigue: {feedback.get('fatigue', 'N/A')}/10",
+                        "date": timestamp_str,
+                        "sessionId": feedback.get('sessionId')
+                    })
+            except:
+                pass
+        
+        # Get sessions from movement_analyses (last 7 days)
+        movement_analyses = patient.get('movement_analyses', [])
+        for analysis in movement_analyses:
+            timestamp_str = analysis.get('timestamp')
+            if not timestamp_str:
+                continue
+            
+            try:
+                analysis_date = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                if analysis_date >= seven_days_ago:
+                    exercise_type = analysis.get('exercise_type', 'general')
+                    recent_activity.append({
+                        "type": "session",
+                        "patientId": patient_id,
+                        "patientName": patient_name,
+                        "label": f"Exercise: {exercise_type}",
+                        "date": timestamp_str,
+                        "sessionId": analysis.get('id')
+                    })
+            except:
+                pass
+    
+    # Sort by date (most recent first) and return top 5
+    recent_activity.sort(key=lambda x: x.get('date', ''), reverse=True)
+    return jsonify(recent_activity[:5])
+
+@app.route('/doctors/me/trends', methods=['GET'])
+@token_required
+def get_doctors_me_trends(current_user):
+    if current_user['role'].lower() != 'doctor':
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    doctor_id = current_user['id']
+    if not is_db_enabled():
+        return jsonify({"error": "Database not configured"}), 500
+
+    patient_ids = get_doctor_patient_ids(doctor_id)
+    
+    # Calculate date 30 days ago
+    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+    
+    pain_scores = []
+    fatigue_scores = []
+    difficulty_scores = []
+    
+    for patient_id in patient_ids:
+        if patient_id not in patients:
+            continue
+        
+        feedback_list = patients[patient_id].get('feedback', [])
+        for feedback in feedback_list:
+            timestamp_str = feedback.get('timestamp')
+            if not timestamp_str:
+                continue
+            
+            try:
+                feedback_date = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                if feedback_date >= thirty_days_ago:
+                    if 'pain' in feedback:
+                        pain_scores.append(feedback['pain'])
+                    if 'fatigue' in feedback:
+                        fatigue_scores.append(feedback['fatigue'])
+                    if 'difficulty' in feedback:
+                        difficulty_scores.append(feedback['difficulty'])
+            except:
+                pass
+    
+    # Calculate averages
+    avg_pain = sum(pain_scores) / len(pain_scores) if pain_scores else 0
+    avg_fatigue = sum(fatigue_scores) / len(fatigue_scores) if fatigue_scores else 0
+    avg_difficulty = sum(difficulty_scores) / len(difficulty_scores) if difficulty_scores else 0
+    
+    return jsonify({
+        "avgPain": round(avg_pain, 2),
+        "avgFatigue": round(avg_fatigue, 2),
+        "avgDifficulty": round(avg_difficulty, 2)
+    })
 
 # Movement Analysis API Integration
 MOVEMENT_API_BASE_URL = "https://eucp-movement-analysis-api-dev.azurewebsites.net"

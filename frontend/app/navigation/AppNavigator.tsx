@@ -16,9 +16,14 @@ import PatientHomeScreen from '@screens/PatientHomeScreen';
 import DoctorHomeScreen from '@screens/DoctorHomeScreen';
 import PatientDetailScreen from '@screens/PatientDetailScreen';
 import ExerciseDetailScreen from '@screens/ExerciseDetailScreen';
+import ExerciseHistoryScreen from '@screens/ExerciseHistoryScreen';
+import ExerciseHistoryDetailScreen from '@screens/ExerciseHistoryDetailScreen';
 import ProfileScreen from '@screens/ProfileScreen';
 import MovellaScreen from '@screens/MovellaScreen';
 import CreatePatientScreen from '@screens/CreatePatientScreen';
+import InvitePatientScreen from '@screens/InvitePatientScreen';
+import ManageInvitesScreen from '@screens/ManageInvitesScreen';
+import PatientListScreen from '@screens/PatientListScreen';
 import BleConnectionScreen from '@screens/BleConnectionScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import TwoFactorSetupScreen from '../screens/TwoFactorSetupScreen';
@@ -27,6 +32,15 @@ import HelpCenterScreen from '../screens/HelpCenterScreen';
 import AboutScreen from '../screens/AboutScreen';
 import type { RootStackParamList } from '../types';
 
+import TokenEntryScreen from '../screens/onboarding/TokenEntryScreen';
+import TokenInvalidScreen from '../screens/onboarding/TokenInvalidScreen';
+import PrivacyTermsScreen from '../screens/onboarding/PrivacyTermsScreen';
+import LegalBasisScreen from '../screens/onboarding/LegalBasisScreen';
+import CreatePasswordOnboardingScreen from '../screens/onboarding/CreatePasswordOnboardingScreen';
+import OnboardingTwoFactorScreen from '../screens/onboarding/OnboardingTwoFactorScreen';
+import OnboardingTwoFactorVerifyScreen from '../screens/onboarding/OnboardingTwoFactorVerifyScreen';
+import CreatePasswordDoctorScreen from '../screens/onboarding/CreatePasswordDoctorScreen';
+import RegistrationCompleteScreen from '../screens/onboarding/RegistrationCompleteScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator();
@@ -94,6 +108,15 @@ const PatientTabNavigator = () => {
         options={{
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="fitness-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="History"
+        component={ExerciseHistoryScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="time-outline" size={size} color={color} />
           ),
         }}
       />
@@ -217,10 +240,42 @@ const AppNavigator = () => {
               }}
             />
             <Stack.Screen
+              name="ExerciseHistoryDetail"
+              component={ExerciseHistoryDetailScreen}
+              options={{
+                headerTitle: 'Session Detail',
+                headerBackTitle: 'Back',
+              }}
+            />
+            <Stack.Screen
               name="CreatePatient"
               component={CreatePatientScreen}
               options={{
                 headerTitle: 'Add New Patient',
+                headerBackTitle: 'Back',
+              }}
+            />
+            <Stack.Screen
+              name="InvitePatient"
+              component={InvitePatientScreen}
+              options={{
+                headerTitle: 'Invite Patient',
+                headerBackTitle: 'Back',
+              }}
+            />
+            <Stack.Screen
+              name="ManageInvites"
+              component={ManageInvitesScreen}
+              options={{
+                headerTitle: 'Manage Invites',
+                headerBackTitle: 'Back',
+              }}
+            />
+            <Stack.Screen
+              name="PatientList"
+              component={PatientListScreen}
+              options={{
+                headerTitle: 'Patient List',
                 headerBackTitle: 'Back',
               }}
             />
@@ -279,7 +334,52 @@ const AppNavigator = () => {
               component={SignupScreen}
               options={{ headerShown: false }}
             />
-            
+            {/* NOVAS ROTAS ONBOARDING */}
+            <Stack.Screen
+              name="TokenEntry"
+              component={TokenEntryScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="TokenInvalid"
+              component={TokenInvalidScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="OnboardingPrivacy"
+              component={PrivacyTermsScreen}
+              options={{ headerShown: false }}
+              />
+            <Stack.Screen
+              name="OnboardingLegal"
+              component={LegalBasisScreen}
+              options={{ headerShown: false }}
+              />
+            <Stack.Screen
+              name="OnboardingPassword"
+              component={CreatePasswordOnboardingScreen}
+              options={{ headerShown: false }}
+              />
+            <Stack.Screen
+              name="OnboardingTwoFactor"
+              component={OnboardingTwoFactorScreen}
+              options={{ headerShown: false }}
+              />
+            <Stack.Screen
+              name="OnboardingTwoFactorVerify"
+              component={OnboardingTwoFactorVerifyScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="CreatePasswordDoctor"
+              component={CreatePasswordDoctorScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="RegistrationComplete"
+              component={RegistrationCompleteScreen}
+              options={{ headerShown: false }}
+            />
           </>
         )}
       </Stack.Navigator>

@@ -44,7 +44,9 @@ const PatientHomeScreen = ({ navigation }: any) => {
         );
     }
 
-    const completedExercises = exercises.filter(ex => ex.completed === 1).length;
+    const assignedList = exercises.filter((ex: any) => ex.completed !== 1);
+    const completedList = exercises.filter((ex: any) => ex.completed === 1);
+    const completedExercises = completedList.length;
     const totalExercises = exercises.length;
 
     const activityData = {
@@ -177,15 +179,38 @@ const PatientHomeScreen = ({ navigation }: any) => {
                 <WeeklyFeedbackCard onSubmit={handleWeeklyFeedbackSubmit} />
 
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Your Exercises</Text>
-                {exercises.length > 0 ? (
-                    <FlatList
-                        data={exercises}
-                        renderItem={renderExerciseItem}
-                        keyExtractor={item => item.id}
-                        contentContainerStyle={styles.exerciseList}
-                        scrollEnabled={false}
-                    />
-                ) : (
+                {assignedList.length > 0 ? (
+                    <>
+                        <Text style={[styles.subsectionTitle, { color: colors.textSecondary }]}>Assigned</Text>
+                        <FlatList
+                            data={assignedList}
+                            renderItem={renderExerciseItem}
+                            keyExtractor={(item: any) => item.id}
+                            contentContainerStyle={styles.exerciseList}
+                            scrollEnabled={false}
+                        />
+                    </>
+                ) : null}
+                {completedList.length > 0 ? (
+                    <>
+                        <Text style={[styles.subsectionTitle, { color: colors.textSecondary }]}>Completed</Text>
+                        <FlatList
+                            data={completedList}
+                            renderItem={renderExerciseItem}
+                            keyExtractor={(item: any) => item.id}
+                            contentContainerStyle={styles.exerciseList}
+                            scrollEnabled={false}
+                        />
+                        <TouchableOpacity
+                            style={[styles.historyLink, { borderColor: colors.primary }]}
+                            onPress={() => navigation.navigate('History')}
+                        >
+                            <Ionicons name="time-outline" size={20} color={colors.primary} />
+                            <Text style={[styles.historyLinkText, { color: colors.primary }]}>View full history</Text>
+                        </TouchableOpacity>
+                    </>
+                ) : null}
+                {assignedList.length === 0 && completedList.length === 0 ? (
                     <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
                         <Ionicons name="fitness-outline" size={48} color={colors.textSecondary} />
                         <Text style={[styles.emptyTitle, { color: colors.text }]}>
@@ -195,7 +220,7 @@ const PatientHomeScreen = ({ navigation }: any) => {
                             Your doctor will assign exercises for you to complete.
                         </Text>
                     </View>
-                )}
+                ) : null}
             </ScrollView>
         </SafeAreaView>
     );
@@ -294,8 +319,28 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         marginBottom: 16,
     },
+    subsectionTitle: {
+        fontSize: 14,
+        fontWeight: '500',
+        marginBottom: 8,
+        marginTop: 8,
+    },
     exerciseList: {
         gap: 12,
+    },
+    historyLink: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 12,
+        marginTop: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+    },
+    historyLinkText: {
+        fontSize: 14,
+        fontWeight: '600',
     },
     exerciseCard: {
         borderRadius: 12,
