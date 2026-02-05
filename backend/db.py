@@ -131,6 +131,19 @@ def list_unassigned_patients() -> list[dict[str, Any]]:
         for row in rows
     ]
 
+def get_patient_doctor_relation(patient_id: str, doctor_id: str):
+    return fetch_one(
+        """
+        SELECT ID 
+        FROM patientdoctor 
+        WHERE PatientID = :patient_id 
+          AND DoctorID = :doctor_id 
+          AND Active = 1
+        LIMIT 1
+        """,
+        {"patient_id": patient_id, "doctor_id": doctor_id}
+    )
+
 def assign_patient_to_doctor(patient_id: str, doctor_id: str) -> None:
     now = datetime.now(timezone.utc)
     new_entry_id = str(uuid.uuid4())
@@ -197,3 +210,90 @@ def get_user_by_id(user_id: str) -> Optional[dict[str, Any]]:
         {"id": user_id},
     )
 
+def get_patient_sessions(patient_id: str):
+    rows = fetch_all(
+        """
+        SELECT S.*, pd.PatientID
+        FROM session s
+        INNER JOIN patientdoctor pd ON pd.ID = s.RelationID
+        WHERE pd.PatientID = :patientID 
+          AND s.Active = 1;
+        """,
+        {"patientID": patient_id}
+    )
+    
+    for row in rows:
+        if row.get('Duration'):
+            row['Duration'] = str(row['Duration'])
+            
+    return rows
+
+def get_session_by_id(session_id: str):
+    session = fetch_one(
+        """
+        SELECT s.*, pd.PatientID 
+        FROM session s
+        JOIN patientdoctor pd ON s.RelationID = pd.ID
+        WHERE s.ID = :session_id and s.Active = 1
+        """,
+        {"session_id": session_id}
+    )
+
+    if session:
+        if session.get('Duration'):
+            session['Duration'] = str(session['Duration'])
+            
+    return session
+
+def assign_session_to_patient(relation_id: str, exercise_type, exercise_description, repetitions, duration):
+    now = datetime.now(timezone.utc)
+    new_entry_id = str(uuid.uuid4())
+
+    execute(
+        """
+        INSERT INTO session (ID, RelationID, ExerciseType, ExerciseDescription, Repetitions, Duration, TimeCreated, Active)
+        VALUES (:id, :relation_id, :exercise_type, :exercise_description, :repetitions, :duration, :now, 1)
+        """,
+        {
+            "id": new_entry_id, 
+            "relation_id": relation_id, 
+            "exercise_type": exercise_type,
+            "exercise_description": exercise_description,
+            "repetitions": repetitions,
+            "duration": duration, 
+            "now": now
+        },
+    )
+
+def update_session_details(session_id, exercise_type, exercise_description, repetitions, duration):
+    execute(
+        """
+        UPDATE session
+        SET ExerciseType = :exercise_type, 
+            ExerciseDescription = :exercise_description, 
+            Repetitions = :repetitions, 
+            Duration = :duration
+        WHERE ID = :session_id AND Active = 1
+        """,
+        {
+            "session_id": session_id,
+            "exercise_type": exercise_type,
+            "exercise_description": exercise_description,
+            "repetitions": repetitions,
+            "duration": duration
+        }
+    )
+
+def delete_patient_session(session_id):
+    execute(
+        """
+        UPDATE session 
+        SET Active = 0, 
+            TimeDeleted = :now 
+        WHERE ID = :session_id
+        """,
+        {
+            "session_id": session_id,
+            "now": datetime.now(timezone.utc)
+        }
+    )
