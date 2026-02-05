@@ -25,7 +25,10 @@ from db import (
     get_session_by_id,
     update_session_details,
     delete_patient_session,
-    create_manual_patient
+    create_manual_patient,
+    insert_session_metrics,
+    get_metrics_by_session,
+    get_metrics_by_patient
 )
 
 
@@ -823,6 +826,50 @@ def delete_session(current_user, session_id):
     try:
         delete_patient_session(session_id)
         return jsonify({"message": "Session deleted successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/sessions/<session_id>/metrics', methods=['POST'])
+@token_required
+def post_session_metrics(current_user, session_id):
+
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    try:
+        metric_id = insert_session_metrics(session_id, data)
+        return jsonify({"message": "Metrics persisted", "id": metric_id}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/patients/<patient_id>/metrics', methods=['GET'])
+@token_required
+def get_patient_metrics(current_user, patient_id):
+
+    limit = request.args.get('limit', default=50, type=int)
+    
+    try:
+        metrics = get_metrics_by_patient(patient_id, limit)
+        return jsonify(metrics), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/sessions/<session_id>/metrics', methods=['GET'])
+@token_required
+def get_specific_session_metrics(current_user, session_id):
+
+    session = get_session_by_id(session_id)
+    if not session:
+        return jsonify({"error": "Session not found"}), 404
+
+    try:
+        metrics = get_metrics_by_session(session_id)
+        
+        if not metrics:
+            return jsonify({"message": "No metrics found for this session"}), 404
+            
+        return jsonify(metrics), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
