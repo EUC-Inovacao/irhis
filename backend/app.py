@@ -18,7 +18,13 @@ from db import (
     assign_patient_to_doctor,
     get_doctor_patient_ids,
     get_user_by_id,
-    get_user_for_login
+    get_user_for_login,
+    get_patient_sessions,
+    assign_session_to_patient,
+    get_patient_doctor_relation,
+    get_session_by_id,
+    update_session_details,
+    delete_patient_session
 )
 
 
@@ -667,7 +673,125 @@ def test_movement_integration(current_user):
             "error": str(e)
         }), 500
 
+@app.route('/patients/<patient_id>/sessions', methods=['POST'])
+@token_required
+def assign_patients_sessions(current_user, patient_id):
+    if current_user['role'].lower() != 'doctor':
+        return jsonify({"error": "Only doctors can assign exercises"}), 403
+
+    doctor_id = current_user['id']
+
+    relation = get_patient_doctor_relation(patient_id, doctor_id)
+    
+    if not relation:
+        return jsonify({"error": "Patient not associated with this doctor"}), 403
+    
+    relation_id = relation['ID']
+
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    try:
+        assign_session_to_patient(
+            relation_id=relation_id,
+            exercise_type=data.get('exercise_type'),
+            exercise_description=data.get('exercise_description'),
+            repetitions=data.get('repetitions'),
+            duration=data.get('duration')
+        )
+        return jsonify({"message": "Session assigned successfully"}), 201
+    except Exception as e:
+        return jsonify({"error": f"Failed to assign session: {str(e)}"}), 500
+
+@app.route('/patients/<patient_id>/sessions', methods=['GET'])
+@token_required
+def get_patients_sessions(current_user, patient_id):
+    try:
+        sessions = get_patient_sessions(patient_id)
+        
+        if sessions is None:
+            return jsonify({"message": "Nenhuma sessão encontrada"}), 404
+            
+        return jsonify(sessions), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@app.route('/sessions/<session_id>', methods=['GET'])
+@token_required
+def get_session(current_user, session_id):
+    session = get_session_by_id(session_id)
+
+    if not session:
+        return jsonify({"error": "Session not found"}), 404
+    
+    if current_user['role'].lower() == 'doctor':
+        doctor_id = current_user['id']
+        patient_id = session['PatientID'] 
+
+        relation = get_patient_doctor_relation(patient_id, doctor_id)
+    
+        if not relation:
+            return jsonify({"error": "Patient not associated with this doctor"}), 403
+    
+    return jsonify(session), 200
+
+@app.route('/sessions/<session_id>', methods=['PUT'])
+@token_required
+def update_session(current_user, session_id):
+
+    if current_user['role'].lower() != 'doctor':
+        return jsonify({"error": "Unauthorized"}), 403
+
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    session = get_session_by_id(session_id)
+
+    if not session:
+        return jsonify({"error": "Session not found"}), 404
+    
+    if current_user['role'].lower() == 'doctor':
+        doctor_id = current_user['id']
+        patient_id = session['PatientID'] 
+
+        relation = get_patient_doctor_relation(patient_id, doctor_id)
+    
+        if not relation:
+            return jsonify({"error": "Patient not associated with this doctor"}), 403
+
+    try:
+        update_session_details(
+            session_id=session_id,
+            exercise_type=data.get('exercise_type'),
+            exercise_description=data.get('exercise_description'),
+            repetitions=data.get('repetitions'),
+            duration=data.get('duration')
+        )
+        return jsonify({"message": "Session updated successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/sessions/<session_id>', methods=['DELETE'])
+@token_required
+def delete_session(current_user, session_id):
+    if current_user['role'].lower() != 'doctor':
+        return jsonify({"error": "Unauthorized"}), 403
+
+    session = get_session_by_id(session_id)
+    if not session:
+        return jsonify({"error": "Session not found"}), 404
+
+    try:
+        delete_patient_session(session_id)
+        return jsonify({"message": "Session deleted successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     debug = os.environ.get('FLASK_ENV') == 'development'
     app.run(host='0.0.0.0', port=port, debug=debug) 
+
