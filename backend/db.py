@@ -66,6 +66,60 @@ def execute(sql: str, params: Optional[dict[str, Any]] = None) -> None:
     with _engine.begin() as connection:
         connection.execute(text(sql), params or {})
 
+def create_manual_patient(user_data, patient_data, doctor_id):
+    user_id = str(uuid.uuid4())
+    temp_email = f"paciente_{user_id[:8]}@irhis_sistema.com"
+    
+    execute(
+        """
+        INSERT INTO users (ID, Email, Password, FirstName, LastName, Role, Active, Deleted)
+        VALUES (:id, :email, :password, :fname, :lname, 'Patient', 1, 0)
+        """,
+        {
+            "id": user_id,
+            "email": temp_email,
+            "password": "Mudar123!", 
+            "fname": user_data.get('first_name'),
+            "lname": user_data.get('last_name', '')
+        }
+    )
+
+    execute(
+        """
+        INSERT INTO patient (
+            UserID, BirthDate, Sex, Weight, Height, BMI, Occupation, Education,
+            AffectedRightKnee, AffectedLeftKnee, AffectedRightHip, AffectedLeftHip,
+            MedicalHistory, TimeAfterSymptoms, LegDominance, PhysicallyActive
+        )
+        VALUES (
+            :user_id, :birth_date, :sex, :weight, :height, :bmi, :occupation, :education,
+            :ark, :alk, :arh, :alh, :med_hist, :tas, :leg_dom, :active
+        )
+        """,
+        {
+            "user_id": user_id,
+            "birth_date": patient_data.get('birth_date'),
+            "sex": patient_data.get('sex'),
+            "weight": patient_data.get('weight'),
+            "height": patient_data.get('height'),
+            "bmi": patient_data.get('bmi'),
+            "occupation": patient_data.get('occupation'),
+            "education": patient_data.get('education'),
+            "ark": patient_data.get('affected_right_knee'),
+            "alk": patient_data.get('affected_left_knee'),
+            "arh": patient_data.get('affected_right_hip'),
+            "alh": patient_data.get('affected_left_hip'),
+            "med_hist": patient_data.get('medical_history'),
+            "tas": patient_data.get('time_after_symptoms'),
+            "leg_dom": patient_data.get('leg_dominance'),
+            "active": patient_data.get('physically_active', 0)
+        }
+    )
+
+    assign_patient_to_doctor(patient_id=user_id, doctor_id=doctor_id)
+
+    return user_id, temp_email
+
 def get_doctor_patient_ids(doctor_id: str) -> list[str]:
     rows = fetch_all(
         """

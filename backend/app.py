@@ -24,7 +24,8 @@ from db import (
     get_patient_doctor_relation,
     get_session_by_id,
     update_session_details,
-    delete_patient_session
+    delete_patient_session,
+    create_manual_patient
 )
 
 
@@ -672,6 +673,41 @@ def test_movement_integration(current_user):
             "message": "Integration test failed",
             "error": str(e)
         }), 500
+
+@app.route('/patients/manual-registry', methods=['POST'])
+@token_required
+def register_patient_manual(current_user):
+    if current_user['role'].lower() != 'doctor':
+        return jsonify({"error": "Acesso negado"}), 403
+
+    data = request.json
+    doctor_id = current_user['id'] 
+
+    required_fields = [
+        'first_name', 'birth_date', 'sex', 'weight', 'height', 'bmi',
+        'affected_right_knee', 'affected_left_knee', 
+        'affected_right_hip', 'affected_left_hip', 'leg_dominance'
+    ]
+    
+    missing = [field for field in required_fields if data.get(field) is None]
+    if missing:
+        return jsonify({"error": f"Campos obrigatórios ausentes: {', '.join(missing)}"}), 400
+
+    try:
+        user_info = {
+            'first_name': data.get('first_name'), 
+            'last_name': data.get('last_name', '')
+        }
+        
+        user_id, email = create_manual_patient(user_info, data, doctor_id)
+        
+        return jsonify({
+            "message": "Paciente registrado e vinculado com sucesso",
+            "patient_id": user_id,
+            "generated_email": email
+        }), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/patients/<patient_id>/sessions', methods=['POST'])
 @token_required
