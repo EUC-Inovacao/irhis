@@ -351,3 +351,75 @@ def delete_patient_session(session_id):
             "now": datetime.now(timezone.utc)
         }
     )
+
+def insert_session_metrics(session_id, data):
+    new_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+    
+    execute(
+        """
+        INSERT INTO metrics (
+            ID, SessionID, Joint, Side, Repetitions, -- Ajustado de Repetition para Repetitions
+            MinVelocity, MaxVelocity, AvgVelocity, P95Velocity, 
+            MinROM, MaxROM, AvgROM, CenterMassDisplacement, TimeCreated
+        )
+        VALUES (
+            :id, :session_id, :joint, :side, :repetition, 
+            :min_v, :max_v, :avg_v, :p95_v, 
+            :min_rom, :max_rom, :avg_rom, :cmd, :now
+        )
+        """,
+        {
+            "id": new_id, 
+            "session_id": session_id,
+            "joint": data.get('joint'), 
+            "side": data.get('side'),
+            "repetition": data.get('repetition'), 
+            "min_v": data.get('min_velocity'), 
+            "max_v": data.get('max_velocity'),
+            "avg_v": data.get('avg_velocity'), 
+            "p95_v": data.get('p95_velocity'),
+            "min_rom": data.get('min_rom'), 
+            "max_rom": data.get('max_rom'),
+            "avg_rom": data.get('avg_rom'), 
+            "cmd": data.get('center_mass_displacement'),
+            "now": now
+        }
+    )
+    return new_id
+
+def get_metrics_by_patient(patient_id, limit=10):
+    rows = fetch_all(
+        """
+        SELECT m.*, s.ExerciseType
+        FROM metrics m
+        JOIN session s ON m.SessionID = s.ID
+        JOIN patientdoctor pd ON s.RelationID = pd.ID
+        WHERE pd.PatientID = :patient_id
+        ORDER BY s.TimeCreated DESC, m.Repetitions ASC -- Ajustado para o plural aqui também
+        LIMIT :limit
+        """,
+        {"patient_id": patient_id, "limit": limit}
+    )
+    
+    for row in rows:
+        if row.get('TimeCreated'): row['TimeCreated'] = str(row['TimeCreated'])
+        if row.get('SessionDate'): row['SessionDate'] = str(row['SessionDate'])
+            
+    return rows
+
+def get_metrics_by_session(session_id: str):
+    rows = fetch_all(
+        """
+        SELECT * FROM metrics 
+        WHERE SessionID = :session_id
+        ORDER BY Repetitions ASC -- Ajustado para o plural
+        """,
+        {"session_id": session_id}
+    )
+    
+    for row in rows:
+        if row.get('TimeCreated'):
+            row['TimeCreated'] = str(row['TimeCreated'])
+            
+    return rows
