@@ -1,6 +1,7 @@
 import os
 import ssl
 import uuid
+from pathlib import Path
 from typing import Any, Optional
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
@@ -9,9 +10,11 @@ from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
 
-load_dotenv()
+env_path = Path(__file__).parent / '.env'
+load_dotenv(dotenv_path=env_path)
 
 _raw_database_url = (os.getenv("DATABASE_URL") or "").strip()
+print(f"--- DEBUG: URL carregada: {_raw_database_url[:20]}...")
 
 def _sanitize_database_url(url: str) -> str:
     if not url:
