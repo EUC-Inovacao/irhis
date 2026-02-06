@@ -4,7 +4,24 @@ export interface PatientRecord {
   id: string;
   name: string;
   email?: string;
-  dateOfBirth?: string;
+  birthDate: string; // Required - DATE NOT NULL
+  sex: 'male' | 'female'; // Required - ENUM NOT NULL
+  weight?: number; // DECIMAL(10,2)
+  height?: number; // DECIMAL(10,2)
+  bmi?: number; // DECIMAL(10,2)
+  occupation?: 'white' | 'blue'; // ENUM
+  education?: number; // INT
+  affectedRightKnee: boolean; // Required - BOOLEAN NOT NULL DEFAULT FALSE
+  affectedLeftKnee: boolean; // Required - BOOLEAN NOT NULL DEFAULT FALSE
+  affectedRightHip: boolean; // Required - BOOLEAN NOT NULL DEFAULT FALSE
+  affectedLeftHip: boolean; // Required - BOOLEAN NOT NULL DEFAULT FALSE
+  medicalHistory?: string; // TEXT
+  timeAfterSymptoms?: number; // INT
+  legDominance: 'dominant' | 'non-dominant'; // Required - ENUM NOT NULL
+  contralateralJointAffect: boolean; // Required - BOOLEAN NOT NULL DEFAULT FALSE
+  physicallyActive: boolean; // Required - BOOLEAN NOT NULL DEFAULT FALSE
+  coMorbiditiesNMS: boolean; // Required - BOOLEAN NOT NULL DEFAULT FALSE
+  coMorbiditiesSystemic: boolean; // Required - BOOLEAN NOT NULL DEFAULT FALSE
   createdAt: string;
   doctorId?: string | null;
 }
@@ -112,12 +129,34 @@ export const UsersRepository = {
 export const PatientsRepository = {
   async create(patient: PatientRecord): Promise<void> {
     await executeSql(
-      `INSERT INTO patients (id, name, email, dateOfBirth, createdAt, doctorId) VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO patients (
+        id, name, email, birthDate, sex, weight, height, bmi, occupation, education,
+        affectedRightKnee, affectedLeftKnee, affectedRightHip, affectedLeftHip,
+        medicalHistory, timeAfterSymptoms, legDominance, contralateralJointAffect,
+        physicallyActive, coMorbiditiesNMS, coMorbiditiesSystemic, createdAt, doctorId
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         patient.id,
         patient.name,
         patient.email ?? null,
-        patient.dateOfBirth ?? null,
+        patient.birthDate,
+        patient.sex,
+        patient.weight ?? null,
+        patient.height ?? null,
+        patient.bmi ?? null,
+        patient.occupation ?? null,
+        patient.education ?? null,
+        patient.affectedRightKnee ? 1 : 0,
+        patient.affectedLeftKnee ? 1 : 0,
+        patient.affectedRightHip ? 1 : 0,
+        patient.affectedLeftHip ? 1 : 0,
+        patient.medicalHistory ?? null,
+        patient.timeAfterSymptoms ?? null,
+        patient.legDominance,
+        patient.contralateralJointAffect ? 1 : 0,
+        patient.physicallyActive ? 1 : 0,
+        patient.coMorbiditiesNMS ? 1 : 0,
+        patient.coMorbiditiesSystemic ? 1 : 0,
         patient.createdAt,
         patient.doctorId ?? null,
       ]
@@ -246,6 +285,9 @@ export const ExerciseTypesRepository = {
 
 export const AssignedExercisesRepository = {
   async create(assignment: AssignedExerciseRecord): Promise<void> {
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'repositories.ts:287',message:'AssignedExercisesRepository.create called',data:{assignmentId:assignment.id, patientId:assignment.patientId, exerciseTypeId:assignment.exerciseTypeId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
     await executeSql(
       `INSERT INTO assignedExercises (id, patientId, exerciseTypeId, assignedDate, completed, targetReps, targetSets) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -258,6 +300,9 @@ export const AssignedExercisesRepository = {
         assignment.targetSets ?? null,
       ]
     );
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'repositories.ts:299',message:'INSERT executed successfully',data:{assignmentId:assignment.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
   },
   async listByPatient(patientId: string): Promise<AssignedExerciseRecord[]> {
     const result = await executeSql(

@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { Patient } from '../types';
 import { usePatients, SessionAsExercise } from '@context/PatientContext';
+import { assignExerciseToPatient, getAvailableExercises } from '@services/exerciseAssignmentService';
+import { ExerciseTypesRepository } from '@storage/repositories';
 
 interface AssignedExercisesCardProps {
     patient: Patient;
@@ -22,7 +24,7 @@ type ExerciseItem = {
 
 const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, isEditable, navigation }) => {
     const { colors } = useTheme();
-    const { assignedExercises, sessionsByPatient, fetchPatientSessions, createSession } = usePatients();
+    const { assignedExercises, sessionsByPatient, fetchPatientSessions, createSession, fetchAssignedExercises } = usePatients();
     const [isEditing, setIsEditing] = useState(false);
     const listFromContext = assignedExercises[patient.id] ?? [];
     const toItem = (ex: SessionAsExercise): ExerciseItem => ({
@@ -41,26 +43,97 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
 
     useEffect(() => {
         if (!isEditing) {
-            setExercises(listFromContext.map(toItem));
+            // #region agent log
+            fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AssignedExercisesCard.tsx:44',message:'Updating exercises from context',data:{patientId:patient.id, listFromContextLength:listFromContext.length, listKey, isEditing, exerciseIds:listFromContext.map(e=>e.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+            // #endregion
+            const newExercises = listFromContext.map(toItem);
+            setExercises(newExercises);
+            // #region agent log
+            fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AssignedExercisesCard.tsx:50',message:'Exercises state updated',data:{exercisesCount:newExercises.length, exerciseNames:newExercises.map(e=>e.name)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+            // #endregion
         }
-    }, [patient.id, listKey, isEditing]);
+    }, [patient.id, listKey, isEditing, listFromContext.length, listFromContext]);
 
     const handleSave = async () => {
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AssignedExercisesCard.tsx:48',message:'handleSave called',data:{patientId:patient.id, exercisesCount:exercises.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
         try {
             const newOnes = exercises.filter(e => e.id.startsWith('new_') || (e as any).isNew);
+            // #region agent log
+            fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AssignedExercisesCard.tsx:51',message:'Found new exercises to save',data:{newOnesCount:newOnes.length, newOnes:newOnes.map(e=>({id:e.id,name:e.name}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
+            
+            // Get all available exercise types to find or create
+            const allExerciseTypes = await getAvailableExercises();
+            
             for (const ex of newOnes) {
-                await createSession(patient.id, {
-                    exerciseType: ex.name,
-                    exerciseDescription: ex.instructions,
-                    repetitions: ex.targetRepetitions,
-                    duration: undefined,
-                });
+                // #region agent log
+                fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AssignedExercisesCard.tsx:57',message:'Processing new exercise',data:{exerciseName:ex.name, patientId:patient.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+                // #endregion
+                
+                // Find existing exercise type by name, or create a new one
+                let exerciseType = allExerciseTypes.find(et => et.name.toLowerCase() === ex.name.toLowerCase());
+                
+                if (!exerciseType) {
+                    // #region agent log
+                    fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AssignedExercisesCard.tsx:64',message:'Exercise type not found, creating new one',data:{exerciseName:ex.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+                    // #endregion
+                    // Create new exercise type
+                    const newExerciseTypeId = `ex_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+                    const newExerciseType = {
+                        id: newExerciseTypeId,
+                        name: ex.name,
+                        description: ex.instructions || null,
+                        targetReps: ex.targetRepetitions || null,
+                        targetSets: ex.targetSets || null,
+                        instructions: ex.instructions || null,
+                        category: 'knee', // Default category
+                    };
+                    await ExerciseTypesRepository.create(newExerciseType);
+                    exerciseType = newExerciseType;
+                    // #region agent log
+                    fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AssignedExercisesCard.tsx:77',message:'New exercise type created',data:{exerciseTypeId:newExerciseTypeId, exerciseName:ex.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+                    // #endregion
+                }
+                
+                // Now assign the exercise to the patient using assignExerciseToPatient
+                // #region agent log
+                fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AssignedExercisesCard.tsx:81',message:'Assigning exercise to patient using assignExerciseToPatient',data:{exerciseTypeId:exerciseType.id, exerciseName:ex.name, patientId:patient.id, targetReps:ex.targetRepetitions, targetSets:ex.targetSets},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+                // #endregion
+                await assignExerciseToPatient(
+                    patient.id,
+                    exerciseType.id,
+                    ex.targetRepetitions,
+                    ex.targetSets
+                );
+                // #region agent log
+                fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AssignedExercisesCard.tsx:89',message:'Exercise assigned successfully',data:{exerciseTypeId:exerciseType.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+                // #endregion
             }
-            await fetchPatientSessions(patient.id);
+            
+            // Refresh assigned exercises instead of sessions
+            await fetchAssignedExercises(patient.id);
+            // #region agent log
+            fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AssignedExercisesCard.tsx:116',message:'fetchAssignedExercises completed, waiting for state update',data:{patientId:patient.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+            // #endregion
+            // Small delay to ensure state is updated in context before closing edit mode
+            await new Promise(resolve => setTimeout(resolve, 300));
+            // Force update exercises from context after refresh
+            // The assignedExercises from context should be updated by now
+            const updatedList = assignedExercises[patient.id] ?? [];
+            // #region agent log
+            fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AssignedExercisesCard.tsx:123',message:'Force updating exercises after save',data:{patientId:patient.id, updatedListLength:updatedList.length, exerciseIds:updatedList.map(e=>e.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+            // #endregion
+            setExercises(updatedList.map(toItem));
             setIsEditing(false);
             Alert.alert('Success', 'Exercise plan updated.');
         } catch (error) {
-            Alert.alert('Error', 'Failed to update exercise plan.');
+            // #region agent log
+            fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AssignedExercisesCard.tsx:95',message:'Error saving exercises',data:{error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
+            console.error('Error saving exercises:', error);
+            Alert.alert('Error', `Failed to update exercise plan: ${error instanceof Error ? error.message : String(error)}`);
         }
     };
 

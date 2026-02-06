@@ -250,7 +250,8 @@ export type RootStackParamList = {
   Login: undefined;
   Signup: undefined;
 
-  PatientDetail: { patient: Patient };
+  PatientDetail: { patientId: string; role: string };
+  SessionDetail: { sessionId: string; patientId: string };
   CreatePatient: undefined;
   InvitePatient: undefined;
   ManageInvites: undefined;

@@ -13,9 +13,8 @@ export const login = async (email: string, password: string, role: 'patient' | '
     if (error.response?.status === 503 || error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
       const apiUrl = api.defaults.baseURL;
       throw new Error(
-        `Cannot connect to backend server at ${apiUrl}. ` +
-        `Please ensure the backend is running on port 5001. ` +
-        `Run: cd backend && python app.py`
+        `Cannot connect to Azure API at ${apiUrl}. ` +
+        `Please check your internet connection and try again.`
       );
     }
     
@@ -40,9 +39,8 @@ export const signup = async (
     if (error.response?.status === 503 || error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
       const apiUrl = api.defaults.baseURL;
       throw new Error(
-        `Cannot connect to backend server at ${apiUrl}. ` +
-        `Please ensure the backend is running on port 5001. ` +
-        `Run: cd backend && python app.py`
+        `Cannot connect to Azure API at ${apiUrl}. ` +
+        `Please check your internet connection and try again.`
       );
     }
     

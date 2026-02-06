@@ -90,7 +90,24 @@ export async function runMigrations(): Promise<void> {
       id TEXT PRIMARY KEY NOT NULL,
       name TEXT NOT NULL,
       email TEXT,
-      dateOfBirth TEXT,
+      birthDate TEXT NOT NULL,
+      sex TEXT NOT NULL,
+      weight REAL,
+      height REAL,
+      bmi REAL,
+      occupation TEXT,
+      education INTEGER,
+      affectedRightKnee INTEGER NOT NULL DEFAULT 0,
+      affectedLeftKnee INTEGER NOT NULL DEFAULT 0,
+      affectedRightHip INTEGER NOT NULL DEFAULT 0,
+      affectedLeftHip INTEGER NOT NULL DEFAULT 0,
+      medicalHistory TEXT,
+      timeAfterSymptoms INTEGER,
+      legDominance TEXT NOT NULL,
+      contralateralJointAffect INTEGER NOT NULL DEFAULT 0,
+      physicallyActive INTEGER NOT NULL DEFAULT 0,
+      coMorbiditiesNMS INTEGER NOT NULL DEFAULT 0,
+      coMorbiditiesSystemic INTEGER NOT NULL DEFAULT 0,
       createdAt TEXT NOT NULL,
       doctorId TEXT
     );`,
@@ -215,14 +232,39 @@ export async function runMigrations(): Promise<void> {
       }
     }
     
-    try {
-      await db.getAllAsync(`SELECT doctorId FROM patients LIMIT 1`);
-    } catch (e: any) {
+    // Add new columns to patients table if they don't exist (migration)
+    const patientColumns = [
+      { name: 'birthDate', type: 'TEXT NOT NULL DEFAULT ""' },
+      { name: 'sex', type: 'TEXT NOT NULL DEFAULT "male"' },
+      { name: 'weight', type: 'REAL' },
+      { name: 'height', type: 'REAL' },
+      { name: 'bmi', type: 'REAL' },
+      { name: 'occupation', type: 'TEXT' },
+      { name: 'education', type: 'INTEGER' },
+      { name: 'affectedRightKnee', type: 'INTEGER NOT NULL DEFAULT 0' },
+      { name: 'affectedLeftKnee', type: 'INTEGER NOT NULL DEFAULT 0' },
+      { name: 'affectedRightHip', type: 'INTEGER NOT NULL DEFAULT 0' },
+      { name: 'affectedLeftHip', type: 'INTEGER NOT NULL DEFAULT 0' },
+      { name: 'medicalHistory', type: 'TEXT' },
+      { name: 'timeAfterSymptoms', type: 'INTEGER' },
+      { name: 'legDominance', type: 'TEXT NOT NULL DEFAULT "dominant"' },
+      { name: 'contralateralJointAffect', type: 'INTEGER NOT NULL DEFAULT 0' },
+      { name: 'physicallyActive', type: 'INTEGER NOT NULL DEFAULT 0' },
+      { name: 'coMorbiditiesNMS', type: 'INTEGER NOT NULL DEFAULT 0' },
+      { name: 'coMorbiditiesSystemic', type: 'INTEGER NOT NULL DEFAULT 0' },
+      { name: 'doctorId', type: 'TEXT' },
+    ];
+    
+    for (const col of patientColumns) {
       try {
-        await db.execAsync(`ALTER TABLE patients ADD COLUMN doctorId TEXT`);
-      } catch (alterError: any) {
-        if (!alterError?.message?.includes("duplicate column")) {
-          console.warn("Failed to add doctorId column:", alterError);
+        await db.getAllAsync(`SELECT ${col.name} FROM patients LIMIT 1`);
+      } catch (e: any) {
+        try {
+          await db.execAsync(`ALTER TABLE patients ADD COLUMN ${col.name} ${col.type}`);
+        } catch (alterError: any) {
+          if (!alterError?.message?.includes("duplicate column")) {
+            console.warn(`Failed to add ${col.name} column:`, alterError);
+          }
         }
       }
     }

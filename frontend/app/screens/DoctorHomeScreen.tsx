@@ -77,12 +77,6 @@ const DoctorHomeScreen = ({ navigation }: any) => {
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.addButton, { backgroundColor: colors.primary + '15' }]}
-                        onPress={() => navigation.navigate('InvitePatient')}
-                    >
-                        <Ionicons name="mail-open-outline" size={24} color={colors.primary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.addButton, { backgroundColor: colors.primary + '15' }]}
                         onPress={() => navigation.navigate('CreatePatient')}
                     >
                         <Ionicons name="person-add-outline" size={24} color={colors.primary} />
@@ -271,11 +265,8 @@ const DoctorHomeScreen = ({ navigation }: any) => {
                         <Ionicons name="people-outline" size={48} color={colors.textSecondary} />
                         <Text style={[styles.emptyTitle, { color: colors.text }]}>No patients assigned yet</Text>
                         <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                            Invite a patient to get started.
+                            Patients will appear here once they are assigned to you.
                         </Text>
-                        <TouchableOpacity style={[styles.assignButton, { backgroundColor: colors.primary }]} onPress={() => navigation.navigate('InvitePatient')}>
-                            <Text style={[styles.assignButtonText, { color: '#fff' }]}>Invite Patient</Text>
-                        </TouchableOpacity>
                     </View>
                 }
             />

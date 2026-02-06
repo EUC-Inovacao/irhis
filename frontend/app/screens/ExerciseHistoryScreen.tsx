@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@theme/ThemeContext";
 import { useAuth } from "@context/AuthContext";
 import { usePatients } from "@context/PatientContext";
+import { useFocusEffect } from "@react-navigation/native";
 import type { Session } from "../types";
 
 const ExerciseHistoryScreen = ({ navigation }: any) => {
@@ -25,11 +26,14 @@ const ExerciseHistoryScreen = ({ navigation }: any) => {
   const patientId = user?.id ?? "";
   const { completed = [] } = sessionsByPatient[patientId] ?? { completed: [] as Session[] };
 
-  useEffect(() => {
-    if (patientId) {
-      fetchPatientSessions(patientId);
-    }
-  }, [patientId, fetchPatientSessions]);
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (patientId) {
+        fetchPatientSessions(patientId);
+      }
+    }, [patientId, fetchPatientSessions])
+  );
 
   const onRefresh = () => {
     if (patientId) fetchPatientSessions(patientId);

@@ -11,13 +11,16 @@ import {
 } from "react-native";
 import { useTheme } from "@theme/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
-import { getAvailableExercises, ExerciseTypeRecord } from "@services/exerciseAssignmentService";
+import { getAvailableExercises, getAssignedExercises, ExerciseTypeRecord } from "@services/exerciseAssignmentService";
 
 interface ExercisePickerModalProps {
   visible: boolean;
   onClose: () => void;
   onSelect: (exerciseTypeId: string) => void;
   selectedExerciseId?: string | null;
+  patientId?: string | null; // If provided, show only assigned exercises
+  showCreateOption?: boolean; // Show option to create/assign new exercise
+  onCreateNew?: () => void; // Callback when user wants to create new exercise
 }
 
 const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
@@ -25,6 +28,9 @@ const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
   onClose,
   onSelect,
   selectedExerciseId,
+  patientId,
+  showCreateOption = false,
+  onCreateNew,
 }) => {
   const { colors } = useTheme();
   const [exercises, setExercises] = useState<ExerciseTypeRecord[]>([]);
@@ -33,15 +39,57 @@ const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
 
   useEffect(() => {
     if (visible) {
+      // Always reload when modal becomes visible to get latest data
       loadExercises();
     }
-  }, [visible]);
+  }, [visible, patientId]);
+  
+  // Also reload when patientId changes while modal is visible
+  useEffect(() => {
+    if (visible && patientId) {
+      loadExercises();
+    }
+  }, [patientId]);
 
   const loadExercises = async () => {
     try {
       setLoading(true);
-      const allExercises = await getAvailableExercises();
-      setExercises(allExercises);
+      // Clear search when loading to show all results
+      setSearchQuery("");
+      
+      if (patientId) {
+        // Load only assigned exercises for the patient
+        console.log(`[ExercisePickerModal] Loading assigned exercises for patient: ${patientId}`);
+        const assignedExercises = await getAssignedExercises(patientId);
+        console.log(`[ExercisePickerModal] Found ${assignedExercises.length} assigned exercises`);
+        
+        // Log each exercise to debug
+        assignedExercises.forEach((ae, idx) => {
+          console.log(`[ExercisePickerModal] Exercise ${idx + 1}:`, {
+            assignmentId: ae.id,
+            exerciseTypeId: ae.exerciseTypeId,
+            hasExerciseType: !!ae.exerciseType,
+            exerciseTypeName: ae.exerciseType?.name,
+          });
+        });
+        
+        // Extract ExerciseTypeRecord from AssignedExerciseWithDetails
+        // Only include exercises that have a valid exerciseType
+        const exerciseTypes = assignedExercises
+          .map((ae) => ae.exerciseType)
+          .filter((et): et is ExerciseTypeRecord => et !== undefined);
+        console.log(`[ExercisePickerModal] Extracted ${exerciseTypes.length} exercise types (filtered from ${assignedExercises.length} assignments)`);
+        
+        if (exerciseTypes.length === 0 && assignedExercises.length > 0) {
+          console.warn(`[ExercisePickerModal] WARNING: Found ${assignedExercises.length} assignments but 0 valid exercise types. This may indicate missing exercise type records.`);
+        }
+        
+        setExercises(exerciseTypes);
+      } else {
+        // Load all available exercises (for creating new assignments)
+        const allExercises = await getAvailableExercises();
+        setExercises(allExercises);
+      }
     } catch (error) {
       console.error("Error loading exercises:", error);
     } finally {
@@ -191,12 +239,30 @@ const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
         <View style={[styles.modalView, { backgroundColor: colors.card }]}>
           <View style={styles.header}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>
-              Select Exercise
+              {patientId ? "Select Assigned Exercise" : "Select Exercise"}
             </Text>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
+          
+          {showCreateOption && onCreateNew && (
+            <TouchableOpacity
+              style={[
+                styles.createButton,
+                { backgroundColor: colors.primary + "15", borderColor: colors.primary },
+              ]}
+              onPress={() => {
+                onCreateNew();
+                onClose();
+              }}
+            >
+              <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+              <Text style={[styles.createButtonText, { color: colors.primary }]}>
+                Create/Assign New Exercise
+              </Text>
+            </TouchableOpacity>
+          )}
 
           <TextInput
             style={[
@@ -240,14 +306,43 @@ const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
               )}
               ListEmptyComponent={
                 <View style={styles.emptyContainer}>
+                  <Ionicons
+                    name="barbell-outline"
+                    size={48}
+                    color={colors.textSecondary}
+                    style={{ marginBottom: 16 }}
+                  />
                   <Text
                     style={[
                       styles.emptyText,
                       { color: colors.textSecondary },
                     ]}
                   >
-                    No exercises found
+                    {patientId
+                      ? "No exercises assigned to this patient yet"
+                      : "No exercises found"}
                   </Text>
+                  {patientId && showCreateOption && onCreateNew && (
+                    <TouchableOpacity
+                      style={[
+                        styles.createButton,
+                        {
+                          backgroundColor: colors.primary,
+                          marginTop: 16,
+                          borderWidth: 0,
+                        },
+                      ]}
+                      onPress={() => {
+                        onCreateNew();
+                        onClose();
+                      }}
+                    >
+                      <Ionicons name="add-circle" size={20} color="#fff" />
+                      <Text style={[styles.createButtonText, { color: "#fff" }]}>
+                        Assign Exercise
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               }
             />
@@ -358,6 +453,21 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
+    textAlign: "center",
+  },
+  createButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 16,
+    gap: 8,
+  },
+  createButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
 

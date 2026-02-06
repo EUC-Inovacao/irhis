@@ -1,10 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@theme/ThemeContext';
 import { useAuth } from '@context/AuthContext';
 import { usePatients } from '@context/PatientContext';
 import { useHealth } from '@context/HealthContext';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import ActivityRings from '@components/ActivityRings';
 import ChartCard from '@components/ChartCard';
@@ -14,10 +15,26 @@ import ExerciseCard from '@components/ExerciseCard';
 const PatientHomeScreen = ({ navigation }: any) => {
     const { colors } = useTheme();
     const { user } = useAuth();
-    const { patients, assignedExercises, fetchAssignedExercises } = usePatients();
+    const { patients, assignedExercises, fetchAssignedExercises, fetchPatients } = usePatients();
     const { healthData, dailyData, isConnected, isLoading, connectDevice, refreshHealthData } = useHealth();
     const patient = user ? patients[user.id] : null;
     const exercises = user ? (assignedExercises[user.id] || []) : [];
+
+    // Refresh data when screen comes into focus
+    useFocusEffect(
+        useCallback(() => {
+            // Refresh patient data
+            fetchPatients();
+            // Refresh assigned exercises
+            if (user?.id) {
+                fetchAssignedExercises(user.id);
+            }
+            // Refresh health data if available
+            if (refreshHealthData) {
+                refreshHealthData();
+            }
+        }, [user?.id, fetchPatients, fetchAssignedExercises, refreshHealthData])
+    );
 
     // Debug logging
     useEffect(() => {
@@ -26,13 +43,6 @@ const PatientHomeScreen = ({ navigation }: any) => {
         console.log('Current patient:', patient);
         console.log('Assigned exercises:', exercises);
     }, [user, patients, patient, exercises]);
-
-    // Fetch assigned exercises when component mounts
-    useEffect(() => {
-        if (user?.id) {
-            fetchAssignedExercises(user.id);
-        }
-    }, [user?.id, fetchAssignedExercises]);
 
     if (!patient) {
         return (

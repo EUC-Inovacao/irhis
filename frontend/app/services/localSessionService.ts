@@ -27,6 +27,23 @@ export interface SessionWithMetrics extends SessionRecord {
   metrics?: MetricsRecord;
 }
 
+export function formatSessionName(dateInput: Date | string): string {
+  const d = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
+  if (Number.isNaN(d.getTime())) return "Session";
+
+  const dateStr = d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  const timeStr = d.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  return `Session - ${dateStr} ${timeStr}`;
+}
+
 /**
  * Create a session with metrics
  */
@@ -47,6 +64,8 @@ export async function createSession(
   const sessionId = `session_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
   const metricsId = `metrics_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
 
+  const sessionLabel = formatSessionName(sessionData.startTime);
+
   // Create session
   const session: SessionRecord = {
     id: sessionId,
@@ -56,7 +75,7 @@ export async function createSession(
     exerciseType: exerciseTypeName,
     exerciseTypeId: sessionData.exerciseTypeId,
     side: sessionData.side,
-    notes: sessionData.notes,
+    notes: sessionData.notes ?? sessionLabel,
   };
 
   await SessionsRepository.create(session);

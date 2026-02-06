@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "@theme/ThemeContext";
 import { useAuth } from "@context/AuthContext";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import Slider from "@react-native-community/slider";
 import * as DocumentPicker from "expo-document-picker";
@@ -42,7 +42,6 @@ import { usePatients } from "@context/PatientContext";
 import { getCurrentExercise } from "@services/exerciseAssignmentService";
 import { ExerciseTypesRepository } from "@storage/repositories";
 import { createSession } from "@services/localSessionService";
-import { assignExerciseToPatient } from "@services/exerciseAssignmentService";
 
 interface SensorData {
   Quat_W?: number;
@@ -66,7 +65,7 @@ const MovellaScreen = () => {
   const { colors } = useTheme();
   const { user } = useAuth();
   const navigation = useNavigation();
-  const { patients, fetchAssignedExercises } = usePatients();
+  const { patients, fetchAssignedExercises, fetchPatients } = usePatients();
   const [currentFile, setCurrentFile] = useState<string | null>(null);
   const [currentFrame, setCurrentFrame] = useState(0);
   const [maxFramesValue, setMaxFramesValue] = useState(0);
@@ -224,20 +223,32 @@ const MovellaScreen = () => {
           const data = await getHistoricalSessionData(patientId, currentRom, currentReps);
           setHistoricalData(data);
         } else {
-          // For doctors, generate mock data for showcase
-          const mockData = await getHistoricalSessionData("mock-patient", 75, 12);
-          setHistoricalData(mockData);
+          // For doctors without patient selected, no historical data
+          setHistoricalData([]);
         }
       } catch (error) {
         console.error("Error loading historical data:", error);
-        // Generate mock data on error
-        const mockData = await getHistoricalSessionData("mock-patient", 75, 12);
-        setHistoricalData(mockData);
+        // No mock data - return empty
+        setHistoricalData([]);
       }
     };
 
     loadHistoricalData();
   }, [user, localAnalysisResult, selectedPatientId]);
+
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      // Refresh patients list
+      if (user?.role === "doctor") {
+        fetchPatients();
+      }
+      // Refresh assigned exercises if patient is selected
+      if (selectedPatientId) {
+        fetchAssignedExercises(selectedPatientId);
+      }
+    }, [user?.role, selectedPatientId, fetchPatients, fetchAssignedExercises])
+  );
 
   // Load exercise name when selectedExerciseId changes
   useEffect(() => {
@@ -278,6 +289,24 @@ const MovellaScreen = () => {
   }, [user]);
 
   const handleFileUpload = async () => {
+    // Require patient & exercise selection for doctors before analysis
+    if (user?.role === "doctor") {
+      if (!selectedPatientId) {
+        Alert.alert(
+          "Select Patient",
+          "Please select a patient before uploading movement data."
+        );
+        return;
+      }
+      if (!selectedExerciseId && !currentExercise) {
+        Alert.alert(
+          "Select Exercise",
+          "Please select an exercise for this session before uploading data."
+        );
+        return;
+      }
+    }
+
     setIsPlaying(false);
     setCurrentFile(null);
     setSensorData({});
@@ -1021,21 +1050,19 @@ const MovellaScreen = () => {
     );
   };
 
-  const handleExerciseSelect = async (exerciseTypeId: string) => {
+  const handleExerciseSelect = (exerciseTypeId: string) => {
     setSelectedExerciseId(exerciseTypeId);
-    
-    // If doctor selected patient and exercise, assign it automatically
-    if (user?.role === "doctor" && selectedPatientId && exerciseTypeId) {
-      try {
-        await assignExerciseToPatient(selectedPatientId, exerciseTypeId);
-        // Refresh exercises for the patient
-        await fetchAssignedExercises(selectedPatientId);
-        Alert.alert("Success", "Exercise assigned to patient");
-      } catch (error) {
-        console.error("Error assigning exercise:", error);
-        Alert.alert("Error", "Failed to assign exercise to patient");
-      }
-    }
+    // No longer auto-assigning - just selecting from assigned exercises
+  };
+  
+  const handleCreateNewExercise = () => {
+    // Navigate to exercise management or show create exercise modal
+    // For now, show an alert suggesting to assign exercise from patient detail screen
+    Alert.alert(
+      "Assign Exercise",
+      "To assign a new exercise to this patient, please go to the patient's detail page and use the 'Assign Exercise' option there.",
+      [{ text: "OK" }]
+    );
   };
 
   const renderProgressionCharts = () => {
@@ -1302,7 +1329,26 @@ const MovellaScreen = () => {
                   opacity: selectedPatientId ? 1 : 0.5,
                 },
               ]}
-              onPress={() => setShowExercisePicker(true)}
+              onPress={async () => {
+                if (!selectedPatientId) {
+                  Alert.alert(
+                    "Select Patient First",
+                    "Please select a patient before choosing an exercise."
+                  );
+                  return;
+                }
+                // Force refresh assigned exercises before opening the picker
+                console.log(`[MovellaScreen] Opening exercise picker for patient: ${selectedPatientId}`);
+                try {
+                  // Force a fresh fetch from database
+                  await fetchAssignedExercises(selectedPatientId);
+                  // Small delay to ensure state is updated
+                  await new Promise(resolve => setTimeout(resolve, 100));
+                } catch (error) {
+                  console.error("Error refreshing assigned exercises:", error);
+                }
+                setShowExercisePicker(true);
+              }}
               disabled={!selectedPatientId}
             >
               <Ionicons name="fitness-outline" size={20} color={colors.textSecondary} />
@@ -1401,6 +1447,24 @@ const MovellaScreen = () => {
                 },
               ]}
               onPress={() => {
+                // Require patient & exercise selection for doctors before BLE streaming
+                if (user?.role === "doctor") {
+                  if (!selectedPatientId) {
+                    Alert.alert(
+                      "Select Patient",
+                      "Please select a patient before starting a live BLE session."
+                    );
+                    return;
+                  }
+                  if (!selectedExerciseId && !currentExercise) {
+                    Alert.alert(
+                      "Select Exercise",
+                      "Please select an exercise before starting a live BLE session."
+                    );
+                    return;
+                  }
+                }
+
                 setDataSourceMode("ble");
                 // Navigate to BLE connection screen
                 if (navigation) {
@@ -2290,10 +2354,14 @@ const MovellaScreen = () => {
 
       {/* Exercise Picker Modal */}
       <ExercisePickerModal
+        key={`exercise-picker-${selectedPatientId || 'no-patient'}-${showExercisePicker}`}
         visible={showExercisePicker}
         onClose={() => setShowExercisePicker(false)}
         onSelect={handleExerciseSelect}
         selectedExerciseId={selectedExerciseId}
+        patientId={selectedPatientId}
+        showCreateOption={true}
+        onCreateNew={handleCreateNewExercise}
       />
     </View>
   );

@@ -15,13 +15,14 @@ import SignupScreen from '@screens/SignupScreen';
 import PatientHomeScreen from '@screens/PatientHomeScreen';
 import DoctorHomeScreen from '@screens/DoctorHomeScreen';
 import PatientDetailScreen from '@screens/PatientDetailScreen';
+import SessionDetailScreen from '@screens/SessionDetailScreen';
 import ExerciseDetailScreen from '@screens/ExerciseDetailScreen';
 import ExerciseHistoryScreen from '@screens/ExerciseHistoryScreen';
 import ExerciseHistoryDetailScreen from '@screens/ExerciseHistoryDetailScreen';
 import ProfileScreen from '@screens/ProfileScreen';
 import MovellaScreen from '@screens/MovellaScreen';
 import CreatePatientScreen from '@screens/CreatePatientScreen';
-import InvitePatientScreen from '@screens/InvitePatientScreen';
+import CreateAccountScreen from '@screens/CreateAccountScreen';
 import ManageInvitesScreen from '@screens/ManageInvitesScreen';
 import PatientListScreen from '@screens/PatientListScreen';
 import BleConnectionScreen from '@screens/BleConnectionScreen';
@@ -232,6 +233,14 @@ const AppNavigator = () => {
               }}
             />
             <Stack.Screen
+              name="SessionDetail"
+              component={SessionDetailScreen}
+              options={{
+                headerTitle: 'Session Details',
+                headerBackTitle: 'Back',
+              }}
+            />
+            <Stack.Screen
               name="ExerciseDetail"
               component={ExerciseDetailScreen}
               options={{
@@ -257,9 +266,9 @@ const AppNavigator = () => {
             />
             <Stack.Screen
               name="InvitePatient"
-              component={InvitePatientScreen}
+              component={CreateAccountScreen}
               options={{
-                headerTitle: 'Invite Patient',
+                headerTitle: 'Create Account',
                 headerBackTitle: 'Back',
               }}
             />
@@ -332,6 +341,11 @@ const AppNavigator = () => {
             <Stack.Screen
               name="Signup"
               component={SignupScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="InvitePatient"
+              component={CreateAccountScreen}
               options={{ headerShown: false }}
             />
             {/* NOVAS ROTAS ONBOARDING */}

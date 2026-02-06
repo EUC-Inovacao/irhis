@@ -64,37 +64,14 @@ export async function generateMockFeedback(
 }
 
 /**
- * Get feedback for a patient, generating mock data if none exists
+ * Get feedback for a patient - only returns real feedback data
  */
 export async function getPatientFeedback(
   patientId: string
 ): Promise<FeedbackRecord[]> {
   try {
     const existingFeedback = await FeedbackRepository.listByPatient(patientId);
-    
-    if (existingFeedback.length >= 5) {
-      // Already have enough feedback, return it
-      return existingFeedback;
-    }
-
-    // Generate mock feedback if none exists or not enough
-    const mockFeedback = await generateMockFeedback(patientId, 8);
-    
-    // Save mock feedback to database (only if not already exists)
-    for (const feedback of mockFeedback) {
-      try {
-        const exists = await FeedbackRepository.getById(feedback.id);
-        if (!exists) {
-          await FeedbackRepository.create(feedback);
-        }
-      } catch (error) {
-        // Ignore duplicates or errors
-        console.log("Feedback already exists or error:", feedback.id);
-      }
-    }
-
-    // Return all feedback (existing + newly created)
-    return await FeedbackRepository.listByPatient(patientId);
+    return existingFeedback;
   } catch (error) {
     console.error("Error fetching feedback:", error);
     // Return empty array on error

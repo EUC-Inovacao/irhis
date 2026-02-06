@@ -35,7 +35,7 @@ import {
   type RecentActivityItem,
   type TrendsData,
 } from "@services/doctorService";
-import { assignPatientToDoctor } from "@services/patientService";
+import { assignPatientToDoctor, getPatientById as getLocalPatientById } from "@services/patientService";
 import { useAuth } from "./AuthContext";
 
 /** Session-based exercise shape compatible with AssignedExerciseWithDetails for list/card display */
@@ -212,13 +212,45 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
           patientsRes.confirmed ??
           patientsRes.items.filter((x) => x.type === "patient");
         const patientsById: Record<string, Patient> = {};
+        // Load full patient data for each confirmed patient
         for (const c of confirmed) {
-          patientsById[c.id] = {
-            id: c.id,
-            name: c.name,
-            details: undefined,
-            recovery_process: [],
-          };
+          try {
+            const fullPatient = await getLocalPatientById(c.id);
+            if (fullPatient) {
+              patientsById[c.id] = fullPatient;
+            } else {
+              // Fallback if patient not found
+              patientsById[c.id] = {
+                id: c.id,
+                name: c.name,
+                details: {
+                  age: 0,
+                  sex: 'Other',
+                  height: 0,
+                  weight: 0,
+                  bmi: 0,
+                  clinicalInfo: 'No information provided.',
+                },
+                recovery_process: [],
+              };
+            }
+          } catch (error) {
+            console.error(`Failed to load patient ${c.id}:`, error);
+            // Fallback
+            patientsById[c.id] = {
+              id: c.id,
+              name: c.name,
+              details: {
+                age: 0,
+                sex: 'Other',
+                height: 0,
+                weight: 0,
+                bmi: 0,
+                clinicalInfo: 'No information provided.',
+              },
+              recovery_process: [],
+            };
+          }
         }
         setPatients(patientsById);
         for (const c of confirmed) {
@@ -289,23 +321,26 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
   const fetchAssignedExercises = useCallback(
     async (patientId: string) => {
       try {
-        await fetchPatientSessions(patientId);
-      } catch {
-        try {
-          const exercises = await getAssignedExercises(patientId);
-          setAssignedExercises((prev) => ({
-            ...prev,
-            [patientId]: exercises as SessionAsExercise[],
-          }));
-        } catch (error) {
-          console.error(
-            `Failed to fetch exercises for patient ${patientId}:`,
-            error
-          );
-        }
+        // Always fetch assigned exercises directly from the database
+        const exercises = await getAssignedExercises(patientId);
+        console.log(`[PatientContext] Fetched ${exercises.length} assigned exercises for patient ${patientId}`);
+        setAssignedExercises((prev) => ({
+          ...prev,
+          [patientId]: exercises as SessionAsExercise[],
+        }));
+      } catch (error) {
+        console.error(
+          `Failed to fetch exercises for patient ${patientId}:`,
+          error
+        );
+        // Set empty array on error to avoid stale data
+        setAssignedExercises((prev) => ({
+          ...prev,
+          [patientId]: [],
+        }));
       }
     },
-    [fetchPatientSessions]
+    [] // Remove dependency on fetchPatientSessions
   );
 
   const createSession = useCallback(

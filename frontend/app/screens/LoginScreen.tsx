@@ -131,14 +131,14 @@ const LoginScreen = ({ navigation }: any) => {
 
             {/* REMOVIDO: Link para Sign Up */}
 
-            {/* --- NOVO: Botão para Ativar Conta (Onboarding) --- */}
-            <View style={styles.activationContainer}>
-                <Text style={[styles.activationLabel, { color: colors.textSecondary }]}>
-                    Received an invite?
+            {/* Sign Up Link */}
+            <View style={styles.signupContainer}>
+                <Text style={[styles.signupLabel, { color: colors.textSecondary }]}>
+                    Don't have an account?
                 </Text>
-                <TouchableOpacity onPress={() => navigation.navigate("TokenEntry")}>
-                    <Text style={[styles.activationLink, { color: colors.purple[600] }]}>
-                        Redeem Invite & Activate
+                <TouchableOpacity onPress={() => navigation.navigate("InvitePatient")}>
+                    <Text style={[styles.signupLink, { color: colors.purple[600] }]}>
+                        Sign Up
                     </Text>
                 </TouchableOpacity>
             </View>
@@ -226,19 +226,19 @@ const styles = StyleSheet.create({
   },
   // REMOVIDO: Styles do linkText que já não é usado
   
-  // ESTILOS PARA O BOTÃO DE ATIVAÇÃO
-  activationContainer: {
+  // ESTILOS PARA O LINK DE SIGN UP
+  signupContainer: {
     marginTop: 24,
     alignItems: 'center',
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.05)',
     paddingTop: 16,
   },
-  activationLabel: {
+  signupLabel: {
     fontSize: 14,
     marginBottom: 4,
   },
-  activationLink: {
+  signupLink: {
     fontSize: 14,
     fontWeight: "bold",
   },

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -18,19 +18,43 @@ import MovementDataDisplay from "@components/MovementDataDisplay";
 import Avatar from "@components/Avatar";
 import { useHealth } from "@context/HealthContext";
 import { usePatients } from "@context/PatientContext";
+import { useFocusEffect } from "@react-navigation/native";
 import * as DocumentPicker from "expo-document-picker";
 import movementService from "@services/movementService";
 import * as patientService from "@services/patientService";
 import AssignedExercisesCard from "@components/AssignedExercisesCard";
 import MovementAnalysisCard from "@components/MovementAnalysisCard";
 import PatientFeedbackSection from "@components/PatientFeedbackSection";
+import PatientProgressGraphs from "@components/PatientProgressGraphs";
 
 const PatientDetailScreen = ({ route, navigation }: any) => {
   const { colors } = useTheme();
   const { patientId, role } = route.params;
-  const { patients, updatePatient, assignPatient, assignedExercises } = usePatients();
+  const {
+    patients,
+    updatePatient,
+    assignPatient,
+    assignedExercises,
+    sessionsByPatient,
+    fetchPatientSessions,
+    fetchAssignedExercises,
+    fetchPatients,
+  } = usePatients();
   const patientData = patients[patientId];
   const { healthData } = useHealth();
+
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      // Refresh patient data
+      fetchPatients();
+      // Refresh assigned exercises for this patient
+      if (patientId) {
+        fetchAssignedExercises(patientId);
+        fetchPatientSessions(patientId);
+      }
+    }, [patientId, fetchPatients, fetchAssignedExercises, fetchPatientSessions])
+  );
 
   const [exercises, setExercises] = useState<RecoveryProcess[]>([]);
   const [medications, setMedications] = useState<Medication[]>([]);
@@ -45,6 +69,13 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
   );
 
   const listFromContext = assignedExercises[patientId] ?? [];
+
+  // Sessions (completed & assigned) for this patient, kept in context
+  const sessionsForPatient = sessionsByPatient[patientId];
+  const completedSessions = (sessionsForPatient?.completed ?? []).slice().sort(
+    (a, b) =>
+      new Date(b.timeCreated).getTime() - new Date(a.timeCreated).getTime()
+  );
 
   useEffect(() => {
     if (patientData) {
@@ -71,6 +102,13 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
       setExercises([]);
     }
   }, [patientId, listFromContext.length, patientData?.recovery_process]);
+
+  // Ensure we have up-to-date sessions for this patient
+  useEffect(() => {
+    if (patientId) {
+      fetchPatientSessions(patientId);
+    }
+  }, [patientId, fetchPatientSessions]);
 
   const handleToggleComplete = (
     id: string,
@@ -101,7 +139,13 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
   };
 
   const handleAddAssignment = (name: string, dosage?: string) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatientDetailScreen.tsx:141',message:'handleAddAssignment called',data:{assignmentType, name, dosage, patientId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     if (assignmentType === "exercise") {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatientDetailScreen.tsx:143',message:'Creating exercise in local state only',data:{name, patientId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       const newExercise: RecoveryProcess = {
         id: `rp${Date.now()}`,
         name,
@@ -109,6 +153,9 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
         assignedDate: new Date().toISOString(),
       };
       setExercises((current) => [...current, newExercise]);
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatientDetailScreen.tsx:149',message:'Exercise added to local state - NOT saved to assignedExercises table',data:{exerciseId:newExercise.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
     } else if (assignmentType === "medication") {
       const newMedication: Medication = {
         id: `med${Date.now()}`,
@@ -241,19 +288,109 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
     </TouchableOpacity>
   );
 
-  if (!patientData || !patientData.details) {
+  const renderSessionItem = (session: import("../types").Session) => {
+    const dateStr = session.timeCreated
+      ? new Date(session.timeCreated).toLocaleDateString(undefined, {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        })
+      : "";
+
+    const summaryParts: string[] = [];
+    if (session.repetitions != null) {
+      summaryParts.push(`${session.repetitions} reps`);
+    }
+    if (session.duration) {
+      summaryParts.push(session.duration);
+    }
+    const summary = summaryParts.join(" • ") || "No metrics available";
+
+    return (
+      <TouchableOpacity
+        key={session.id}
+        style={[styles.sessionCard, { backgroundColor: colors.card }]}
+        activeOpacity={0.7}
+        onPress={() =>
+          navigation.navigate("SessionDetail", {
+            sessionId: session.id,
+            patientId,
+          })
+        }
+      >
+        <View style={styles.sessionIcon}>
+          <Ionicons name="barbell-outline" size={22} color={colors.primary} />
+        </View>
+        <View style={styles.sessionInfo}>
+          <Text
+            style={[styles.sessionTitle, { color: colors.text }]}
+            numberOfLines={1}
+          >
+            {session.exerciseType || "Session"}
+          </Text>
+          <Text
+            style={[styles.sessionDate, { color: colors.textSecondary }]}
+          >
+            {dateStr}
+          </Text>
+          <Text
+            style={[styles.sessionSummary, { color: colors.textSecondary }]}
+            numberOfLines={1}
+          >
+            {summary}
+          </Text>
+        </View>
+        <Ionicons
+          name="chevron-forward"
+          size={20}
+          color={colors.textSecondary}
+        />
+      </TouchableOpacity>
+    );
+  };
+
+  // Load patient data if not in context and fetch sessions
+  useEffect(() => {
+    if (patientId) {
+      // Fetch sessions for this patient
+      fetchPatientSessions(patientId);
+      
+      // Load patient data if not in context
+      if (!patientData) {
+        patientService.getPatientById(patientId).then((patient) => {
+          if (patient) {
+            updatePatient(patientId, patient);
+          }
+        }).catch((error) => {
+          console.error("Failed to load patient:", error);
+        });
+      }
+    }
+  }, [patientId, patientData, fetchPatientSessions, updatePatient]);
+
+  if (!patientData) {
     return (
       <SafeAreaView
         style={[styles.safeArea, { backgroundColor: colors.background }]}
       >
         <View style={styles.container}>
           <Text style={[styles.title, { color: colors.text }]}>
-            Patient data not found
+            Loading patient data...
           </Text>
         </View>
       </SafeAreaView>
     );
   }
+
+  // Ensure details exists (create default if missing)
+  const patientDetails = patientData.details || {
+    age: 0,
+    sex: 'Other' as const,
+    height: 0,
+    weight: 0,
+    bmi: 0,
+    clinicalInfo: 'No information provided.',
+  };
 
   return (
     <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
@@ -262,7 +399,7 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
         contentContainerStyle={styles.contentContainer}
       >
         <PatientDetailsCard
-          details={patientData.details}
+          details={patientDetails}
           onUpdateDetails={handleUpdateDetails}
           isEditable={role === "doctor"}
         />
@@ -272,6 +409,57 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
           isEditable={role === "doctor"}
           navigation={navigation}
         />
+
+        {/* Progress graphs based on sessions & metrics */}
+        <PatientProgressGraphs patientId={patientId} />
+
+        {/* Past Sessions */}
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Past Sessions
+            </Text>
+            <TouchableOpacity
+              onPress={() =>
+                navigation.navigate("ExerciseHistory", {
+                  patientId,
+                })
+              }
+            >
+              <Text
+                style={[styles.viewAllText, { color: colors.primary }]}
+              >
+                View all
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {completedSessions.length === 0 ? (
+            <View style={styles.emptySessionContainer}>
+              <Ionicons
+                name="time-outline"
+                size={32}
+                color={colors.textSecondary}
+              />
+              <Text
+                style={[styles.emptySessionTitle, { color: colors.text }]}
+              >
+                No sessions yet
+              </Text>
+              <Text
+                style={[
+                  styles.emptySessionText,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                Once you record or upload movement data, sessions will appear
+                here with metrics and feedback.
+              </Text>
+            </View>
+          ) : (
+            completedSessions.slice(0, 5).map(renderSessionItem)
+          )}
+        </View>
 
         {role === "doctor" && (
           <View style={[styles.section, { backgroundColor: colors.card }]}>

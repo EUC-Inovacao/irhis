@@ -1,6 +1,6 @@
 import { UsersRepository, PatientsRepository } from "./repositories";
 import { seedExerciseTypes } from "./exerciseSeed";
-import { setupDemoPatientData } from "./mockDataGenerator";
+// Removed setupDemoPatientData import - no mock data
 
 // Simple hash function (same as fallback in localAuthService)
 function simpleHash(password: string, salt: string): string {
@@ -80,13 +80,27 @@ export async function seedPresetUsers(): Promise<void> {
         salt,
       });
 
-      // If patient, also create patient record
+      // If patient, also create patient record with required fields
       if (userData.role === "patient") {
+        // Use default values for required fields (user can update later)
+        const defaultBirthDate = new Date();
+        defaultBirthDate.setFullYear(defaultBirthDate.getFullYear() - 30); // Default age 30
+        
         await PatientsRepository.upsert({
           id,
           name: userData.name,
           email: userData.email,
-          dateOfBirth: undefined,
+          birthDate: defaultBirthDate.toISOString().split('T')[0], // YYYY-MM-DD format
+          sex: 'male' as const, // Default, user can update
+          affectedRightKnee: false,
+          affectedLeftKnee: false,
+          affectedRightHip: false,
+          affectedLeftHip: false,
+          legDominance: 'dominant' as const, // Default
+          contralateralJointAffect: false,
+          physicallyActive: false,
+          coMorbiditiesNMS: false,
+          coMorbiditiesSystemic: false,
           createdAt: now,
           doctorId: null, // Unassigned initially
         });
@@ -98,14 +112,8 @@ export async function seedPresetUsers(): Promise<void> {
     }
   }
 
-  // Setup demo patient data (assign exercises and generate progress)
-  // This runs after users are created, but only if patients don't have sessions
-  try {
-    await setupDemoPatientData();
-  } catch (error) {
-    console.error("Failed to setup demo patient data:", error);
-    // Don't throw - this is optional demo data
-  }
+  // NO MOCK DATA - All data must come from real exercise sessions
+  // Removed setupDemoPatientData() call - no mock data generation
 }
 
 // Export login credentials for reference
