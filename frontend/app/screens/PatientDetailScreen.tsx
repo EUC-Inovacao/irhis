@@ -18,6 +18,7 @@ import MovementDataDisplay from "@components/MovementDataDisplay";
 import Avatar from "@components/Avatar";
 import { useHealth } from "@context/HealthContext";
 import { usePatients } from "@context/PatientContext";
+import { useAuth } from "@context/AuthContext";
 import { useFocusEffect } from "@react-navigation/native";
 import * as DocumentPicker from "expo-document-picker";
 import movementService from "@services/movementService";
@@ -30,6 +31,7 @@ import PatientProgressGraphs from "@components/PatientProgressGraphs";
 const PatientDetailScreen = ({ route, navigation }: any) => {
   const { colors } = useTheme();
   const { patientId, role } = route.params;
+  const { user } = useAuth();
   const {
     patients,
     updatePatient,
@@ -461,33 +463,10 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
           )}
         </View>
 
-        {role === "doctor" && (
-          <View style={[styles.section, { backgroundColor: colors.card }]}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={async () => {
-                try {
-                  await assignPatient(patientId);
-                  Alert.alert("Assigned", "Patient assigned to you locally.");
-                } catch {
-                  Alert.alert("Error", "Failed to assign patient.");
-                }
-              }}
-            >
-              <Ionicons
-                name="person-add-outline"
-                size={20}
-                color={colors.primary}
-              />
-              <Text style={[styles.actionButtonText, { color: colors.text }]}>
-                Assign to me
-              </Text>
-            </TouchableOpacity>
-          </View>
+        {/* Patient Feedback & Progression Section - For Doctors and Patients viewing their own profile */}
+        {(role === "doctor" || (role === "patient" && user?.id === patientId)) && (
+          <PatientFeedbackSection patientId={patientId} />
         )}
-
-        {/* Patient Feedback & Progression Section - For Doctors */}
-        {role === "doctor" && <PatientFeedbackSection patientId={patientId} />}
 
         {patientData.feedback && patientData.feedback.length > 0 && (
           <View style={[styles.section, { backgroundColor: colors.card }]}>

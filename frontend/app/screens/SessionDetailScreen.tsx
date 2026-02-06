@@ -5,13 +5,16 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@theme/ThemeContext";
+import { useAuth } from "@context/AuthContext";
 import { getSessionById } from "../services/sessionService";
 import type { Session } from "../types";
 import { FeedbackRepository } from "../storage/repositories";
+import SessionFeedbackModal from "@components/SessionFeedbackModal";
 
 const SessionDetailScreen = ({ route, navigation }: any) => {
   const { sessionId, patientId } = route.params as {
@@ -19,10 +22,12 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
     patientId: string;
   };
   const { colors } = useTheme();
+  const { user } = useAuth();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sessionFeedback, setSessionFeedback] = useState<any[]>([]);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
   useEffect(() => {
     const loadSession = async () => {
@@ -203,12 +208,26 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
         )}
 
         {/* Feedback Section */}
-        {sessionFeedback.length > 0 && (
-          <View style={[styles.section, { backgroundColor: colors.card }]}>
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <View style={styles.feedbackHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Patient Feedback
             </Text>
-            {sessionFeedback.map((fb, idx) => (
+            {/* Show "Provide Feedback" button for patients if no feedback exists */}
+            {user?.role === "patient" && user.id === patientId && sessionFeedback.length === 0 && (
+              <TouchableOpacity
+                style={[styles.feedbackButton, { backgroundColor: colors.primary }]}
+                onPress={() => setShowFeedbackModal(true)}
+              >
+                <Ionicons name="chatbubble-outline" size={18} color={colors.white} />
+                <Text style={[styles.feedbackButtonText, { color: colors.white }]}>
+                  Provide Feedback
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          {sessionFeedback.length > 0 ? (
+            sessionFeedback.map((fb, idx) => (
               <View
                 key={idx}
                 style={[
@@ -253,9 +272,15 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
                   </Text>
                 )}
               </View>
-            ))}
-          </View>
-        )}
+            ))
+          ) : (
+            <Text style={[styles.noFeedbackText, { color: colors.textSecondary }]}>
+              {user?.role === "patient" && user.id === patientId
+                ? "No feedback provided yet. Click the button above to provide feedback."
+                : "No feedback recorded for this session."}
+            </Text>
+          )}
+        </View>
 
         {/* No Data State */}
         {!primaryMetric && sessionFeedback.length === 0 && (
@@ -271,6 +296,29 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
           </View>
         )}
       </ScrollView>
+
+      {/* Feedback Modal */}
+      {user?.role === "patient" && user.id === patientId && (
+        <SessionFeedbackModal
+          visible={showFeedbackModal}
+          onClose={() => setShowFeedbackModal(false)}
+          onSubmit={async () => {
+            // Reload feedback after submission
+            try {
+              const allFeedback = await FeedbackRepository.listByPatient(patientId);
+              const feedbackForSession = allFeedback.filter(
+                (fb) => fb.sessionId === sessionId
+              );
+              setSessionFeedback(feedbackForSession);
+            } catch (error) {
+              console.error("Failed to reload feedback:", error);
+            }
+            setShowFeedbackModal(false);
+          }}
+          sessionId={sessionId}
+          patientId={patientId}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -354,6 +402,31 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 16,
     alignSelf: "flex-start",
+  },
+  feedbackHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    marginBottom: 16,
+  },
+  feedbackButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  feedbackButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  noFeedbackText: {
+    fontSize: 14,
+    textAlign: "center",
+    fontStyle: "italic",
+    paddingVertical: 16,
   },
   metricsGrid: {
     flexDirection: "row",

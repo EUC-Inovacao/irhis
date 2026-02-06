@@ -16,18 +16,64 @@ const CreateAccountScreen = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<'patient' | 'doctor'>('patient');
+  const [birthDate, setBirthDate] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Format date of birth as DD/MM/YYYY while typing
+  const formatBirthDate = (text: string) => {
+    const numbers = text.replace(/\D/g, '');
+    const limitedNumbers = numbers.slice(0, 8);
+    
+    let formatted = '';
+    if (limitedNumbers.length > 0) {
+      formatted = limitedNumbers.slice(0, 2);
+    }
+    if (limitedNumbers.length > 2) {
+      formatted += '/' + limitedNumbers.slice(2, 4);
+    }
+    if (limitedNumbers.length > 4) {
+      formatted += '/' + limitedNumbers.slice(4, 8);
+    }
+    return formatted;
+  };
+  
+  const handleBirthDateChange = (text: string) => {
+    const formatted = formatBirthDate(text);
+    setBirthDate(formatted);
+  };
+
+  // Convert DD/MM/YYYY to YYYY-MM-DD format for database
+  const convertToDatabaseFormat = (dateStr: string): string => {
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+      const [day, month, year] = parts;
+      if (day.length === 2 && month.length === 2 && year.length === 4) {
+        return `${year}-${month}-${day}`;
+      }
+    }
+    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return dateStr;
+    }
+    return dateStr;
+  };
+
   const handleSubmit = async () => {
     const nameTrim = name.trim();
     const emailTrim = email.trim();
+    const birthDateTrim = birthDate.trim();
     
     // Validation
     if (!nameTrim || !emailTrim || !password || !confirmPassword) {
       setError('All fields are required.');
+      return;
+    }
+    
+    // For patients, birth date is required
+    if (role === 'patient' && !birthDateTrim) {
+      setError('Birth date is required for patient accounts.');
       return;
     }
     
@@ -47,12 +93,24 @@ const CreateAccountScreen = () => {
       return;
     }
     
+    // Validate birth date format for patients
+    if (role === 'patient') {
+      const birthDateForDB = convertToDatabaseFormat(birthDateTrim);
+      if (!birthDateForDB.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        setError('Please enter a valid date in DD/MM/YYYY format.');
+        return;
+      }
+    }
+    
     setError(null);
     setLoading(true);
     
     try {
+      // Convert birth date to database format if patient
+      const birthDateForDB = role === 'patient' ? convertToDatabaseFormat(birthDateTrim) : undefined;
+      
       // Create account using local signup service
-      const { user } = await signup(nameTrim, emailTrim, password, role);
+      const { user } = await signup(nameTrim, emailTrim, password, role, birthDateForDB);
       
       // Set user directly in AuthContext (no need to login again)
       await setUser(user);
@@ -191,6 +249,22 @@ const CreateAccountScreen = () => {
               />
             </TouchableOpacity>
           </View>
+
+          {/* Birth Date Input - Only for Patients */}
+          {role === 'patient' && (
+            <>
+              <Text style={[styles.label, { color: colors.text }]}>Date of Birth *</Text>
+              <TextInput
+                style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+                placeholder="DD/MM/YYYY"
+                placeholderTextColor={colors.textSecondary}
+                value={birthDate}
+                onChangeText={handleBirthDateChange}
+                keyboardType="number-pad"
+                maxLength={10}
+              />
+            </>
+          )}
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 

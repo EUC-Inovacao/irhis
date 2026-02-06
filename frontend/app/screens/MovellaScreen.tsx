@@ -38,6 +38,7 @@ import JSZip from "jszip";
 import Papa from "papaparse";
 import PatientPickerModal from "@components/PatientPickerModal";
 import ExercisePickerModal from "@components/ExercisePickerModal";
+import SessionFeedbackModal from "@components/SessionFeedbackModal";
 import { usePatients } from "@context/PatientContext";
 import { getCurrentExercise } from "@services/exerciseAssignmentService";
 import { ExerciseTypesRepository } from "@storage/repositories";
@@ -98,6 +99,8 @@ const MovellaScreen = () => {
   const [currentExercise, setCurrentExercise] = useState<any>(null);
   const [selectedExerciseName, setSelectedExerciseName] = useState<string | null>(null);
   const [dataSourceMode, setDataSourceMode] = useState<"zip" | "ble">("zip"); // ZIP or BLE
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [lastCreatedSessionId, setLastCreatedSessionId] = useState<string | null>(null);
   // External API is the only analysis mode now
 
   const createSegmentOrientation = (
@@ -243,11 +246,15 @@ const MovellaScreen = () => {
       if (user?.role === "doctor") {
         fetchPatients();
       }
-      // Refresh assigned exercises if patient is selected
-      if (selectedPatientId) {
+      // Refresh assigned exercises if patient is selected (for doctors) or if user is a patient
+      if (user?.role === "patient" && user.id) {
+        fetchAssignedExercises(user.id);
+        // Set selectedPatientId to user.id for patients
+        setSelectedPatientId(user.id);
+      } else if (selectedPatientId) {
         fetchAssignedExercises(selectedPatientId);
       }
-    }, [user?.role, selectedPatientId, fetchPatients, fetchAssignedExercises])
+    }, [user?.role, user?.id, selectedPatientId, fetchPatients, fetchAssignedExercises])
   );
 
   // Load exercise name when selectedExerciseId changes
@@ -378,7 +385,7 @@ const MovellaScreen = () => {
       const startTime = new Date().toISOString();
       const endTime = new Date(Date.now() + 15 * 60000).toISOString(); // Assume 15 min session
 
-      await createSession({
+      const session = await createSession({
         patientId,
         exerciseTypeId,
         startTime,
@@ -392,10 +399,19 @@ const MovellaScreen = () => {
         },
       });
 
-      console.log("Session created successfully");
+      console.log("Session created successfully:", session.id);
+
+      // For patients, show feedback modal after session creation
+      if (user.role === "patient" && session.id) {
+        setLastCreatedSessionId(session.id);
+        setShowFeedbackModal(true);
+      }
+
+      return session.id;
     } catch (error) {
       console.error("Error creating session:", error);
       // Don't show error to user - session creation is secondary
+      return null;
     }
   };
 
@@ -1360,43 +1376,46 @@ const MovellaScreen = () => {
           </View>
         )}
 
-        {/* Current Exercise Display - For Patients */}
+        {/* Exercise Selection - For Patients */}
         {user?.role === "patient" && (
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Current Exercise
+              Select Exercise
             </Text>
-            {currentExercise?.exerciseType ? (
-              <View style={styles.currentExerciseContainer}>
-                <Ionicons
-                  name="fitness-outline"
-                  size={24}
-                  color={colors.primary}
-                />
-                <View style={styles.currentExerciseInfo}>
-                  <Text style={[styles.currentExerciseName, { color: colors.text }]}>
-                    {currentExercise.exerciseType.name}
-                  </Text>
-                  {currentExercise.exerciseType.description && (
-                    <Text
-                      style={[
-                        styles.currentExerciseDescription,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      {currentExercise.exerciseType.description}
-                    </Text>
-                  )}
-                </View>
-              </View>
-            ) : (
+            <TouchableOpacity
+              style={[
+                styles.pickerButton,
+                { backgroundColor: colors.background, borderColor: colors.mediumGray },
+              ]}
+              onPress={async () => {
+                if (!user?.id) {
+                  Alert.alert("Error", "User not logged in.");
+                  return;
+                }
+                // Force refresh assigned exercises before opening the picker
+                try {
+                  await fetchAssignedExercises(user.id);
+                  await new Promise(resolve => setTimeout(resolve, 100));
+                } catch (error) {
+                  console.error("Error refreshing assigned exercises:", error);
+                }
+                setShowExercisePicker(true);
+              }}
+            >
+              <Ionicons name="fitness-outline" size={20} color={colors.textSecondary} />
+              <Text style={[styles.pickerText, { color: colors.text }]}>
+                {selectedExerciseName || currentExercise?.exerciseType?.name || "Select Exercise"}
+              </Text>
+              <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+            {!selectedExerciseId && !currentExercise && (
               <Text
                 style={[
                   styles.currentExerciseText,
-                  { color: colors.textSecondary },
+                  { color: colors.textSecondary, marginTop: 8 },
                 ]}
               >
-                No exercise assigned
+                No exercise assigned. Your doctor will assign exercises for you.
               </Text>
             )}
           </View>
@@ -2354,15 +2373,34 @@ const MovellaScreen = () => {
 
       {/* Exercise Picker Modal */}
       <ExercisePickerModal
-        key={`exercise-picker-${selectedPatientId || 'no-patient'}-${showExercisePicker}`}
+        key={`exercise-picker-${user?.role === 'patient' ? user.id : selectedPatientId || 'no-patient'}-${showExercisePicker}`}
         visible={showExercisePicker}
         onClose={() => setShowExercisePicker(false)}
         onSelect={handleExerciseSelect}
         selectedExerciseId={selectedExerciseId}
-        patientId={selectedPatientId}
-        showCreateOption={true}
+        patientId={user?.role === 'patient' ? user.id : selectedPatientId}
+        showCreateOption={user?.role === 'doctor'}
         onCreateNew={handleCreateNewExercise}
       />
+
+      {/* Feedback Modal - For Patients */}
+      {user?.role === 'patient' && user.id && lastCreatedSessionId && (
+        <SessionFeedbackModal
+          visible={showFeedbackModal}
+          onClose={() => {
+            setShowFeedbackModal(false);
+            setLastCreatedSessionId(null);
+          }}
+          onSubmit={() => {
+            // Refresh patient sessions after feedback submission
+            if (user.id) {
+              // Feedback is saved, modal will close automatically
+            }
+          }}
+          sessionId={lastCreatedSessionId}
+          patientId={user.id}
+        />
+      )}
     </View>
   );
 };

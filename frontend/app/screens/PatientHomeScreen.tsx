@@ -108,7 +108,11 @@ const PatientHomeScreen = ({ navigation }: any) => {
     );
 
     return (
-        <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+        // Use only bottom safe area, the top is already handled by the navigation header
+        <SafeAreaView
+            style={[styles.safeArea, { backgroundColor: colors.background }]}
+            edges={['bottom']}
+        >
             <ScrollView style={styles.container}>
                 <View style={styles.header}>
                     <View>

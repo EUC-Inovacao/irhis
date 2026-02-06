@@ -54,10 +54,16 @@ export async function signup(
   name: string,
   email: string,
   password: string,
-  role: "patient" | "doctor"
+  role: "patient" | "doctor",
+  birthDate?: string // Optional birthDate in YYYY-MM-DD format
 ): Promise<{ token: string; user: User }> {
   if (!name || !email || !password) {
     throw new Error("Name, email, and password are required");
+  }
+
+  // For patients, birthDate is required
+  if (role === "patient" && !birthDate) {
+    throw new Error("Birth date is required for patient accounts");
   }
 
   const now = new Date().toISOString();
@@ -82,13 +88,24 @@ export async function signup(
     });
 
     if (role === "patient") {
+      // Create patient record with all required fields and defaults
       await PatientsRepository.upsert({
         id,
         name,
         email,
-        dateOfBirth: undefined,
+        birthDate: birthDate!, // Required for patients
+        sex: 'male', // Default, can be edited later
+        legDominance: 'dominant', // Default
+        affectedRightKnee: false,
+        affectedLeftKnee: false,
+        affectedRightHip: false,
+        affectedLeftHip: false,
+        contralateralJointAffect: false,
+        physicallyActive: false,
+        coMorbiditiesNMS: false,
+        coMorbiditiesSystemic: false,
         createdAt: now,
-        doctorId: null,
+        doctorId: null, // Unassigned initially
       });
     }
 
@@ -104,8 +121,7 @@ export async function signup(
 
 export async function login(
   email: string,
-  password: string,
-  role: "patient" | "doctor"
+  password: string
 ): Promise<{ token: string; user: User }> {
   if (!email || !password) {
     throw new Error("Email and password are required");
@@ -114,10 +130,6 @@ export async function login(
   const existing = await UsersRepository.findByEmail(email);
   if (!existing) {
     throw new Error("Invalid email or password");
-  }
-
-  if (existing.role !== role) {
-    throw new Error(`This account is registered as a ${existing.role}, not a ${role}`);
   }
 
   try {
@@ -133,6 +145,7 @@ export async function login(
       throw new Error("Invalid email or password");
     }
 
+    // Role is taken directly from the stored user record
     return { token: "local-token", user: toUser(existing) };
   } catch (error: any) {
     console.error("Login error:", error);

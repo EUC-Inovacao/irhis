@@ -62,10 +62,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
 
     try {
-      const detectedRole: 'doctor' | 'patient' =
-        email.toLowerCase().startsWith('doc') ? 'doctor' : 'patient';
-
-      const { user: loggedUser } = await LocalAuth.login(email, password, detectedRole);
+      // Let localAuthService determine the correct role based on stored user data
+      const { user: loggedUser } = await LocalAuth.login(email, password);
 
       const userToStore: User = { ...loggedUser };
 
