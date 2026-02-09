@@ -221,7 +221,20 @@ def get_patient(current_user, patient_id):
     # Get patient from database
     patient_data = get_patient_by_id(patient_id)
     if not patient_data:
-        return jsonify({"error": "Patient not found"}), 404
+        # If user exists but no patient record, check if they're a patient user
+        user_data = get_user_by_id(patient_id)
+        if user_data and user_data.get('Role') in ('Patient', 'patient'):
+            # Create a minimal patient record for existing users
+            try:
+                create_patient_record(patient_id, birth_date=None)
+                # Retry fetching
+                patient_data = get_patient_by_id(patient_id)
+            except Exception as e:
+                # If creation fails, return 404
+                return jsonify({"error": "Patient not found"}), 404
+        
+        if not patient_data:
+            return jsonify({"error": "Patient not found"}), 404
 
     # Calculate age from birth date if available
     age = 0
