@@ -76,15 +76,6 @@ def token_required(f):
                 'email': user_data.get('Email'),
                 'name': f"{user_data.get('FirstName','')} {user_data.get('LastName','')}".strip()
             }
-            # #region agent log
-            import json
-            log_path = "/Users/joaopedrosilva/irhis/.cursor/debug.log"
-            try:
-                with open(log_path, "a") as f:
-                    f.write(json.dumps({"location": "app.py:78", "message": "token_required - current_user created", "data": {"user_id": current_user.get('id'), "role": current_user.get('role'), "role_type": type(current_user.get('role')).__name__}, "timestamp": int(__import__('time').time() * 1000), "runId": "run1", "hypothesisId": "F"}) + "\n")
-            except:
-                pass
-            # #endregion
 
         except Exception as e:
             return jsonify({'error': 'Invalid token'}), 401
@@ -223,25 +214,12 @@ def get_current_user(current_user):
 @app.route('/patients/<patient_id>', methods=['GET'])
 @token_required
 def get_patient(current_user, patient_id):
-    # #region agent log
-    import json
-    log_path = "/Users/joaopedrosilva/irhis/.cursor/debug.log"
-    with open(log_path, "a") as f:
-        f.write(json.dumps({"location": "app.py:191", "message": "get_patient called", "data": {"patient_id": patient_id, "current_user_role": current_user.get('role'), "current_user_id": current_user.get('id'), "role_lower": current_user.get('role', '').lower() if current_user.get('role') else None, "is_doctor": current_user.get('role', '').lower() == 'doctor', "is_own_patient": current_user.get('id') == patient_id}, "timestamp": int(__import__('time').time() * 1000), "runId": "run1", "hypothesisId": "A"}) + "\n")
-    # #endregion
     # Check if user has access to this patient
     user_role_lower = current_user.get('role', '').lower() if current_user.get('role') else ''
     is_doctor = user_role_lower == 'doctor'
     is_own_patient = current_user.get('id') == patient_id
-    # #region agent log
-    with open(log_path, "a") as f:
-        f.write(json.dumps({"location": "app.py:199", "message": "authorization check", "data": {"user_role_lower": user_role_lower, "is_doctor": is_doctor, "is_own_patient": is_own_patient, "will_authorize": is_doctor or is_own_patient}, "timestamp": int(__import__('time').time() * 1000), "runId": "run1", "hypothesisId": "A"}) + "\n")
-    # #endregion
+    
     if not is_doctor and not is_own_patient:
-        # #region agent log
-        with open(log_path, "a") as f:
-            f.write(json.dumps({"location": "app.py:203", "message": "authorization failed", "data": {"reason": "not_doctor_and_not_own_patient"}, "timestamp": int(__import__('time').time() * 1000), "runId": "run1", "hypothesisId": "A"}) + "\n")
-        # #endregion
         return jsonify({"error": "Unauthorized"}), 403
 
     if not is_db_enabled():
@@ -249,10 +227,6 @@ def get_patient(current_user, patient_id):
 
     # Get patient from database
     patient_data = get_patient_by_id(patient_id)
-    # #region agent log
-    with open(log_path, "a") as f:
-        f.write(json.dumps({"location": "app.py:200", "message": "get_patient_by_id result", "data": {"patient_data": patient_data, "is_none": patient_data is None}, "timestamp": int(__import__('time').time() * 1000), "runId": "run1", "hypothesisId": "A"}) + "\n")
-    # #endregion
     if not patient_data:
         # If user exists but no patient record, check if they're a patient user
         user_data = get_user_by_id(patient_id)
@@ -308,10 +282,6 @@ def get_patient(current_user, patient_id):
         "recovery_process": [],
         "feedback": [],
     }
-    # #region agent log
-    with open(log_path, "a") as f:
-        f.write(json.dumps({"location": "app.py:257", "message": "patient response built", "data": {"patient": patient}, "timestamp": int(__import__('time').time() * 1000), "runId": "run1", "hypothesisId": "B"}) + "\n")
-    # #endregion
 
     return jsonify(patient)
 
