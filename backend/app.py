@@ -1034,62 +1034,63 @@ def fix_user_role(current_user):
 @token_required
 def get_exercise_types(current_user):
     """Get all available exercise types."""
-    if not is_db_enabled():
-        return jsonify({"error": "Database not configured"}), 500
-    
-    # For now, return a default list of exercise types
-    # TODO: Create exercise_types table and fetch from database
-    exercise_types = [
-        {
-            "id": "knee_flexion",
-            "name": "Knee Flexion",
-            "description": "Flexion exercise for knee rehabilitation",
-            "category": "knee",
-            "targetReps": 10,
-            "targetSets": 3,
-        },
-        {
-            "id": "knee_extension",
-            "name": "Knee Extension",
-            "description": "Extension exercise for knee rehabilitation",
-            "category": "knee",
-            "targetReps": 10,
-            "targetSets": 3,
-        },
-        {
-            "id": "hip_flexion",
-            "name": "Hip Flexion",
-            "description": "Flexion exercise for hip rehabilitation",
-            "category": "hip",
-            "targetReps": 10,
-            "targetSets": 3,
-        },
-        {
-            "id": "hip_abduction",
-            "name": "Hip Abduction",
-            "description": "Abduction exercise for hip rehabilitation",
-            "category": "hip",
-            "targetReps": 10,
-            "targetSets": 3,
-        },
-        {
-            "id": "ankle_dorsiflexion",
-            "name": "Ankle Dorsiflexion",
-            "description": "Dorsiflexion exercise for ankle rehabilitation",
-            "category": "ankle",
-            "targetReps": 10,
-            "targetSets": 3,
-        },
-        {
-            "id": "general_walking",
-            "name": "Walking",
-            "description": "General walking exercise",
-            "category": "general",
-            "targetReps": null,
-            "targetSets": null,
-        },
-    ]
-    return jsonify(exercise_types)
+    try:
+        # For now, return a default list of exercise types
+        # TODO: Create exercise_types table and fetch from database
+        exercise_types = [
+            {
+                "id": "knee_flexion",
+                "name": "Knee Flexion",
+                "description": "Flexion exercise for knee rehabilitation",
+                "category": "knee",
+                "targetReps": 10,
+                "targetSets": 3,
+            },
+            {
+                "id": "knee_extension",
+                "name": "Knee Extension",
+                "description": "Extension exercise for knee rehabilitation",
+                "category": "knee",
+                "targetReps": 10,
+                "targetSets": 3,
+            },
+            {
+                "id": "hip_flexion",
+                "name": "Hip Flexion",
+                "description": "Flexion exercise for hip rehabilitation",
+                "category": "hip",
+                "targetReps": 10,
+                "targetSets": 3,
+            },
+            {
+                "id": "hip_abduction",
+                "name": "Hip Abduction",
+                "description": "Abduction exercise for hip rehabilitation",
+                "category": "hip",
+                "targetReps": 10,
+                "targetSets": 3,
+            },
+            {
+                "id": "ankle_dorsiflexion",
+                "name": "Ankle Dorsiflexion",
+                "description": "Dorsiflexion exercise for ankle rehabilitation",
+                "category": "ankle",
+                "targetReps": 10,
+                "targetSets": 3,
+            },
+            {
+                "id": "general_walking",
+                "name": "Walking",
+                "description": "General walking exercise",
+                "category": "general",
+                "targetReps": None,
+                "targetSets": None,
+            },
+        ]
+        return jsonify(exercise_types)
+    except Exception as e:
+        import traceback
+        return jsonify({"error": f"Error fetching exercise types: {str(e)}", "traceback": traceback.format_exc()}), 500
 
 @app.route('/patients/<patient_id>/exercises', methods=['GET'])
 @token_required
