@@ -267,23 +267,26 @@ def get_patient(current_user, patient_id):
         height = height / 100
 
     # Build patient response
-    patient = {
-        "id": patient_data['ID'],
-        "name": f"{patient_data.get('FirstName', '')} {patient_data.get('LastName', '')}".strip() or patient_data.get('Email', ''),
-        "details": {
-            "age": age,
-            "sex": sex,
-            "height": height or 0,
-            "weight": patient_data.get('Weight') or 0,
-            "bmi": patient_data.get('BMI') or 0,
-            "clinicalInfo": patient_data.get('MedicalHistory') or 'No information provided.',
-            "medicalHistory": patient_data.get('MedicalHistory'),
-        },
-        "recovery_process": [],
-        "feedback": [],
-    }
-
-    return jsonify(patient)
+    try:
+        patient = {
+            "id": patient_data.get('ID') or patient_id,
+            "name": f"{patient_data.get('FirstName', '')} {patient_data.get('LastName', '')}".strip() or patient_data.get('Email', ''),
+            "details": {
+                "age": age,
+                "sex": sex,
+                "height": height or 0,
+                "weight": patient_data.get('Weight') or 0,
+                "bmi": patient_data.get('BMI') or 0,
+                "clinicalInfo": patient_data.get('MedicalHistory') or 'No information provided.',
+                "medicalHistory": patient_data.get('MedicalHistory'),
+            },
+            "recovery_process": [],
+            "feedback": [],
+        }
+        return jsonify(patient)
+    except Exception as e:
+        import traceback
+        return jsonify({"error": f"Error building patient response: {str(e)}", "traceback": traceback.format_exc()}), 500
 
 @app.route('/doctors/<doctor_id>/patients', methods=['GET'])
 @token_required
