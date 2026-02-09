@@ -1030,6 +1030,142 @@ def fix_user_role(current_user):
     except Exception as e:
         return jsonify({"error": f"Failed to update role: {str(e)}"}), 500
 
+@app.route('/exercise-types', methods=['GET'])
+@token_required
+def get_exercise_types(current_user):
+    """Get all available exercise types."""
+    if not is_db_enabled():
+        return jsonify({"error": "Database not configured"}), 500
+    
+    # For now, return a default list of exercise types
+    # TODO: Create exercise_types table and fetch from database
+    exercise_types = [
+        {
+            "id": "knee_flexion",
+            "name": "Knee Flexion",
+            "description": "Flexion exercise for knee rehabilitation",
+            "category": "knee",
+            "targetReps": 10,
+            "targetSets": 3,
+        },
+        {
+            "id": "knee_extension",
+            "name": "Knee Extension",
+            "description": "Extension exercise for knee rehabilitation",
+            "category": "knee",
+            "targetReps": 10,
+            "targetSets": 3,
+        },
+        {
+            "id": "hip_flexion",
+            "name": "Hip Flexion",
+            "description": "Flexion exercise for hip rehabilitation",
+            "category": "hip",
+            "targetReps": 10,
+            "targetSets": 3,
+        },
+        {
+            "id": "hip_abduction",
+            "name": "Hip Abduction",
+            "description": "Abduction exercise for hip rehabilitation",
+            "category": "hip",
+            "targetReps": 10,
+            "targetSets": 3,
+        },
+        {
+            "id": "ankle_dorsiflexion",
+            "name": "Ankle Dorsiflexion",
+            "description": "Dorsiflexion exercise for ankle rehabilitation",
+            "category": "ankle",
+            "targetReps": 10,
+            "targetSets": 3,
+        },
+        {
+            "id": "general_walking",
+            "name": "Walking",
+            "description": "General walking exercise",
+            "category": "general",
+            "targetReps": null,
+            "targetSets": null,
+        },
+    ]
+    return jsonify(exercise_types)
+
+@app.route('/patients/<patient_id>/exercises', methods=['GET'])
+@token_required
+def get_patient_exercises(current_user, patient_id):
+    """Get assigned exercises for a patient."""
+    if current_user['role'].lower() != 'doctor' and current_user['id'] != patient_id:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    if not is_db_enabled():
+        return jsonify({"error": "Database not configured"}), 500
+    
+    # Get sessions assigned to this patient
+    sessions = get_patient_sessions(patient_id)
+    if not sessions:
+        return jsonify([])
+    
+    # Convert sessions to assigned exercises format
+    assigned_exercises = []
+    for session in sessions.get('assigned', []):
+        assigned_exercises.append({
+            "id": session.get('id', ''),
+            "patientId": patient_id,
+            "exerciseTypeId": session.get('exerciseType', ''),
+            "assignedDate": session.get('timeCreated'),
+            "completed": 0,
+            "targetReps": session.get('repetitions'),
+            "targetSets": None,
+            "exerciseType": {
+                "id": session.get('exerciseType', ''),
+                "name": session.get('exerciseDescription', 'Exercise'),
+                "category": "general",
+            }
+        })
+    
+    return jsonify(assigned_exercises)
+
+@app.route('/patients/<patient_id>/exercises', methods=['POST'])
+@token_required
+def assign_patient_exercise(current_user, patient_id):
+    """Assign an exercise to a patient."""
+    if current_user['role'].lower() != 'doctor':
+        return jsonify({"error": "Only doctors can assign exercises"}), 403
+    
+    if not is_db_enabled():
+        return jsonify({"error": "Database not configured"}), 500
+    
+    data = request.get_json()
+    exercise_type_id = data.get('exercise_type_id')
+    target_reps = data.get('target_reps')
+    target_sets = data.get('target_sets')
+    
+    if not exercise_type_id:
+        return jsonify({"error": "exercise_type_id is required"}), 400
+    
+    doctor_id = current_user['id']
+    relation = get_patient_doctor_relation(patient_id, doctor_id)
+    
+    if not relation:
+        return jsonify({"error": "Patient not associated with this doctor"}), 403
+    
+    relation_id = relation['ID']
+    
+    # Get exercise type name (for now, use the ID as name)
+    exercise_name = exercise_type_id.replace('_', ' ').title()
+    
+    # Assign session (exercise) to patient
+    assign_session_to_patient(
+        relation_id=relation_id,
+        exercise_type=exercise_type_id,
+        exercise_description=exercise_name,
+        repetitions=target_reps or 10,
+        duration=None
+    )
+    
+    return jsonify({"message": "Exercise assigned successfully"}), 201
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     debug = os.environ.get('FLASK_ENV') == 'development'
