@@ -1,4 +1,4 @@
-import { SessionsRepository, MetricsRepository } from "../storage/repositories";
+import api from "./api";
 
 export interface HistoricalSessionData {
   date: string;
@@ -10,46 +10,39 @@ export interface HistoricalSessionData {
   score: number;
 }
 
-/**
- * Get historical session data for a patient - only returns real session data
- */
 export async function getHistoricalSessionData(
   patientId: string,
-  currentRom?: number,
-  currentReps?: number
+  _currentRom?: number,
+  _currentReps?: number
 ): Promise<HistoricalSessionData[]> {
   try {
-    // Get real sessions only
-    const sessions = await SessionsRepository.listByPatient(patientId);
-    
-    if (sessions.length === 0) {
-      // No real sessions, return empty array
-      return [];
-    }
-    
-    // Get metrics for each session
-    const historicalData: HistoricalSessionData[] = [];
-    
-    for (const session of sessions.slice(0, 8).reverse()) {
-      const metrics = await MetricsRepository.getBySession(session.id);
-      
-      if (metrics) {
-        historicalData.push({
-          date: session.startTime,
-          rom: metrics.rom || 0,
-          reps: metrics.reps || 0,
-          maxFlexion: metrics.maxFlexion || 0,
-          maxExtension: metrics.maxExtension || 0,
-          avgVelocity: 25, // Default if not stored
-          score: metrics.score || 0,
-        });
-      }
-    }
-    
-    return historicalData;
-  } catch (error) {
-    console.error("Error fetching historical data:", error);
-    // Return empty array on error - no mock data
+    const res = await api.get<any[]>(`/patients/${patientId}/metrics`, { params: { limit: 50 } });
+    const metrics = Array.isArray(res.data) ? res.data : [];
+
+    return metrics
+      .slice()
+      .reverse()
+      .map((m) => {
+        const date = String(m.TimeCreated ?? m.timestamp ?? new Date().toISOString());
+        const romVal = Number(m.AvgROM ?? 0);
+        const repsVal = Number(m.Repetitions ?? 0);
+        const maxFlexion = Number(m.MaxFlexion ?? 0);
+        const maxExtension = Number(m.MaxExtension ?? 0);
+        const avgVelocity = Number(m.AvgVelocity ?? 0);
+
+        const score = Math.max(0, Math.min(100, Math.round((romVal * 0.6) + (repsVal * 2) + (avgVelocity * 5))));
+
+        return {
+          date,
+          rom: romVal,
+          reps: repsVal,
+          maxFlexion,
+          maxExtension,
+          avgVelocity,
+          score,
+        } satisfies HistoricalSessionData;
+      });
+  } catch {
     return [];
   }
 }

@@ -1,104 +1,100 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as LocalAuth from '@services/localAuthService';
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import type { User } from "../types";
+import * as RemoteAuth from "../services/auth";
 
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: 'patient' | 'doctor';
-  token?: string;
-}
+type AuthRole = "patient" | "doctor";
 
 interface AuthContextData {
   user: User | null;
+  token: string | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  setUser: (user: User) => Promise<void>;
+  login: (email: string, password: string, role: AuthRole) => Promise<void>;
+  signup: (name: string, email: string, password: string, role: AuthRole) => Promise<void>;
   logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 
-const STORAGE_USER_KEY = '@IRHIS:user';
+const STORAGE_USER_KEY = "@IRHIS:user";
+const STORAGE_TOKEN_KEY = "@IRHIS:token";
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Ensure database is initialized before loading user data
-    const initAndLoad = async () => {
+    const restore = async () => {
       try {
-        // Import and run migrations if needed
-        const { runMigrations } = await import('../storage/db');
-        await runMigrations();
-      } catch (error) {
-        console.error('Error initializing database:', error);
-        // Continue anyway - database might already be initialized
+        const [storedUser, storedToken] = await Promise.all([
+          AsyncStorage.getItem(STORAGE_USER_KEY),
+          AsyncStorage.getItem(STORAGE_TOKEN_KEY),
+        ]);
+
+        if (storedUser && storedToken) {
+          setUser(JSON.parse(storedUser) as User);
+          setToken(storedToken);
+        }
+      } finally {
+        setLoading(false);
       }
-      await loadStorageData();
     };
-    initAndLoad();
+
+    restore();
   }, []);
 
-  async function loadStorageData() {
-    try {
-      const storageUser = await AsyncStorage.getItem(STORAGE_USER_KEY);
-
-      if (storageUser) {
-        setUser(JSON.parse(storageUser));
-      }
-    } catch (error) {
-      console.error('Error loading storage data:', error);
-      // Continue even if there's an error
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function login(email: string, password: string) {
+  async function login(email: string, password: string, role: AuthRole) {
     setLoading(true);
-
     try {
-      // Let localAuthService determine the correct role based on stored user data
-      const { user: loggedUser } = await LocalAuth.login(email, password);
+      const { token: newToken, user: newUser } = await RemoteAuth.login(email, password, role);
 
-      const userToStore: User = { ...loggedUser };
+      setUser(newUser);
+      setToken(newToken);
 
-      setUser(userToStore);
-
-      await AsyncStorage.setItem(STORAGE_USER_KEY, JSON.stringify(userToStore));
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error; // Re-throw so the caller can handle it
+      await Promise.all([
+        AsyncStorage.setItem(STORAGE_USER_KEY, JSON.stringify(newUser)),
+        AsyncStorage.setItem(STORAGE_TOKEN_KEY, newToken),
+      ]);
     } finally {
       setLoading(false);
     }
   }
 
-  async function setUserDirectly(userToSet: User) {
-    setUser(userToSet);
-    await AsyncStorage.setItem(STORAGE_USER_KEY, JSON.stringify(userToSet));
+  async function signup(name: string, email: string, password: string, role: AuthRole) {
+    setLoading(true);
+    try {
+      const { token: newToken, user: newUser } = await RemoteAuth.signup(name, email, password, role);
+
+      setUser(newUser);
+      setToken(newToken);
+
+      await Promise.all([
+        AsyncStorage.setItem(STORAGE_USER_KEY, JSON.stringify(newUser)),
+        AsyncStorage.setItem(STORAGE_TOKEN_KEY, newToken),
+      ]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function logout() {
-    setUser(null);
-    await AsyncStorage.removeItem(STORAGE_USER_KEY);
+    setLoading(true);
+    try {
+      setUser(null);
+      setToken(null);
+      await Promise.all([
+        AsyncStorage.removeItem(STORAGE_USER_KEY),
+        AsyncStorage.removeItem(STORAGE_TOKEN_KEY),
+      ]);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  return (
-    <AuthContext.Provider value={{ user, loading, login, setUser: setUserDirectly, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const value = useMemo(() => ({ user, token, loading, login, signup, logout }), [user, token, loading]);
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+export const useAuth = () => useContext(AuthContext);

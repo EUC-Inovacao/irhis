@@ -1,34 +1,34 @@
-// API service is disabled - app now uses local storage only
-// This file is kept as a stub to prevent import errors during migration
+// app/services/api.ts
+import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_URL } from "./config/env";
 
-import axios from "axios";
+const STORAGE_TOKEN_KEY = "@IRHIS:token";
 
-const api = axios.create({
-  baseURL: 'http://localhost:5000', // Dummy URL - will not be used
+const api: AxiosInstance = axios.create({
+  baseURL: API_URL,
+  timeout: 15000,
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 10000,
 });
 
-// Override all methods to throw errors indicating local storage should be used
-const throwError = (method: string) => {
-  throw new Error(
-    `API calls are disabled. This app now uses local storage only. ` +
-    `Please use local repositories or services instead of ${method}.`
-  );
-};
+api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
 
-api.get = () => Promise.reject(throwError('api.get'));
-api.post = () => Promise.reject(throwError('api.post'));
-api.put = () => Promise.reject(throwError('api.put'));
-api.delete = () => Promise.reject(throwError('api.delete'));
-api.patch = () => Promise.reject(throwError('api.patch'));
+  const url = String(config.url ?? "");
+  const isAuthCall = url.startsWith("/login") || url.startsWith("/signup");
 
-// Interceptors are no longer needed
-api.interceptors = {
-  request: { use: () => {}, eject: () => {} },
-  response: { use: () => {}, eject: () => {} },
-} as any;
+  if (!isAuthCall) {
+    const token = await AsyncStorage.getItem(STORAGE_TOKEN_KEY);
+    if (token) {
+      if (!config.headers) {
+        config.headers = {};
+      }
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+
+  return config;
+});
 
 export default api;

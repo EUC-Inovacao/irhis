@@ -1,5 +1,5 @@
-import { SessionsRepository, MetricsRepository } from '../storage/repositories';
-import type { Session } from '../types';
+import api from "./api";
+import type { Session } from "../types";
 
 export interface SessionsResponse {
   assigned: Session[];
@@ -22,184 +22,97 @@ export interface UpdateSessionDto {
   duration?: number;
 }
 
-// Helper to convert SessionRecord to Session type
-function toSession(record: any, metrics?: any): Session {
+type SessionRow = {
+  ID: string;
+  ExerciseType?: string;
+  ExerciseDescription?: string;
+  Repetitions?: number;
+  Duration?: string | number | null;
+  TimeCreated?: string;
+};
+
+type MetricRow = {
+  SessionID?: string;
+  AvgROM?: number;
+  AvgVelocity?: number;
+  Repetitions?: number;
+  MaxFlexion?: number;
+  MaxExtension?: number;
+};
+
+function toSession(row: SessionRow, metrics?: MetricRow): Session {
+  const durationText =
+    row.Duration === null || row.Duration === undefined
+      ? null
+      : typeof row.Duration === "string"
+        ? row.Duration
+        : String(row.Duration);
+
   return {
-    id: record.id,
-    exerciseType: record.exerciseType,
-    exerciseDescription: record.notes || '',
-    repetitions: metrics?.reps || null,
-    duration: record.endTime ? calculateDuration(record.startTime, record.endTime) : null,
-    timeCreated: record.startTime,
-    metrics: metrics ? [{
-      Repetitions: metrics.reps,
-      AvgROM: metrics.rom,
-      MinROM: metrics.maxExtension,
-      MaxROM: metrics.maxFlexion,
-    }] : undefined,
+    id: row.ID,
+    exerciseType: row.ExerciseType ?? "",
+    exerciseDescription: row.ExerciseDescription ?? "",
+    repetitions: typeof row.Repetitions === "number" ? row.Repetitions : (metrics?.Repetitions ?? null),
+    duration: durationText,
+    timeCreated: row.TimeCreated ?? new Date().toISOString(),
+    metrics: metrics
+      ? [
+          {
+            Repetitions: metrics.Repetitions ?? null,
+            AvgROM: metrics.AvgROM ?? null,
+            MinROM: metrics.MaxExtension ?? null,
+            MaxROM: metrics.MaxFlexion ?? null,
+          },
+        ]
+      : undefined,
   };
 }
 
-function calculateDuration(startTime: string, endTime: string): string {
-  const start = new Date(startTime).getTime();
-  const end = new Date(endTime).getTime();
-  const diffMs = end - start;
-  const diffMins = Math.floor(diffMs / 60000);
-  return `${diffMins} minutes`;
+export async function getPatientSessions(patientId: string): Promise<SessionsResponse> {
+  const [sessionsRes, metricsRes] = await Promise.all([
+    api.get<SessionRow[]>(`/patients/${patientId}/sessions`),
+    api.get<MetricRow[]>(`/patients/${patientId}/metrics`, { params: { limit: 200 } }).catch(() => ({ data: [] as MetricRow[] })),
+  ]);
+
+  const sessions = Array.isArray(sessionsRes.data) ? sessionsRes.data : [];
+  const metrics = Array.isArray(metricsRes.data) ? metricsRes.data : [];
+
+  const metricsBySessionId = new Map<string, MetricRow>();
+  for (const m of metrics) {
+    const sid = typeof m.SessionID === "string" ? m.SessionID : "";
+    if (sid) metricsBySessionId.set(sid, m);
+  }
+
+  const assigned: Session[] = [];
+  const completed: Session[] = [];
+
+  for (const s of sessions) {
+    const m = metricsBySessionId.get(s.ID);
+    const mapped = toSession(s, m);
+    if (m) completed.push(mapped);
+    else assigned.push(mapped);
+  }
+
+  return { assigned, completed };
 }
 
-export async function getPatientSessions(
-  patientId: string
-): Promise<SessionsResponse> {
-  try {
-    const sessions = await SessionsRepository.listByPatient(patientId);
-    
-    // Get metrics for each session
-    const sessionsWithMetrics = await Promise.all(
-      sessions.map(async (session) => {
-        const metrics = await MetricsRepository.getBySession(session.id);
-        return { session, metrics };
-      })
-    );
-    
-    // Separate into assigned (no endTime) and completed (has endTime)
-    const assigned: Session[] = [];
-    const completed: Session[] = [];
-    
-    for (const { session, metrics } of sessionsWithMetrics) {
-      const sessionObj = toSession(session, metrics);
-      if (session.endTime) {
-        completed.push(sessionObj);
-      } else {
-        assigned.push(sessionObj);
-      }
-    }
-    
-    return { assigned, completed };
-  } catch (error) {
-    console.error('Failed to get patient sessions:', error);
-    throw error;
-  }
+export async function createSession(patientId: string, dto: CreateSessionDto): Promise<Session> {
+  const payload = {
+    exerciseType: dto.exerciseType ?? dto.name ?? "",
+    exerciseDescription: dto.exerciseDescription ?? dto.instructions ?? "",
+    repetitions: dto.repetitions ?? null,
+    duration: dto.duration ?? null,
+  };
+
+  const res = await api.post<SessionRow>(`/patients/${patientId}/sessions`, payload);
+  const row = res.data;
+  return toSession(row);
 }
 
-export async function createSession(
-  patientId: string,
-  sessionData: CreateSessionDto
-): Promise<Session> {
-  try {
-    const sessionId = `session_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    const startTime = new Date().toISOString();
-    
-    const sessionRecord = {
-      id: sessionId,
-      patientId,
-      startTime,
-      endTime: null,
-      exerciseType: sessionData.exerciseType ?? sessionData.name ?? '',
-      side: null,
-      notes: sessionData.exerciseDescription ?? sessionData.instructions ?? '',
-      exerciseTypeId: null,
-    };
-    
-    await SessionsRepository.create(sessionRecord);
-    
-    return toSession(sessionRecord);
-  } catch (error) {
-    console.error('Failed to create session:', error);
-    throw error;
-  }
+export async function updateSession(sessionId: string, dto: UpdateSessionDto): Promise<void> {
+  await api.put(`/sessions/${sessionId}`, dto);
 }
 
-export async function getSessionById(sessionId: string): Promise<Session> {
-  try {
-    // We need to find the session by querying directly since we don't have a direct getById
-    const { executeSql } = require('../storage/db');
-    const result = await executeSql(
-      'SELECT * FROM sessions WHERE id = ? LIMIT 1',
-      [sessionId]
-    );
-    
-    const session = result.rows._array?.[0];
-    if (!session) {
-      throw new Error('Session not found');
-    }
-    
-    const metrics = await MetricsRepository.getBySession(sessionId);
-    return toSession(session, metrics || undefined);
-  } catch (error) {
-    console.error('Failed to get session by ID:', error);
-    throw error;
-  }
-}
-
-export async function updateSession(
-  sessionId: string,
-  data: UpdateSessionDto
-): Promise<Session> {
-  try {
-    // Get existing session using executeSql
-    const { executeSql } = require('../storage/db');
-    const result = await executeSql(
-      'SELECT * FROM sessions WHERE id = ? LIMIT 1',
-      [sessionId]
-    );
-    
-    const session = result.rows._array?.[0];
-    if (!session) {
-      throw new Error('Session not found');
-    }
-    
-    // Update session using executeSql directly since we don't have an update method
-    const updates: string[] = [];
-    const values: any[] = [];
-    
-    if (data.exercise_type !== undefined) {
-      updates.push('exerciseType = ?');
-      values.push(data.exercise_type);
-    }
-    if (data.exercise_description !== undefined) {
-      updates.push('notes = ?');
-      values.push(data.exercise_description);
-    }
-    if (data.duration !== undefined) {
-      // Calculate endTime from duration
-      const startTime = new Date(session.startTime);
-      const endTime = new Date(startTime.getTime() + (data.duration * 60000)); // duration in minutes
-      updates.push('endTime = ?');
-      values.push(endTime.toISOString());
-    }
-    
-    if (updates.length > 0) {
-      values.push(sessionId);
-      await executeSql(
-        `UPDATE sessions SET ${updates.join(', ')} WHERE id = ?`,
-        values
-      );
-    }
-    
-    // Update metrics if repetitions provided
-    if (data.repetitions !== undefined) {
-      const existingMetrics = await MetricsRepository.getBySession(sessionId);
-      if (existingMetrics) {
-        await executeSql(
-          'UPDATE metrics SET reps = ? WHERE sessionId = ?',
-          [data.repetitions, sessionId]
-        );
-      } else {
-        // Create new metrics record
-        const metricsId = `metrics_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-        await MetricsRepository.create({
-          id: metricsId,
-          sessionId,
-          reps: data.repetitions,
-        });
-      }
-    }
-    
-    // Get updated session
-    return await getSessionById(sessionId);
-  } catch (error) {
-    console.error('Failed to update session:', error);
-    throw error;
-  }
+export async function deleteSession(sessionId: string): Promise<void> {
+  await api.delete(`/sessions/${sessionId}`);
 }
