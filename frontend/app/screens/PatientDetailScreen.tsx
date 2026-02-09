@@ -103,7 +103,7 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
     } else {
       setExercises([]);
     }
-  }, [patientId, listFromContext.length, patientData?.recovery_process]);
+  }, [patientId, listFromContext, patientData?.recovery_process]);
 
   // Ensure we have up-to-date sessions for this patient
   useEffect(() => {
@@ -177,6 +177,9 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
         details
       );
       updatePatient(patientData.id, updatedPatient);
+      // Refresh patient data to ensure UI is updated
+      await fetchPatients();
+      Alert.alert("Success", "Patient details updated successfully.");
     } catch (error) {
       console.error("Failed to update details:", error);
       Alert.alert("Error", "Could not update patient details.");
