@@ -28,7 +28,9 @@ from db import (
     create_manual_patient,
     insert_session_metrics,
     get_metrics_by_session,
-    get_metrics_by_patient
+    get_metrics_by_patient,
+    user_exists,
+    create_user
 )
 
 
@@ -137,35 +139,39 @@ def signup():
     if not all([email, password, role, name]):
         return jsonify({"error": "Missing required fields"}), 400
 
+    if not is_db_enabled():
+        return jsonify({"error": "Database not configured"}), 500
+
+    # Normalize role to match database enum (Patient/Doctor)
+    normalized_role = "Doctor" if role.lower() == "doctor" else "Patient"
+
     # Check if email already exists
-    if any(user['email'] == email for user in users.values()):
+    if user_exists(email):
         return jsonify({"error": "Email already registered"}), 409
 
-    # Create new user
-    user_id = str(len(users) + 1)
+    # Parse name into first and last name
+    name_parts = name.strip().split(maxsplit=1)
+    first_name = name_parts[0] if name_parts else ""
+    last_name = name_parts[1] if len(name_parts) > 1 else ""
+
+    # Hash password and create user in database
     hashed_password = generate_password_hash(password)
     
-    users[user_id] = {
-        "id": user_id,
-        "email": email,
-        "password": hashed_password,
-        "role": role,
-        "name": name
-    }
-
-    if role == 'patient':
-        patients[user_id] = {
-            "id": user_id,
-            "name": name,
-            "recovery_process": [],
-            "details": default_patient_details
-        }
+    try:
+        user_id = create_user(email, hashed_password, first_name, last_name, normalized_role)
+    except Exception as e:
+        return jsonify({"error": f"Failed to create user: {str(e)}"}), 500
 
     # Generate token
-    token = PyJWT.encode({
-        'user_id': user_id,
-        'exp': datetime.now(timezone.utc) + timedelta(days=1)
-    }, app.config['SECRET_KEY'])
+    token = PyJWT.encode(
+        {
+            "user_id": user_id,
+            "role": normalized_role,
+            "exp": datetime.now(timezone.utc) + timedelta(days=1),
+        },
+        app.config["SECRET_KEY"],
+        algorithm="HS256",
+    )
 
     return jsonify({
         "token": token,
@@ -173,9 +179,9 @@ def signup():
             "id": user_id,
             "email": email,
             "name": name,
-            "role": role
+            "role": normalized_role
         }
-    })
+    }), 201
 
 @app.route('/me', methods=['GET'])
 @token_required

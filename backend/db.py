@@ -249,6 +249,40 @@ def get_user_for_login(email: str, role: str) -> Optional[dict[str, Any]]:
     )
 
 
+def user_exists(email: str) -> bool:
+    """Check if a user with the given email already exists."""
+    result = fetch_one(
+        """
+        SELECT ID
+        FROM users
+        WHERE Email = :email
+        LIMIT 1
+        """,
+        {"email": email},
+    )
+    return result is not None
+
+
+def create_user(email: str, password_hash: str, first_name: str, last_name: str, role: str) -> str:
+    """Create a new user in the database and return the user ID."""
+    user_id = str(uuid.uuid4())
+    execute(
+        """
+        INSERT INTO users (ID, Email, Password, FirstName, LastName, Role, Active, Deleted)
+        VALUES (:id, :email, :password, :fname, :lname, :role, 1, 0)
+        """,
+        {
+            "id": user_id,
+            "email": email,
+            "password": password_hash,
+            "fname": first_name,
+            "lname": last_name,
+            "role": role,
+        },
+    )
+    return user_id
+
+
 def get_user_by_id(user_id: str) -> Optional[dict[str, Any]]:
     return fetch_one(
         """
