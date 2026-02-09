@@ -266,6 +266,58 @@ def get_user_by_id(user_id: str) -> Optional[dict[str, Any]]:
         {"id": user_id},
     )
 
+def get_patient_by_id(patient_id: str) -> Optional[dict[str, Any]]:
+    """Get patient data by joining users and patient tables."""
+    return fetch_one(
+        """
+        SELECT
+          u.ID,
+          u.Email,
+          u.FirstName,
+          u.LastName,
+          u.Role,
+          p.BirthDate,
+          p.Sex,
+          p.Weight,
+          p.Height,
+          p.BMI,
+          p.Occupation,
+          p.Education,
+          p.MedicalHistory,
+          p.TimeAfterSymptoms,
+          p.LegDominance,
+          p.PhysicallyActive
+        FROM users u
+        LEFT JOIN patient p ON p.UserID = u.ID
+        WHERE u.ID = :id
+          AND u.Role IN ('Patient', 'patient')
+          AND u.Active = 1
+          AND COALESCE(u.Deleted, 0) = 0
+        LIMIT 1
+        """,
+        {"id": patient_id},
+    )
+
+def create_patient_record(user_id: str, birth_date: Optional[str] = None) -> None:
+    """Create a minimal patient record in the patient table."""
+    execute(
+        """
+        INSERT INTO patient (
+            UserID, BirthDate, Sex, Weight, Height, BMI, Occupation, Education,
+            AffectedRightKnee, AffectedLeftKnee, AffectedRightHip, AffectedLeftHip,
+            MedicalHistory, TimeAfterSymptoms, LegDominance, PhysicallyActive
+        )
+        VALUES (
+            :user_id, :birth_date, NULL, NULL, NULL, NULL, NULL, NULL,
+            0, 0, 0, 0, NULL, NULL, NULL, 0
+        )
+        """,
+        {
+            "user_id": user_id,
+            "birth_date": birth_date,
+        },
+    )
+
 def get_patient_sessions(patient_id: str):
     rows = fetch_all(
         """

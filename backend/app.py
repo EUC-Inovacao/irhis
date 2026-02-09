@@ -28,7 +28,11 @@ from db import (
     create_manual_patient,
     insert_session_metrics,
     get_metrics_by_session,
-    get_metrics_by_patient
+    get_metrics_by_patient,
+    execute,
+    fetch_one,
+    get_patient_by_id,
+    create_patient_record
 )
 
 
@@ -186,13 +190,71 @@ def get_current_user(current_user):
 @token_required
 def get_patient(current_user, patient_id):
     # Check if user has access to this patient
-    if current_user['role'] != 'doctor' and current_user['id'] != patient_id:
+    if current_user['role'].lower() != 'doctor' and current_user['id'] != patient_id:
         return jsonify({"error": "Unauthorized"}), 403
 
-    patient = patients.get(patient_id)
-    if patient:
-        return jsonify(patient)
-    return jsonify({"error": "Patient not found"}), 404
+    if not is_db_enabled():
+        return jsonify({"error": "Database not configured"}), 500
+
+    # Get patient from database
+    patient_data = get_patient_by_id(patient_id)
+    if not patient_data:
+        # If user exists but no patient record, check if they're a patient user
+        user_data = get_user_by_id(patient_id)
+        if user_data and user_data.get('Role') in ('Patient', 'patient'):
+            # Create a minimal patient record for existing users
+            try:
+                create_patient_record(patient_id, birth_date=None)
+                # Retry fetching
+                patient_data = get_patient_by_id(patient_id)
+            except Exception as e:
+                # If creation fails, return 404
+                return jsonify({"error": "Patient not found"}), 404
+        
+        if not patient_data:
+            return jsonify({"error": "Patient not found"}), 404
+
+    # Calculate age from birth date if available
+    age = 0
+    if patient_data.get('BirthDate'):
+        try:
+            from datetime import datetime
+            birth_date = datetime.strptime(patient_data['BirthDate'], '%Y-%m-%d')
+            today = datetime.now()
+            age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+        except:
+            pass
+
+    # Map sex enum to frontend format
+    sex_map = {
+        'male': 'Male',
+        'female': 'Female',
+    }
+    sex = sex_map.get(patient_data.get('Sex', '').lower(), 'Other')
+
+    # Convert height from cm to meters if available
+    height = patient_data.get('Height')
+    if height:
+        height = height / 100
+
+    # Build patient response
+    patient = {
+        "id": patient_data['ID'],
+        "name": f"{patient_data.get('FirstName', '')} {patient_data.get('LastName', '')}".strip() or patient_data.get('Email', ''),
+        "details": {
+            "age": age,
+            "sex": sex,
+            "height": height or 0,
+            "weight": patient_data.get('Weight') or 0,
+            "bmi": patient_data.get('BMI') or 0,
+            "clinicalInfo": patient_data.get('MedicalHistory') or 'No information provided.',
+            "medicalHistory": patient_data.get('MedicalHistory'),
+        },
+        "recovery_process": [],
+        "feedback": [],
+    }
+
+    return jsonify(patient)
 
 @app.route('/doctors/<doctor_id>/patients', methods=['GET'])
 @token_required
@@ -872,6 +934,69 @@ def get_specific_session_metrics(current_user, session_id):
         return jsonify(metrics), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/admin/fix-user-role', methods=['POST'])
+@token_required
+def fix_user_role(current_user):
+    """
+    Admin endpoint to fix a user's role.
+    Allows users to fix their own role if they're currently a Patient.
+    """
+    data = request.get_json()
+    email = data.get('email')
+    new_role = data.get('role')
+    
+    if not email or not new_role:
+        return jsonify({"error": "Email and role are required"}), 400
+    
+    if new_role not in ['Patient', 'Doctor']:
+        return jsonify({"error": "Role must be 'Patient' or 'Doctor'"}), 400
+    
+    if not is_db_enabled():
+        return jsonify({"error": "Database not configured"}), 500
+    
+    # Check if user exists
+    user = fetch_one(
+        """
+        SELECT ID, Email, Role
+        FROM users
+        WHERE Email = :email
+        """,
+        {"email": email}
+    )
+    
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    # Allow users to fix their own role if they're currently a Patient
+    # Or allow if the current user is a Doctor
+    can_fix = (
+        current_user['id'] == user['ID'] and user['Role'] == 'Patient'
+    ) or current_user['role'].lower() == 'doctor'
+    
+    if not can_fix:
+        return jsonify({"error": "Unauthorized to change this user's role"}), 403
+    
+    # Update the role
+    try:
+        execute(
+            """
+            UPDATE users
+            SET Role = :role
+            WHERE Email = :email
+            """,
+            {"role": new_role, "email": email}
+        )
+        
+        return jsonify({
+            "success": True,
+            "message": f"User role updated to {new_role}",
+            "email": email,
+            "old_role": user['Role'],
+            "new_role": new_role
+        }), 200
+    except Exception as e:
+        return jsonify({"error": f"Failed to update role: {str(e)}"}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
