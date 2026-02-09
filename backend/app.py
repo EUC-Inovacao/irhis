@@ -76,6 +76,15 @@ def token_required(f):
                 'email': user_data.get('Email'),
                 'name': f"{user_data.get('FirstName','')} {user_data.get('LastName','')}".strip()
             }
+            # #region agent log
+            import json
+            log_path = "/Users/joaopedrosilva/irhis/.cursor/debug.log"
+            try:
+                with open(log_path, "a") as f:
+                    f.write(json.dumps({"location": "app.py:78", "message": "token_required - current_user created", "data": {"user_id": current_user.get('id'), "role": current_user.get('role'), "role_type": type(current_user.get('role')).__name__}, "timestamp": int(__import__('time').time() * 1000), "runId": "run1", "hypothesisId": "F"}) + "\n")
+            except:
+                pass
+            # #endregion
 
         except Exception as e:
             return jsonify({'error': 'Invalid token'}), 401
