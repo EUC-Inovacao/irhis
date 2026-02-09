@@ -1131,41 +1131,48 @@ def get_patient_exercises(current_user, patient_id):
 @token_required
 def assign_patient_exercise(current_user, patient_id):
     """Assign an exercise to a patient."""
-    if current_user['role'].lower() != 'doctor':
-        return jsonify({"error": "Only doctors can assign exercises"}), 403
-    
-    if not is_db_enabled():
-        return jsonify({"error": "Database not configured"}), 500
-    
-    data = request.get_json()
-    exercise_type_id = data.get('exercise_type_id')
-    target_reps = data.get('target_reps')
-    target_sets = data.get('target_sets')
-    
-    if not exercise_type_id:
-        return jsonify({"error": "exercise_type_id is required"}), 400
-    
-    doctor_id = current_user['id']
-    relation = get_patient_doctor_relation(patient_id, doctor_id)
-    
-    if not relation:
-        return jsonify({"error": "Patient not associated with this doctor"}), 403
-    
-    relation_id = relation['ID']
-    
-    # Get exercise type name (for now, use the ID as name)
-    exercise_name = exercise_type_id.replace('_', ' ').title()
-    
-    # Assign session (exercise) to patient
-    assign_session_to_patient(
-        relation_id=relation_id,
-        exercise_type=exercise_type_id,
-        exercise_description=exercise_name,
-        repetitions=target_reps or 10,
-        duration=None
-    )
-    
-    return jsonify({"message": "Exercise assigned successfully"}), 201
+    try:
+        if current_user['role'].lower() != 'doctor':
+            return jsonify({"error": "Only doctors can assign exercises"}), 403
+        
+        if not is_db_enabled():
+            return jsonify({"error": "Database not configured"}), 500
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        exercise_type_id = data.get('exercise_type_id')
+        target_reps = data.get('target_reps')
+        target_sets = data.get('target_sets')
+        
+        if not exercise_type_id:
+            return jsonify({"error": "exercise_type_id is required"}), 400
+        
+        doctor_id = current_user['id']
+        relation = get_patient_doctor_relation(patient_id, doctor_id)
+        
+        if not relation:
+            return jsonify({"error": "Patient not associated with this doctor"}), 403
+        
+        relation_id = relation['ID']
+        
+        # Get exercise type name (for now, use the ID as name)
+        exercise_name = exercise_type_id.replace('_', ' ').title()
+        
+        # Assign session (exercise) to patient
+        assign_session_to_patient(
+            relation_id=relation_id,
+            exercise_type=exercise_type_id,
+            exercise_description=exercise_name,
+            repetitions=target_reps or 10,
+            duration=None
+        )
+        
+        return jsonify({"message": "Exercise assigned successfully"}), 201
+    except Exception as e:
+        import traceback
+        return jsonify({"error": f"Error assigning exercise: {str(e)}", "traceback": traceback.format_exc()}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
