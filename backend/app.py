@@ -130,58 +130,67 @@ def login():
 
 @app.route('/signup', methods=['POST'])
 def signup():
-    data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
-    role = data.get('role')
-    name = data.get('name')
-
-    if not all([email, password, role, name]):
-        return jsonify({"error": "Missing required fields"}), 400
-
-    if not is_db_enabled():
-        return jsonify({"error": "Database not configured"}), 500
-
-    # Normalize role to match database enum (Patient/Doctor)
-    normalized_role = "Doctor" if role.lower() == "doctor" else "Patient"
-
-    # Check if email already exists
-    if user_exists(email):
-        return jsonify({"error": "Email already registered"}), 409
-
-    # Parse name into first and last name
-    name_parts = name.strip().split(maxsplit=1)
-    first_name = name_parts[0] if name_parts else ""
-    last_name = name_parts[1] if len(name_parts) > 1 else ""
-
-    # Hash password and create user in database
-    hashed_password = generate_password_hash(password)
-    
     try:
-        user_id = create_user(email, hashed_password, first_name, last_name, normalized_role)
+        data = request.get_json()
+        email = data.get('email')
+        password = data.get('password')
+        role = data.get('role')
+        name = data.get('name')
+
+        if not all([email, password, role, name]):
+            return jsonify({"error": "Missing required fields"}), 400
+
+        if not is_db_enabled():
+            return jsonify({"error": "Database not configured"}), 500
+
+        # Normalize role to match database enum (Patient/Doctor)
+        normalized_role = "Doctor" if role.lower() == "doctor" else "Patient"
+
+        # Check if email already exists
+        try:
+            if user_exists(email):
+                return jsonify({"error": "Email already registered"}), 409
+        except Exception as e:
+            import traceback
+            return jsonify({"error": f"Error checking email: {str(e)}", "traceback": traceback.format_exc()}), 500
+
+        # Parse name into first and last name
+        name_parts = name.strip().split(maxsplit=1)
+        first_name = name_parts[0] if name_parts else ""
+        last_name = name_parts[1] if len(name_parts) > 1 else ""
+
+        # Hash password and create user in database
+        hashed_password = generate_password_hash(password)
+        
+        try:
+            user_id = create_user(email, hashed_password, first_name, last_name, normalized_role)
+        except Exception as e:
+            import traceback
+            return jsonify({"error": f"Failed to create user: {str(e)}", "traceback": traceback.format_exc()}), 500
+
+        # Generate token
+        token = PyJWT.encode(
+            {
+                "user_id": user_id,
+                "role": normalized_role,
+                "exp": datetime.now(timezone.utc) + timedelta(days=1),
+            },
+            app.config["SECRET_KEY"],
+            algorithm="HS256",
+        )
+
+        return jsonify({
+            "token": token,
+            "user": {
+                "id": user_id,
+                "email": email,
+                "name": name,
+                "role": normalized_role
+            }
+        }), 201
     except Exception as e:
-        return jsonify({"error": f"Failed to create user: {str(e)}"}), 500
-
-    # Generate token
-    token = PyJWT.encode(
-        {
-            "user_id": user_id,
-            "role": normalized_role,
-            "exp": datetime.now(timezone.utc) + timedelta(days=1),
-        },
-        app.config["SECRET_KEY"],
-        algorithm="HS256",
-    )
-
-    return jsonify({
-        "token": token,
-        "user": {
-            "id": user_id,
-            "email": email,
-            "name": name,
-            "role": normalized_role
-        }
-    }), 201
+        import traceback
+        return jsonify({"error": f"Unexpected error: {str(e)}", "traceback": traceback.format_exc()}), 500
 
 @app.route('/me', methods=['GET'])
 @token_required
