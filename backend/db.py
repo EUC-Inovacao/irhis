@@ -324,7 +324,6 @@ def get_patient_by_id(patient_id: str) -> Optional[dict[str, Any]]:
         FROM users u
         LEFT JOIN patient p ON p.UserID = u.ID
         WHERE u.ID = :id
-          AND u.Role IN ('Patient', 'patient')
           AND u.Active = 1
           AND COALESCE(u.Deleted, 0) = 0
         LIMIT 1
