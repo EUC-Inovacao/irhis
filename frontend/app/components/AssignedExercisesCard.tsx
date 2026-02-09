@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
@@ -6,6 +6,7 @@ import { Patient } from '../types';
 import { usePatients, SessionAsExercise } from '@context/PatientContext';
 import { assignExerciseToPatient, getAvailableExercises } from '@services/exerciseAssignmentService';
 import { ExerciseTypesRepository } from '@storage/repositories';
+import { useFocusEffect } from '@react-navigation/native';
 
 interface AssignedExercisesCardProps {
     patient: Patient;
@@ -40,6 +41,15 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
         [listFromContext]
     );
     const [exercises, setExercises] = useState<ExerciseItem[]>(() => listFromContext.map(toItem));
+
+    // Refresh exercises when screen comes into focus
+    useFocusEffect(
+        useCallback(() => {
+            if (!isEditing) {
+                fetchAssignedExercises(patient.id);
+            }
+        }, [patient.id, isEditing, fetchAssignedExercises])
+    );
 
     useEffect(() => {
         if (!isEditing) {
@@ -112,21 +122,22 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
                 // #endregion
             }
             
-            // Refresh assigned exercises instead of sessions
+            // Refresh assigned exercises - call multiple times to ensure update
             await fetchAssignedExercises(patient.id);
-            // #region agent log
-            fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AssignedExercisesCard.tsx:116',message:'fetchAssignedExercises completed, waiting for state update',data:{patientId:patient.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-            // #endregion
-            // Small delay to ensure state is updated in context before closing edit mode
-            await new Promise(resolve => setTimeout(resolve, 300));
-            // Force update exercises from context after refresh
-            // The assignedExercises from context should be updated by now
-            const updatedList = assignedExercises[patient.id] ?? [];
-            // #region agent log
-            fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AssignedExercisesCard.tsx:123',message:'Force updating exercises after save',data:{patientId:patient.id, updatedListLength:updatedList.length, exerciseIds:updatedList.map(e=>e.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-            // #endregion
-            setExercises(updatedList.map(toItem));
+            // Wait for context state to update
+            await new Promise(resolve => setTimeout(resolve, 500));
+            // Fetch again to ensure we have the latest data from database
+            await fetchAssignedExercises(patient.id);
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Close editing mode to allow useEffect to run and update UI
             setIsEditing(false);
+            
+            // Force one more refresh after closing edit mode to ensure UI updates
+            setTimeout(async () => {
+                await fetchAssignedExercises(patient.id);
+            }, 200);
+            
             Alert.alert('Success', 'Exercise plan updated.');
         } catch (error) {
             // #region agent log
