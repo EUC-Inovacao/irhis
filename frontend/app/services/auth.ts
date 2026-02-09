@@ -1,62 +1,52 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios, { type AxiosError } from "axios";
 import api from './api';
-import { User } from '../types';
+import type { User } from '../types';
 
-export const login = async (email: string, password: string, role: 'patient' | 'doctor'): Promise<{ token: string; user: User }> => {
+export type AuthRole = "patient" | "doctor";
+export type AuthResponse = { token: string; user: User };
+
+function isAxiosError(error: unknown): error is AxiosError {
+  return axios.isAxiosError(error);
+}
+
+function networkMessage(baseURL: unknown): string {
+  const apiUrl = typeof baseURL === "string" ? baseURL : "(unknown API URL)";
+  return `Cannot connect to API at ${apiUrl}. Check your internet and try again.`;
+}
+
+export async function login(email: string, password: string, role: AuthRole): Promise<AuthResponse> {
   try {
-    const response = await api.post('/login', { email, password, role });
+    const response = await api.post<AuthResponse>("/login", { email, password, role });
     return response.data;
-  } catch (error: any) {
-    console.error('Login error:', error);
-    
-    // Provide helpful error messages for common issues
-    if (error.response?.status === 503 || error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
-      const apiUrl = api.defaults.baseURL;
-      throw new Error(
-        `Cannot connect to Azure API at ${apiUrl}. ` +
-        `Please check your internet connection and try again.`
-      );
+  } catch (error: unknown) {
+    if (isAxiosError(error)) {
+      const status = error.response?.status;
+      if (status === 503 || error.code === "ECONNREFUSED" || String(error.message).includes("Network Error")) {
+        throw new Error(networkMessage(api.defaults.baseURL));
+      }
+      const msg = (error.response?.data as { error?: string } | undefined)?.error || error.message || "Invalid credentials";
+      throw new Error(msg);
     }
-    
-    const msg = error.response?.data?.error || error.message || 'Invalid credentials';
-    throw Object.assign(new Error(msg), { response: error.response });
+    throw new Error("Unexpected login error.");
   }
-};
+}
 
-export const signup = async (
-  name: string,
-  email: string,
-  password: string,
-  role: 'patient' | 'doctor'
-): Promise<{ token: string; user: User }> => {
+export async function signup(name: string, email: string, password: string, role: AuthRole): Promise<AuthResponse> {
   try {
-    const response = await api.post('/signup', { name, email, password, role });
+    const response = await api.post<AuthResponse>("/signup", { name, email, password, role });
     return response.data;
-  } catch (error: any) {
-    console.error('Signup error:', error);
-    
-    // Provide helpful error messages for common issues
-    if (error.response?.status === 503 || error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
-      const apiUrl = api.defaults.baseURL;
-      throw new Error(
-        `Cannot connect to Azure API at ${apiUrl}. ` +
-        `Please check your internet connection and try again.`
-      );
+  } catch (error: unknown) {
+    if (isAxiosError(error)) {
+      const status = error.response?.status;
+      if (status === 503 || error.code === "ECONNREFUSED" || String(error.message).includes("Network Error")) {
+        throw new Error(networkMessage(api.defaults.baseURL));
+      }
+      if (status === 409) {
+        throw new Error("An account with this email already exists. Please login instead.");
+      }
+      const msg = (error.response?.data as { error?: string } | undefined)?.error || error.message || "Failed to create account.";
+      throw new Error(msg);
     }
-    
-    if (error.response?.status === 409) {
-      throw Object.assign(new Error('An account with this email already exists. Please login instead.'), { response: error.response });
-    }
-    const msg = error.response?.data?.error || error.message || 'Failed to create account. Please try again.';
-    throw Object.assign(new Error(msg), { response: error.response });
-  }
-};
-
-export const logout = async (): Promise<void> => {
-  try {
-    await AsyncStorage.removeItem('@iRHIS:token');
-  } catch (error) {
-    console.error('Logout error:', error);
-    throw error;
+    throw new Error("Unexpected signup error.");
   }
 }; 

@@ -300,7 +300,6 @@ def get_user_by_id(user_id: str) -> Optional[dict[str, Any]]:
         {"id": user_id},
     )
 
-
 def get_patient_by_id(patient_id: str) -> Optional[dict[str, Any]]:
     """Get patient data by joining users and patient tables."""
     return fetch_one(
@@ -332,7 +331,6 @@ def get_patient_by_id(patient_id: str) -> Optional[dict[str, Any]]:
         """,
         {"id": patient_id},
     )
-
 
 def create_patient_record(user_id: str, birth_date: Optional[str] = None) -> None:
     """Create a minimal patient record in the patient table."""
