@@ -164,6 +164,17 @@ def signup():
         
         try:
             user_id = create_user(email, hashed_password, first_name, last_name, normalized_role)
+            
+            # If patient, create a patient record in the patient table
+            if normalized_role == "Patient":
+                try:
+                    # Extract birth date from name_parts if provided (for future use)
+                    # For now, create patient record without birth date
+                    create_patient_record(user_id, birth_date=None)
+                except Exception as e:
+                    # Log but don't fail signup if patient record creation fails
+                    # The patient record can be created later
+                    print(f"Warning: Failed to create patient record: {e}")
         except Exception as e:
             import traceback
             return jsonify({"error": f"Failed to create user: {str(e)}", "traceback": traceback.format_exc()}), 500
@@ -204,10 +215,55 @@ def get_patient(current_user, patient_id):
     if current_user['role'] != 'doctor' and current_user['id'] != patient_id:
         return jsonify({"error": "Unauthorized"}), 403
 
-    patient = patients.get(patient_id)
-    if patient:
-        return jsonify(patient)
-    return jsonify({"error": "Patient not found"}), 404
+    if not is_db_enabled():
+        return jsonify({"error": "Database not configured"}), 500
+
+    # Get patient from database
+    patient_data = get_patient_by_id(patient_id)
+    if not patient_data:
+        return jsonify({"error": "Patient not found"}), 404
+
+    # Calculate age from birth date if available
+    age = 0
+    if patient_data.get('BirthDate'):
+        try:
+            from datetime import datetime
+            birth_date = datetime.strptime(patient_data['BirthDate'], '%Y-%m-%d')
+            today = datetime.now()
+            age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+        except:
+            pass
+
+    # Map sex enum to frontend format
+    sex_map = {
+        'male': 'Male',
+        'female': 'Female',
+    }
+    sex = sex_map.get(patient_data.get('Sex', '').lower(), 'Other')
+
+    # Convert height from cm to meters if available
+    height = patient_data.get('Height')
+    if height:
+        height = height / 100
+
+    # Build patient response
+    patient = {
+        "id": patient_data['ID'],
+        "name": f"{patient_data.get('FirstName', '')} {patient_data.get('LastName', '')}".strip() or patient_data.get('Email', ''),
+        "details": {
+            "age": age,
+            "sex": sex,
+            "height": height or 0,
+            "weight": patient_data.get('Weight') or 0,
+            "bmi": patient_data.get('BMI') or 0,
+            "clinicalInfo": patient_data.get('MedicalHistory') or 'No information provided.',
+            "medicalHistory": patient_data.get('MedicalHistory'),
+        },
+        "recovery_process": [],
+        "feedback": [],
+    }
+
+    return jsonify(patient)
 
 @app.route('/doctors/<doctor_id>/patients', methods=['GET'])
 @token_required
