@@ -274,6 +274,7 @@ def get_patient(current_user, patient_id):
             "name": f"{patient_data.get('FirstName', '')} {patient_data.get('LastName', '')}".strip() or patient_data.get('Email', ''),
             "details": {
                 "age": age,
+                "birthDate": patient_data.get('BirthDate'),
                 "sex": sex,
                 "height": height or 0,
                 "weight": patient_data.get('Weight') or 0,

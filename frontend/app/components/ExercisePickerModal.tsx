@@ -73,11 +73,11 @@ const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
           });
         });
         
-        // Extract ExerciseTypeRecord from AssignedExerciseWithDetails
-        // Only include exercises that have a valid exerciseType
+        // Extract ExerciseTypeRecord from AssignedExerciseWithDetails; dedupe by id
+        const seen = new Set<string>();
         const exerciseTypes = assignedExercises
           .map((ae) => ae.exerciseType)
-          .filter((et): et is ExerciseTypeRecord => et !== undefined);
+          .filter((et): et is ExerciseTypeRecord => et !== undefined && !seen.has(et.id) && (seen.add(et.id), true));
         console.log(`[ExercisePickerModal] Extracted ${exerciseTypes.length} exercise types (filtered from ${assignedExercises.length} assignments)`);
         
         if (exerciseTypes.length === 0 && assignedExercises.length > 0) {

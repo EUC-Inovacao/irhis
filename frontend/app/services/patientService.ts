@@ -24,11 +24,24 @@ export type CreatePatientPayload = {
   coMorbiditiesSystemic?: boolean;
 };
 
+function computeAgeFromBirthDate(birthDate: string | null | undefined): number {
+  if (!birthDate || typeof birthDate !== "string") return 0;
+  const match = birthDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return 0;
+  const [, y, m, d] = match;
+  const birth = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const mDiff = today.getMonth() - birth.getMonth();
+  if (mDiff < 0 || (mDiff === 0 && today.getDate() < birth.getDate())) age--;
+  return age >= 0 ? age : 0;
+}
+
 function toPatientDetails(details: unknown): PatientDetails {
   // #region agent log
   fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'patientService.ts:27',message:'toPatientDetails input',data:{details},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
   // #endregion
-  const d = (details ?? {}) as Partial<PatientDetails>;
+  const d = (details ?? {}) as Partial<PatientDetails & { birthDate?: string }>;
   
   // Helper to parse number from string or number
   const parseNumber = (value: unknown): number => {
@@ -39,9 +52,13 @@ function toPatientDetails(details: unknown): PatientDetails {
     }
     return 0;
   };
+
+  const rawAge = parseNumber(d.age);
+  const ageFromBirth = computeAgeFromBirthDate(d.birthDate);
+  const age = rawAge > 0 ? rawAge : ageFromBirth;
   
   const result = {
-    age: parseNumber(d.age),
+    age,
     sex: (d.sex as PatientDetails["sex"]) ?? "Other",
     height: parseNumber(d.height),
     weight: parseNumber(d.weight),
