@@ -28,6 +28,7 @@ from db import (
     create_manual_patient,
     insert_session_metrics,
     get_metrics_by_patient,
+    get_metrics_by_session,
     execute,
     fetch_one,
     get_patient_by_id,
@@ -964,23 +965,34 @@ def delete_session(current_user, session_id):
 @app.route('/sessions/<session_id>/metrics', methods=['POST'])
 @token_required
 def post_session_metrics(current_user, session_id):
+    session = get_session_by_id(session_id)
+    if not session:
+        return jsonify({"error": "Session not found"}), 404
+
+    patient_id = session.get('PatientID')
+    if current_user['role'].lower() == 'doctor':
+        relation = get_patient_doctor_relation(patient_id, current_user['id'])
+        if not relation:
+            return jsonify({"error": "Patient not associated with this doctor"}), 403
+    elif current_user['id'] != patient_id:
+        return jsonify({"error": "Unauthorized"}), 403
 
     data = request.json or {}
     if not data:
         return jsonify({"error": "No data provided"}), 400
 
-    # Adapt frontend summary format (AvgROM, MaxFlexion, etc.) to DB schema (joint, side, avg_rom, etc.)
-    avg_rom = data.get('avg_rom') or data.get('AvgROM')
+    # Adapt frontend summary format to DB schema
+    avg_rom = data.get('avg_rom') or data.get('AvgROM') or 0
     max_rom = data.get('max_rom') or data.get('MaxFlexion') or data.get('maxFlexion') or avg_rom
     min_rom = data.get('min_rom') or data.get('MaxExtension') or data.get('maxExtension') or 0
-    repetition = data.get('repetition') or data.get('Repetitions') or data.get('repetitions') or 0
-    joint = data.get('joint') or 'knee'
-    side = data.get('side') or 'both'
-    min_v = data.get('min_velocity') or 0
-    max_v = data.get('max_velocity') or 0
-    avg_v = data.get('avg_velocity') or 0
-    p95_v = data.get('p95_velocity') or 0
-    cmd = data.get('center_mass_displacement') or data.get('cmd') or 0
+    repetition = int(data.get('repetition') or data.get('Repetitions') or data.get('repetitions') or 0)
+    joint = str(data.get('joint') or 'knee')
+    side = str(data.get('side') or 'both')
+    min_v = float(data.get('min_velocity') or 0)
+    max_v = float(data.get('max_velocity') or 0)
+    avg_v = float(data.get('avg_velocity') or 0)
+    p95_v = float(data.get('p95_velocity') or 0)
+    cmd = float(data.get('center_mass_displacement') or data.get('cmd') or 0)
 
     adapted = {
         'joint': joint, 'side': side, 'repetition': repetition,
@@ -993,7 +1005,8 @@ def post_session_metrics(current_user, session_id):
         metric_id = insert_session_metrics(session_id, adapted)
         return jsonify({"message": "Metrics persisted", "id": metric_id}), 201
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        import traceback
+        return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
 
 @app.route('/patients/<patient_id>/metrics', methods=['GET'])
 @token_required

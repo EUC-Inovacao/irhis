@@ -41,7 +41,7 @@ import ExercisePickerModal from "@components/ExercisePickerModal";
 import SessionFeedbackModal from "@components/SessionFeedbackModal";
 import { usePatients } from "@context/PatientContext";
 import { getCurrentExercise } from "@services/exerciseAssignmentService";
-import { createSessionWithMetrics } from "@services/sessionService";
+import { createSessionWithMetrics, findUncompletedSession } from "@services/sessionService";
 
 interface SensorData {
   Quat_W?: number;
@@ -368,10 +368,13 @@ const MovellaScreen = () => {
       const startTime = new Date().toISOString();
       const endTime = new Date(Date.now() + 15 * 60000).toISOString(); // Assume 15 min session
 
+      const existingSession = await findUncompletedSession(patientId, exerciseTypeId);
+
       const session = await createSessionWithMetrics(patientId, {
         patientId,
         exerciseTypeId,
         exerciseDescription: selectedExerciseName ?? undefined,
+        existingSessionId: existingSession?.id ?? undefined,
         startTime,
         endTime,
         metrics: {

@@ -98,7 +98,7 @@ const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
   };
 
   const filteredExercises = exercises.filter((exercise) =>
-    exercise.name.toLowerCase().includes(searchQuery.toLowerCase())
+    (exercise.name ?? "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Group by category
@@ -120,7 +120,7 @@ const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
   }));
 
   const handleSelect = (exercise: ExerciseTypeRecord) => {
-    onSelect(exercise.id, exercise.name);
+    onSelect(exercise.id, exercise.name ?? "");
     onClose();
   };
 

@@ -171,6 +171,8 @@ export async function getSessionStats(
 }
 
 export interface CreateSessionWithMetricsDto extends CreateSessionDto {
+  /** If provided, add metrics to this existing session instead of creating a new one. */
+  existingSessionId?: string;
   metrics?: {
     rom?: number;
     maxFlexion?: number;
@@ -184,7 +186,14 @@ export async function createSessionWithMetrics(
   patientId: string,
   dto: CreateSessionWithMetricsDto
 ): Promise<Session> {
-  const session = await createSession(patientId, dto);
+  let session: Session;
+
+  if (dto.existingSessionId) {
+    const res = await api.get<SessionRow>(`/sessions/${dto.existingSessionId}`);
+    session = toSession(res.data);
+  } else {
+    session = await createSession(patientId, dto);
+  }
 
   if (dto.metrics) {
     try {
@@ -201,6 +210,19 @@ export async function createSessionWithMetrics(
   }
 
   return session;
+}
+
+/** Find an existing session for this patient+exercise that has no metrics (uncompleted). */
+export async function findUncompletedSession(
+  patientId: string,
+  exerciseTypeId: string
+): Promise<Session | null> {
+  const { assigned } = await getPatientSessions(patientId);
+  const match = assigned.find(
+    (s: any) =>
+      String(s.exerciseTypeId ?? s.exerciseType ?? "") === String(exerciseTypeId)
+  );
+  return match ?? null;
 }
 
 export async function createSession(patientId: string, dto: CreateSessionDto): Promise<Session> {
