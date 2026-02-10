@@ -1006,7 +1006,9 @@ def post_session_metrics(current_user, session_id):
         return jsonify({"message": "Metrics persisted", "id": metric_id}), 201
     except Exception as e:
         import traceback
-        return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
+        tb = traceback.format_exc()
+        print(f"[metrics] ERROR: {e}\n{tb}", flush=True)
+        return jsonify({"error": str(e), "traceback": tb}), 500
 
 @app.route('/patients/<patient_id>/metrics', methods=['GET'])
 @token_required

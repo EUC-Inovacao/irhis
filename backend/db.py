@@ -443,34 +443,46 @@ def delete_patient_session(session_id):
 def insert_session_metrics(session_id, data):
     new_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
-    
+    # Ensure no None for required columns (MySQL rejects NULL in NOT NULL columns)
+    joint = data.get('joint') or 'knee'
+    side = data.get('side') or 'both'
+    repetition = int(data.get('repetition') or 0)
+    min_v = float(data.get('min_velocity') or 0)
+    max_v = float(data.get('max_velocity') or 0)
+    avg_v = float(data.get('avg_velocity') or 0)
+    p95_v = float(data.get('p95_velocity') or 0)
+    min_rom = float(data.get('min_rom') or 0)
+    max_rom = float(data.get('max_rom') or 0)
+    avg_rom = float(data.get('avg_rom') or 0)
+    cmd = float(data.get('center_mass_displacement') or 0)
+
     execute(
         """
         INSERT INTO metrics (
-            ID, SessionID, Joint, Side, Repetitions, -- Ajustado de Repetition para Repetitions
-            MinVelocity, MaxVelocity, AvgVelocity, P95Velocity, 
+            ID, SessionID, Joint, Side, Repetitions,
+            MinVelocity, MaxVelocity, AvgVelocity, P95Velocity,
             MinROM, MaxROM, AvgROM, CenterMassDisplacement, TimeCreated
         )
         VALUES (
-            :id, :session_id, :joint, :side, :repetition, 
-            :min_v, :max_v, :avg_v, :p95_v, 
+            :id, :session_id, :joint, :side, :repetition,
+            :min_v, :max_v, :avg_v, :p95_v,
             :min_rom, :max_rom, :avg_rom, :cmd, :now
         )
         """,
         {
-            "id": new_id, 
+            "id": new_id,
             "session_id": session_id,
-            "joint": data.get('joint'), 
-            "side": data.get('side'),
-            "repetition": data.get('repetition'), 
-            "min_v": data.get('min_velocity'), 
-            "max_v": data.get('max_velocity'),
-            "avg_v": data.get('avg_velocity'), 
-            "p95_v": data.get('p95_velocity'),
-            "min_rom": data.get('min_rom'), 
-            "max_rom": data.get('max_rom'),
-            "avg_rom": data.get('avg_rom'), 
-            "cmd": data.get('center_mass_displacement'),
+            "joint": joint,
+            "side": side,
+            "repetition": repetition,
+            "min_v": min_v,
+            "max_v": max_v,
+            "avg_v": avg_v,
+            "p95_v": p95_v,
+            "min_rom": min_rom,
+            "max_rom": max_rom,
+            "avg_rom": avg_rom,
+            "cmd": cmd,
             "now": now
         }
     )

@@ -204,8 +204,10 @@ export async function createSessionWithMetrics(
         Repetitions: dto.metrics.reps,
         Score: dto.metrics.score,
       });
-    } catch (e) {
-      console.error("Failed to persist session metrics:", e);
+    } catch (e: any) {
+      const msg = e?.response?.data?.error ?? e?.message;
+      const tb = e?.response?.data?.traceback;
+      console.error("Failed to persist session metrics:", msg, tb || "");
     }
   }
 
