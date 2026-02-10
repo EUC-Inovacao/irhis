@@ -588,21 +588,25 @@ def insert_feedback(patient_id: str, feedback: dict) -> str:
     difficulty = int(feedback.get("difficulty", 0))
     comments = feedback.get("comments") or ""
     session_id = feedback.get("sessionId")
-    fid = execute_and_return_id(
+    fid = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+    execute(
         """
-        INSERT INTO PatientFeedback (UserID, SessionID, Pain, Fatigue, Difficulty, Comments)
-        VALUES (:user_id, :session_id, :pain, :fatigue, :difficulty, :comments)
+        INSERT INTO PatientFeedback (ID, UserID, SessionID, Pain, Fatigue, Difficulty, Comments, TimeCreated)
+        VALUES (:id, :user_id, :session_id, :pain, :fatigue, :difficulty, :comments, :now)
         """,
         {
+            "id": fid,
             "user_id": patient_id,
             "session_id": session_id,
             "pain": pain,
             "fatigue": fatigue,
             "difficulty": difficulty,
             "comments": comments[:4096] if comments else None,
+            "now": now,
         },
     )
-    return fid or ""
+    return fid
 
 
 def get_feedback_by_patient(patient_id: str, limit: int = 100):
