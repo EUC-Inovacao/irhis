@@ -229,18 +229,33 @@ def get_patient(current_user, patient_id):
     # Get patient from database
     patient_data = get_patient_by_id(patient_id)
     if not patient_data:
-        # If user exists but no patient record, check if they're a patient user
+        # Patient requesting own profile: we have current_user from token, so user exists
+        if is_own_patient:
+            # Build minimal response from token - patient record may not exist yet
+            return jsonify({
+                "id": current_user.get('id'),
+                "name": current_user.get('name', ''),
+                "details": {
+                    "age": 0,
+                    "birthDate": None,
+                    "sex": "Other",
+                    "height": 0,
+                    "weight": 0,
+                    "bmi": 0,
+                    "clinicalInfo": "No information provided.",
+                    "medicalHistory": None,
+                },
+                "recovery_process": [],
+                "feedback": [],
+            })
+        # Doctor requesting patient: try to create patient record if user exists
         user_data = get_user_by_id(patient_id)
         if user_data and user_data.get('Role') in ('Patient', 'patient'):
-            # Create a minimal patient record for existing users
             try:
                 create_patient_record(patient_id, birth_date=None)
-                # Retry fetching
                 patient_data = get_patient_by_id(patient_id)
-            except Exception as e:
-                # If creation fails, return 404
-                return jsonify({"error": "Patient not found"}), 404
-        
+            except Exception:
+                pass
         if not patient_data:
             return jsonify({"error": "Patient not found"}), 404
 
