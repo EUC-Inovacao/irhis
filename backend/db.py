@@ -442,10 +442,11 @@ def delete_patient_session(session_id):
     execute("DELETE FROM session WHERE ID = :session_id", {"session_id": session_id})
 
 def insert_session_metrics(session_id, data):
-    # Azure Metrics: Joint ENUM ('knee','hip'), ID AUTO_INCREMENT, SessionID INT
+    # Deployed Metrics table requires explicit ID (no AUTO_INCREMENT default)
     joint = (data.get('joint') or 'knee').lower()
     if joint not in ('knee', 'hip'):
         return None  # Skip COM and other invalid joints
+    mid = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
     raw_side = (data.get('side') or 'both').lower()
     side = raw_side if raw_side in ('left', 'right') else 'left'
@@ -459,20 +460,21 @@ def insert_session_metrics(session_id, data):
     avg_rom = float(data.get('avg_rom') or 0)
     cmd = float(data.get('center_mass_displacement') or 0)
 
-    mid = execute_and_return_id(
+    execute(
         """
         INSERT INTO metrics (
-            SessionID, Joint, Side, Repetitions,
+            ID, SessionID, Joint, Side, Repetitions,
             MinVelocity, MaxVelocity, AvgVelocity, P95Velocity,
             MinROM, MaxROM, AvgROM, CenterMassDisplacement, TimeCreated
         )
         VALUES (
-            :session_id, :joint, :side, :repetition,
+            :id, :session_id, :joint, :side, :repetition,
             :min_v, :max_v, :avg_v, :p95_v,
             :min_rom, :max_rom, :avg_rom, :cmd, :now
         )
         """,
         {
+            "id": mid,
             "session_id": session_id,
             "joint": joint,
             "side": side,
@@ -488,7 +490,7 @@ def insert_session_metrics(session_id, data):
             "now": now
         }
     )
-    return mid or ""
+    return mid
 
 def get_metrics_by_patient(patient_id, limit=10):
     rows = fetch_all(
