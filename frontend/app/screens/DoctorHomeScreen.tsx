@@ -166,27 +166,32 @@ const DoctorHomeScreen = ({ navigation }: any) => {
             {(() => {
                 const confirmedPatients = doctorPatientsItems.filter((x) => x.type === 'patient');
                 const patientsNeedingAttention = confirmedPatients.filter((item) => {
-                    if (item.type !== 'patient') return false;
                     const patient = patients[item.id];
-                    return patient && (!patient.recovery_process || patient.recovery_process.length === 0);
+                    
+                    const hasRecoveryProcess = !!(patient?.recovery_process && patient.recovery_process.length > 0);
+                    
+                    const hasAssignedExercises = !!(assignedExercises[item.id] && assignedExercises[item.id].length > 0);
+
+                    return !hasRecoveryProcess && !hasAssignedExercises;
                 });
-                
-                return patientsNeedingAttention.length > 0 ? (
+
+                if (patientsNeedingAttention.length === 0) return null;
+
+                return (
                     <View style={[styles.quickView, { backgroundColor: colors.card }]}>
                         <Text style={[styles.quickViewTitle, { color: colors.text }]}>Patients needing attention</Text>
-                        {patientsNeedingAttention.slice(0, 5).map((item) => {
-                            if (item.type !== 'patient') return null;
-                            return (
-                                <View key={item.id} style={styles.quickViewRow}>
-                                    <Text style={[styles.quickViewName, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
-                                    <Text style={[styles.quickViewMeta, { color: colors.textSecondary }]}>
-                                        No exercises assigned
-                                    </Text>
-                                </View>
-                            );
-                        })}
+                        {patientsNeedingAttention.slice(0, 5).map((item) => (
+                            <View key={item.id} style={styles.quickViewRow}>
+                                <Text style={[styles.quickViewName, { color: colors.text }]} numberOfLines={1}>
+                                    {item.name}
+                                </Text>
+                                <Text style={[styles.quickViewMeta, { color: colors.textSecondary }]}>
+                                    No exercises assigned
+                                </Text>
+                            </View>
+                        ))}
                     </View>
-                ) : null;
+                );
             })()}
 
             {latestFeedback.length > 0 && (
