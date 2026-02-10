@@ -1,8 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { PatientDetails } from '../types';
+
+/** DB accepts only 'male' | 'female' */
+const SEX_OPTIONS = [
+  { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
+] as const;
 
 interface PatientDetailsCardProps {
     details: PatientDetails;
@@ -39,6 +45,7 @@ const PatientDetailsCard: React.FC<PatientDetailsCardProps> = ({ details, onUpda
     const { colors } = useTheme();
     const [isEditing, setIsEditing] = useState(false);
     const [editableDetails, setEditableDetails] = useState(details);
+    const [showSexPicker, setShowSexPicker] = useState(false);
 
     useEffect(() => {
         setEditableDetails(details);
@@ -93,14 +100,24 @@ const PatientDetailsCard: React.FC<PatientDetailsCardProps> = ({ details, onUpda
                     keyboardType="numeric"
                     colors={colors}
                 />
-                <DetailItem
-                    label="Sex"
-                    value={details.sex}
-                    isEditingValue={editableDetails.sex}
-                    isEditing={isEditing}
-                    onChangeText={(text) => updateField('sex', text)}
-                    colors={colors}
-                />
+                <View style={styles.detailItem}>
+                    <Text style={[styles.label, { color: colors.textSecondary }]}>Sex</Text>
+                    {isEditing ? (
+                        <TouchableOpacity
+                            style={[styles.value, styles.sexButton, { color: colors.text, borderBottomColor: colors.border }]}
+                            onPress={() => setShowSexPicker(true)}
+                        >
+                            <Text style={[styles.value, { color: colors.text }]}>
+                                {SEX_OPTIONS.find(o => o.value === (editableDetails.sex || '').toLowerCase())?.label ?? (editableDetails.sex || 'Select...')}
+                            </Text>
+                            <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                    ) : (
+                        <Text style={[styles.value, { color: colors.text }]}>
+                            {SEX_OPTIONS.find(o => o.value === (details.sex || '').toLowerCase())?.label ?? (details.sex || '—')}
+                        </Text>
+                    )}
+                </View>
                 <DetailItem
                     label="Height"
                     value={details.height}
@@ -156,6 +173,32 @@ const PatientDetailsCard: React.FC<PatientDetailsCardProps> = ({ details, onUpda
                     <Text style={[styles.value, { color: colors.text }]}>{details.clinicalInfo}</Text>
                 </View>
             )}
+
+            <Modal visible={showSexPicker} transparent animationType="fade">
+                <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowSexPicker(false)}>
+                    <View style={[styles.sexPickerModal, { backgroundColor: colors.card }]}>
+                        <Text style={[styles.sexPickerTitle, { color: colors.text }]}>Select Sex</Text>
+                        {SEX_OPTIONS.map((opt) => (
+                            <TouchableOpacity
+                                key={opt.value}
+                                style={[styles.sexPickerOption, { borderBottomColor: colors.border }]}
+                                onPress={() => {
+                                    updateField('sex', opt.value);
+                                    setShowSexPicker(false);
+                                }}
+                            >
+                                <Text style={[styles.sexPickerOptionText, { color: colors.text }]}>{opt.label}</Text>
+                                {(editableDetails.sex || '').toLowerCase() === opt.value && (
+                                    <Ionicons name="checkmark" size={20} color={colors.primary} />
+                                )}
+                            </TouchableOpacity>
+                        ))}
+                        <TouchableOpacity style={[styles.button, { backgroundColor: colors.primary, marginTop: 12 }]} onPress={() => setShowSexPicker(false)}>
+                            <Text style={[styles.buttonText, { color: colors.white }]}>Done</Text>
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
         </View>
     );
 };
@@ -196,6 +239,43 @@ const styles = StyleSheet.create({
     input: {
         borderBottomWidth: 1,
         paddingBottom: 4,
+    },
+    sexButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderBottomWidth: 1,
+        paddingBottom: 4,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    sexPickerModal: {
+        width: '100%',
+        maxWidth: 280,
+        borderRadius: 12,
+        padding: 20,
+    },
+    sexPickerTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        marginBottom: 16,
+        textAlign: 'center',
+    },
+    sexPickerOption: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 14,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    sexPickerOptionText: {
+        fontSize: 16,
+        fontWeight: '500',
     },
     infoSection: {
         marginTop: 16,

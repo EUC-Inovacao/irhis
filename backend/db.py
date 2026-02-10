@@ -342,7 +342,7 @@ def get_patient_by_id(patient_id: str) -> Optional[dict[str, Any]]:
     )
 
 def create_patient_record(user_id: str, birth_date: Optional[str] = None) -> None:
-    """Create a minimal patient record in the patient table."""
+    """Create a minimal patient record in the patient table. Sex is required (DB enum: male, female)."""
     execute(
         """
         INSERT INTO patient (
@@ -351,8 +351,8 @@ def create_patient_record(user_id: str, birth_date: Optional[str] = None) -> Non
             MedicalHistory, TimeAfterSymptoms, LegDominance, PhysicallyActive
         )
         VALUES (
-            :user_id, :birth_date, NULL, NULL, NULL, NULL, NULL, NULL,
-            0, 0, 0, 0, NULL, NULL, NULL, 0
+            :user_id, :birth_date, 'male', NULL, NULL, NULL, NULL, NULL,
+            0, 0, 0, 0, NULL, NULL, 'dominant', 0
         )
         """,
         {
@@ -367,8 +367,7 @@ def get_patient_sessions(patient_id: str):
         SELECT S.*, pd.PatientID
         FROM session s
         INNER JOIN patientdoctor pd ON pd.ID = s.RelationID
-        WHERE pd.PatientID = :patientID 
-          AND s.Active = 1;
+        WHERE pd.PatientID = :patientID;
         """,
         {"patientID": patient_id}
     )
@@ -385,7 +384,7 @@ def get_session_by_id(session_id: str):
         SELECT s.*, pd.PatientID 
         FROM session s
         JOIN patientdoctor pd ON s.RelationID = pd.ID
-        WHERE s.ID = :session_id and s.Active = 1
+        WHERE s.ID = :session_id
         """,
         {"session_id": session_id}
     )
@@ -397,25 +396,23 @@ def get_session_by_id(session_id: str):
     return session
 
 def assign_session_to_patient(relation_id: str, exercise_type, exercise_description, repetitions, duration):
+    """Create session. Uses AUTO_INCREMENT ID to match Azure schema (Session.ID INT, PatientFeedback.SessionID INT)."""
     now = datetime.now(timezone.utc)
-    new_entry_id = str(uuid.uuid4())
-
-    execute(
+    sid = execute_and_return_id(
         """
-        INSERT INTO session (ID, RelationID, ExerciseType, ExerciseDescription, Repetitions, Duration, TimeCreated, Active)
-        VALUES (:id, :relation_id, :exercise_type, :exercise_description, :repetitions, :duration, :now, 1)
+        INSERT INTO session (RelationID, ExerciseType, ExerciseDescription, Repetitions, Duration, TimeCreated)
+        VALUES (:relation_id, :exercise_type, :exercise_description, :repetitions, :duration, :now)
         """,
         {
-            "id": new_entry_id, 
-            "relation_id": relation_id, 
+            "relation_id": relation_id,
             "exercise_type": exercise_type,
             "exercise_description": exercise_description,
             "repetitions": repetitions,
-            "duration": duration, 
+            "duration": duration,
             "now": now
         },
     )
-    return new_entry_id
+    return sid or ""
 
 def update_session_details(session_id, exercise_type, exercise_description, repetitions, duration):
     execute(
@@ -425,7 +422,7 @@ def update_session_details(session_id, exercise_type, exercise_description, repe
             ExerciseDescription = :exercise_description, 
             Repetitions = :repetitions, 
             Duration = :duration
-        WHERE ID = :session_id AND Active = 1
+        WHERE ID = :session_id
         """,
         {
             "session_id": session_id,
@@ -437,25 +434,17 @@ def update_session_details(session_id, exercise_type, exercise_description, repe
     )
 
 def delete_patient_session(session_id):
-    execute(
-        """
-        UPDATE session 
-        SET Active = 0, 
-            TimeDeleted = :now 
-        WHERE ID = :session_id
-        """,
-        {
-            "session_id": session_id,
-            "now": datetime.now(timezone.utc)
-        }
-    )
+    """Delete session. Azure schema: remove metrics and feedback first (FKs), then session."""
+    execute("DELETE FROM metrics WHERE SessionID = :sid", {"sid": session_id})
+    execute("DELETE FROM PatientFeedback WHERE SessionID = :sid", {"sid": session_id})
+    execute("DELETE FROM session WHERE ID = :session_id", {"session_id": session_id})
 
 def insert_session_metrics(session_id, data):
-    new_id = str(uuid.uuid4())
+    # Azure Metrics: Joint ENUM ('knee','hip'), ID AUTO_INCREMENT, SessionID INT
+    joint = (data.get('joint') or 'knee').lower()
+    if joint not in ('knee', 'hip'):
+        return None  # Skip COM and other invalid joints
     now = datetime.now(timezone.utc)
-    # Ensure no None for required columns (MySQL rejects NULL in NOT NULL columns)
-    # Side column may be ENUM('left','right') - map 'both' to 'left' for bilateral data
-    joint = data.get('joint') or 'knee'
     raw_side = (data.get('side') or 'both').lower()
     side = raw_side if raw_side in ('left', 'right') else 'left'
     repetition = int(data.get('repetition') or 0)
@@ -468,21 +457,20 @@ def insert_session_metrics(session_id, data):
     avg_rom = float(data.get('avg_rom') or 0)
     cmd = float(data.get('center_mass_displacement') or 0)
 
-    execute(
+    mid = execute_and_return_id(
         """
         INSERT INTO metrics (
-            ID, SessionID, Joint, Side, Repetitions,
+            SessionID, Joint, Side, Repetitions,
             MinVelocity, MaxVelocity, AvgVelocity, P95Velocity,
             MinROM, MaxROM, AvgROM, CenterMassDisplacement, TimeCreated
         )
         VALUES (
-            :id, :session_id, :joint, :side, :repetition,
+            :session_id, :joint, :side, :repetition,
             :min_v, :max_v, :avg_v, :p95_v,
             :min_rom, :max_rom, :avg_rom, :cmd, :now
         )
         """,
         {
-            "id": new_id,
             "session_id": session_id,
             "joint": joint,
             "side": side,
@@ -498,7 +486,7 @@ def insert_session_metrics(session_id, data):
             "now": now
         }
     )
-    return new_id
+    return mid or ""
 
 def get_metrics_by_patient(patient_id, limit=10):
     rows = fetch_all(
@@ -569,8 +557,10 @@ def update_patient_details(patient_id: str, details: dict) -> None:
             updates.append("BMI = :bmi")
             params["bmi"] = w / (h * h)
     if "sex" in details and details["sex"] is not None:
-        updates.append("Sex = :sex")
-        params["sex"] = str(details["sex"]).lower()[:32]
+        raw = str(details["sex"]).strip().lower()
+        if raw in ("male", "female"):
+            updates.append("Sex = :sex")
+            params["sex"] = raw
     if "clinicalInfo" in details:
         updates.append("MedicalHistory = :medical_history")
         params["medical_history"] = str(details["clinicalInfo"])[:4096]

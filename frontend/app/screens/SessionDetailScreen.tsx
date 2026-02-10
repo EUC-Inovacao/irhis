@@ -188,7 +188,7 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Performance Metrics
             </Text>
-            <View style={[metrics.length > 1 ? styles.jointGrid : styles.metricsSingleColumn]}>
+            <View style={styles.metricsSingleColumn}>
               {metrics.map((m, idx) => {
                 const joint = (m as any).Joint ?? (m as any).joint ?? "Session";
                 const side = (m as any).Side ?? (m as any).side ?? "";

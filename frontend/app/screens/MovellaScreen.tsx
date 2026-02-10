@@ -450,14 +450,20 @@ const MovellaScreen = () => {
           p95Velocity: h.p95Velocity,
         });
       }
+      // COM: Azure Metrics Joint enum only has 'knee'|'hip'. Store centerMassDisplacement in first knee row
       if (result.com && (result.com.rms_cm || result.com.apAmp_cm)) {
         const cm = result.com.rms_cm ?? result.com.apAmp_cm ?? 0;
-        metricsPerJoint.push({
-          joint: "com",
-          side: "left",
-          centerMassDisplacement: Math.round(cm * 100) / 100,
-          reps: Math.round(reps),
-        });
+        const firstKnee = metricsPerJoint.find((m) => m.joint?.toLowerCase() === "knee");
+        if (firstKnee) {
+          firstKnee.centerMassDisplacement = Math.round(cm * 100) / 100;
+        } else {
+          metricsPerJoint.push({
+            joint: "knee",
+            side: "left",
+            centerMassDisplacement: Math.round(cm * 100) / 100,
+            reps: Math.round(reps),
+          });
+        }
       }
 
       const session = await createSessionWithMetrics(patientId, {
@@ -467,6 +473,7 @@ const MovellaScreen = () => {
         existingSessionId: existingSession?.id ?? undefined,
         startTime,
         endTime,
+        repetitions: reps,
         metricsPerJoint: metricsPerJoint.length > 0 ? metricsPerJoint : undefined,
         metrics: metricsPerJoint.length === 0 ? {
           rom: Math.round(avgRom * 10) / 10,

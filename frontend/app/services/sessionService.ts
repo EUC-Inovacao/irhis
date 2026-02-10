@@ -86,12 +86,16 @@ function toSession(row: SessionRow, metrics?: MetricRow, metricsList?: MetricRow
   const list = metricsList ?? (metrics ? [metrics] : []);
   const mappedMetrics = list.length > 0 ? list.map(mapMetricRow) : undefined;
   const primary = metrics ?? list[0];
+  // Prefer reps from knee metric (not hip/com) - hip often has 0
+  const kneeMetric = Array.isArray(list) ? list.find((m: any) => (m.Joint ?? m.joint ?? "").toLowerCase() === "knee") : null;
+  const repsFromKnee = kneeMetric ? (kneeMetric.Repetitions ?? (kneeMetric as any).repetitions) : null;
+  const sessionReps = typeof row.Repetitions === "number" ? row.Repetitions : (repsFromKnee ?? primary?.Repetitions ?? null);
 
   return {
     id: row.ID,
     exerciseType: row.ExerciseType ?? "",
     exerciseDescription: row.ExerciseDescription ?? "",
-    repetitions: typeof row.Repetitions === "number" ? row.Repetitions : (primary?.Repetitions ?? null),
+    repetitions: sessionReps,
     duration: durationText,
     timeCreated: row.TimeCreated ?? new Date().toISOString(),
     metrics: mappedMetrics,
@@ -110,7 +114,13 @@ export async function getPatientSessions(patientId: string): Promise<SessionsRes
   const metricsBySessionId = new Map<string, MetricRow>();
   for (const m of metrics) {
     const sid = typeof m.SessionID === "string" ? m.SessionID : "";
-    if (sid) metricsBySessionId.set(sid, m);
+    if (!sid) continue;
+    const existing = metricsBySessionId.get(sid);
+    const joint = String(m.Joint ?? (m as any).joint ?? "").toLowerCase();
+    const existingJoint = existing ? String((existing as any).Joint ?? (existing as any).joint ?? "").toLowerCase() : "";
+    if (!existing || (joint === "knee" && existingJoint !== "knee")) {
+      metricsBySessionId.set(sid, m);
+    }
   }
 
   const assigned: Session[] = [];
@@ -261,6 +271,20 @@ export async function createSessionWithMetrics(
         const msg = e?.response?.data?.error ?? e?.message;
         console.error("Failed to persist metric:", m.joint, m.side, msg);
       }
+    }
+    // Update session with knee reps (hip often has 0) when using existing session
+    const kneeReps = dto.metricsPerJoint.find((m) => m.joint?.toLowerCase() === "knee")?.reps;
+    const repsToSet = dto.repetitions ?? kneeReps;
+    if (repsToSet != null) {
+      if (dto.existingSessionId) {
+        try {
+          await updateSession(session.id, { repetitions: repsToSet });
+        } catch (e: any) {
+          console.error("Failed to update session reps:", e?.message);
+        }
+      }
+      (session as any).repetitions = repsToSet;
+      (session as any).Repetitions = repsToSet;
     }
   } else if (dto.metrics) {
     try {
