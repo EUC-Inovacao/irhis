@@ -28,7 +28,13 @@ export async function createFeedback(
     ...feedback,
   };
 
-  await api.put(`/patients/${patientId}/feedback`, { feedback: feedbackRecord });
+  try {
+    await api.put(`/patients/${patientId}/feedback`, { feedback: feedbackRecord });
+  } catch (e: any) {
+    const errData = e?.response?.data || {};
+    fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'feedbackService.ts:createFeedback',message:'Feedback 500',data:{error:errData?.error,traceback:errData?.traceback?.slice?.(0,500),status:e?.response?.status},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+    throw e;
+  }
 
   // Also save locally so SessionDetailScreen can display it
   try {

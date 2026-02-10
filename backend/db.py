@@ -396,14 +396,16 @@ def get_session_by_id(session_id: str):
     return session
 
 def assign_session_to_patient(relation_id: str, exercise_type, exercise_description, repetitions, duration):
-    """Create session. Uses AUTO_INCREMENT ID to match Azure schema (Session.ID INT, PatientFeedback.SessionID INT)."""
+    """Create session. Deployed Session table requires explicit ID (no AUTO_INCREMENT default)."""
     now = datetime.now(timezone.utc)
-    sid = execute_and_return_id(
+    sid = str(uuid.uuid4())
+    execute(
         """
-        INSERT INTO session (RelationID, ExerciseType, ExerciseDescription, Repetitions, Duration, TimeCreated)
-        VALUES (:relation_id, :exercise_type, :exercise_description, :repetitions, :duration, :now)
+        INSERT INTO session (ID, RelationID, ExerciseType, ExerciseDescription, Repetitions, Duration, TimeCreated)
+        VALUES (:id, :relation_id, :exercise_type, :exercise_description, :repetitions, :duration, :now)
         """,
         {
+            "id": sid,
             "relation_id": relation_id,
             "exercise_type": exercise_type,
             "exercise_description": exercise_description,
@@ -412,7 +414,7 @@ def assign_session_to_patient(relation_id: str, exercise_type, exercise_descript
             "now": now
         },
     )
-    return sid or ""
+    return sid
 
 def update_session_details(session_id, exercise_type, exercise_description, repetitions, duration):
     execute(

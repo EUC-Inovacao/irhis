@@ -497,9 +497,12 @@ const MovellaScreen = () => {
       }
 
       return session.id;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating session:", error);
-      // Don't show error to user - session creation is secondary
+      // #region agent log
+      const errData = error?.response?.data || {};
+      fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MovellaScreen.tsx:createSessionFromAnalysis',message:'Session creation 500',data:{error:errData?.error,traceback:errData?.traceback?.slice?.(0,500),status:error?.response?.status},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+      // #endregion
       return null;
     }
   };
