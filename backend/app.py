@@ -832,31 +832,46 @@ def register_patient_manual(current_user):
 @app.route('/patients/<patient_id>/sessions', methods=['POST'])
 @token_required
 def assign_patients_sessions(current_user, patient_id):
-    if current_user['role'].lower() != 'doctor':
-        return jsonify({"error": "Only doctors can assign exercises"}), 403
-
-    doctor_id = current_user['id']
-
-    relation = get_patient_doctor_relation(patient_id, doctor_id)
-    
-    if not relation:
-        return jsonify({"error": "Patient not associated with this doctor"}), 403
-    
-    relation_id = relation['ID']
+    if current_user['role'].lower() == 'doctor':
+        doctor_id = current_user['id']
+        relation = get_patient_doctor_relation(patient_id, doctor_id)
+        if not relation:
+            return jsonify({"error": "Patient not associated with this doctor"}), 403
+        relation_id = relation['ID']
+    elif current_user['role'].lower() == 'patient' and current_user['id'] == patient_id:
+        relation = fetch_one(
+            """
+            SELECT pd.ID FROM patientdoctor pd
+            WHERE pd.PatientID = :patient_id
+            LIMIT 1
+            """,
+            {"patient_id": patient_id}
+        )
+        if not relation:
+            return jsonify({"error": "Patient has no doctor relation"}), 403
+        relation_id = relation['ID']
+    else:
+        return jsonify({"error": "Unauthorized"}), 403
 
     data = request.json
     if not data:
         return jsonify({"error": "No data provided"}), 400
+
+    exercise_type = data.get('exercise_type') or data.get('exerciseType') or ""
+    exercise_description = data.get('exercise_description') or data.get('exerciseDescription') or ""
+    repetitions = data.get('repetitions')
+    duration = data.get('duration')
     
     try:
-        assign_session_to_patient(
+        session_id = assign_session_to_patient(
             relation_id=relation_id,
-            exercise_type=data.get('exercise_type'),
-            exercise_description=data.get('exercise_description'),
-            repetitions=data.get('repetitions'),
-            duration=data.get('duration')
+            exercise_type=exercise_type,
+            exercise_description=exercise_description,
+            repetitions=repetitions,
+            duration=duration
         )
-        return jsonify({"message": "Session assigned successfully"}), 201
+        session = get_session_by_id(session_id)
+        return jsonify(session or {"ID": session_id, "ExerciseType": exercise_type, "ExerciseDescription": exercise_description, "Repetitions": repetitions, "Duration": duration}), 201
     except Exception as e:
         return jsonify({"error": f"Failed to assign session: {str(e)}"}), 500
 
@@ -950,12 +965,32 @@ def delete_session(current_user, session_id):
 @token_required
 def post_session_metrics(current_user, session_id):
 
-    data = request.json
+    data = request.json or {}
     if not data:
         return jsonify({"error": "No data provided"}), 400
 
+    # Adapt frontend summary format (AvgROM, MaxFlexion, etc.) to DB schema (joint, side, avg_rom, etc.)
+    avg_rom = data.get('avg_rom') or data.get('AvgROM')
+    max_rom = data.get('max_rom') or data.get('MaxFlexion') or data.get('maxFlexion') or avg_rom
+    min_rom = data.get('min_rom') or data.get('MaxExtension') or data.get('maxExtension') or 0
+    repetition = data.get('repetition') or data.get('Repetitions') or data.get('repetitions') or 0
+    joint = data.get('joint') or 'knee'
+    side = data.get('side') or 'both'
+    min_v = data.get('min_velocity') or 0
+    max_v = data.get('max_velocity') or 0
+    avg_v = data.get('avg_velocity') or 0
+    p95_v = data.get('p95_velocity') or 0
+    cmd = data.get('center_mass_displacement') or data.get('cmd') or 0
+
+    adapted = {
+        'joint': joint, 'side': side, 'repetition': repetition,
+        'min_velocity': min_v, 'max_velocity': max_v, 'avg_velocity': avg_v, 'p95_velocity': p95_v,
+        'min_rom': min_rom, 'max_rom': max_rom, 'avg_rom': avg_rom or 0,
+        'center_mass_displacement': cmd
+    }
+
     try:
-        metric_id = insert_session_metrics(session_id, data)
+        metric_id = insert_session_metrics(session_id, adapted)
         return jsonify({"message": "Metrics persisted", "id": metric_id}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -964,7 +999,7 @@ def post_session_metrics(current_user, session_id):
 @token_required
 def get_patient_metrics(current_user, patient_id):
 
-    limit = request.args.get('limit', default=50, type=int)
+    limit = min(request.args.get('limit', default=50, type=int), 50)
     
     try:
         metrics = get_metrics_by_patient(patient_id, limit)

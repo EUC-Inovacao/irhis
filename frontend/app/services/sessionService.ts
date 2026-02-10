@@ -7,6 +7,7 @@ export interface SessionsResponse {
 }
 
 export interface CreateSessionDto {
+  exerciseTypeId?: string;
   exerciseType?: string;
   exerciseDescription?: string;
   name?: string;
@@ -71,7 +72,7 @@ function toSession(row: SessionRow, metrics?: MetricRow): Session {
 export async function getPatientSessions(patientId: string): Promise<SessionsResponse> {
   const [sessionsRes, metricsRes] = await Promise.all([
     api.get<SessionRow[]>(`/patients/${patientId}/sessions`),
-    api.get<MetricRow[]>(`/patients/${patientId}/metrics`, { params: { limit: 200 } }).catch(() => ({ data: [] as MetricRow[] })),
+    api.get<MetricRow[]>(`/patients/${patientId}/metrics`, { params: { limit: 50 } }).catch(() => ({ data: [] as MetricRow[] })),
   ]);
 
   const sessions = Array.isArray(sessionsRes.data) ? sessionsRes.data : [];
@@ -96,10 +97,121 @@ export async function getPatientSessions(patientId: string): Promise<SessionsRes
   return { assigned, completed };
 }
 
+export async function getSessionHistory(
+  patientId: string,
+  exerciseTypeId?: string
+): Promise<Session[]> {
+  const { assigned, completed } = await getPatientSessions(patientId);
+  const all = [...assigned, ...completed];
+  if (!exerciseTypeId) return all;
+  return all.filter((s: any) => {
+    const typeId =
+      s.exerciseTypeId ??
+      s.exercise_id ??
+      s.exerciseType;
+    return String(typeId ?? "") === String(exerciseTypeId);
+  });
+}
+
+export async function getLatestSession(
+  patientId: string,
+  exerciseTypeId?: string
+): Promise<Session | null> {
+  const history = await getSessionHistory(patientId, exerciseTypeId);
+  if (!history.length) return null;
+  return history[0];
+}
+
+export interface SessionStats {
+  totalSessions: number;
+  totalReps: number;
+  averageROM: number;
+  averageScore: number;
+  lastSessionDate?: string;
+}
+
+export async function getSessionStats(
+  patientId: string,
+  exerciseTypeId?: string
+): Promise<SessionStats> {
+  const sessions = await getSessionHistory(patientId, exerciseTypeId);
+  if (!sessions.length) {
+    return {
+      totalSessions: 0,
+      totalReps: 0,
+      averageROM: 0,
+      averageScore: 0,
+    };
+  }
+
+  const withMetrics = sessions.filter((s: any) => Array.isArray(s.metrics) && s.metrics[0]);
+  const totalReps = withMetrics.reduce(
+    (sum, s: any) => sum + (s.metrics?.[0]?.Repetitions ?? 0),
+    0
+  );
+  const totalROM = withMetrics.reduce(
+    (sum, s: any) => sum + (s.metrics?.[0]?.AvgROM ?? 0),
+    0
+  );
+  const totalScore = withMetrics.reduce(
+    (sum, s: any) => sum + (s.metrics?.[0]?.Score ?? 0),
+    0
+  );
+
+  const averageROM = withMetrics.length ? totalROM / withMetrics.length : 0;
+  const averageScore = withMetrics.length ? totalScore / withMetrics.length : 0;
+
+  return {
+    totalSessions: sessions.length,
+    totalReps,
+    averageROM,
+    averageScore,
+    lastSessionDate: (sessions[0] as any).timeCreated,
+  };
+}
+
+export interface CreateSessionWithMetricsDto extends CreateSessionDto {
+  metrics?: {
+    rom?: number;
+    maxFlexion?: number;
+    maxExtension?: number;
+    reps?: number;
+    score?: number;
+  };
+}
+
+export async function createSessionWithMetrics(
+  patientId: string,
+  dto: CreateSessionWithMetricsDto
+): Promise<Session> {
+  const session = await createSession(patientId, dto);
+
+  if (dto.metrics) {
+    try {
+      await api.post(`/sessions/${session.id}/metrics`, {
+        AvgROM: dto.metrics.rom,
+        MaxFlexion: dto.metrics.maxFlexion,
+        MaxExtension: dto.metrics.maxExtension,
+        Repetitions: dto.metrics.reps,
+        Score: dto.metrics.score,
+      });
+    } catch (e) {
+      console.error("Failed to persist session metrics:", e);
+    }
+  }
+
+  return session;
+}
+
 export async function createSession(patientId: string, dto: CreateSessionDto): Promise<Session> {
+  const exerciseType = dto.exerciseTypeId ?? dto.exerciseType ?? dto.name ?? "";
+  const exerciseDescription =
+    dto.exerciseDescription ??
+    dto.instructions ??
+    (exerciseType ? exerciseType.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "");
   const payload = {
-    exerciseType: dto.exerciseType ?? dto.name ?? "",
-    exerciseDescription: dto.exerciseDescription ?? dto.instructions ?? "",
+    exerciseType,
+    exerciseDescription,
     repetitions: dto.repetitions ?? null,
     duration: dto.duration ?? null,
   };

@@ -405,6 +405,7 @@ def assign_session_to_patient(relation_id: str, exercise_type, exercise_descript
             "now": now
         },
     )
+    return new_entry_id
 
 def update_session_details(session_id, exercise_type, exercise_description, repetitions, duration):
     execute(

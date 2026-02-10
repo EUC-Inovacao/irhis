@@ -75,32 +75,50 @@ export async function getDoctorsMePatients(params?: {
   nif?: string;
   sort?: string;
 }): Promise<DoctorsMePatientsResponse> {
-  const response = await api.get<DoctorsMePatientsResponse>("/doctors/me/patients", {
-    params,
-  });
-  return response.data;
+  // #region agent log
+  fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'doctorService.ts:78',message:'getDoctorsMePatients called',data:{params},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
+  try {
+    const response = await api.get<DoctorsMePatientsResponse>("/doctors/me/patients", {
+      params,
+    });
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'doctorService.ts:82',message:'getDoctorsMePatients response received',data:{status:response.status,itemsCount:response.data?.items?.length,confirmedCount:response.data?.confirmed?.length,hasItems:!!response.data?.items,responseData:response.data},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    return response.data;
+  } catch (error: any) {
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'doctorService.ts:87',message:'getDoctorsMePatients error',data:{errorMessage:error?.message,errorStatus:error?.response?.status,errorData:error?.response?.data,isAxiosError:!!error?.isAxiosError},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    throw error;
+  }
 }
 
-/**
- * Backend does not currently expose a /doctors/me/dashboard endpoint.
- * Compute minimal KPIs from /doctors/me/patients (endpoint-based, no mocks).
- */
-export async function getDoctorsMeDashboard(): Promise<DashboardKPIs> {
-  const patientsRes = await getDoctorsMePatients();
+/** Compute KPIs from patients response (no extra API call). */
+export function computeDashboardKpis(patientsRes: DoctorsMePatientsResponse): DashboardKPIs {
   const confirmed = patientsRes.confirmed ?? patientsRes.items.filter((x): x is DoctorPatientConfirmed => x.type === "patient");
   const pending = patientsRes.pending ?? patientsRes.items.filter((x): x is DoctorPatientPending => x.type === "pending");
-
   return {
     totalPatients: confirmed.length,
     activePatients: confirmed.length,
     pendingInvites: pending.length,
-    sessionsThisWeek: 0, 
+    sessionsThisWeek: 0,
   };
 }
 
-export async function getDoctorsMeLatestFeedback(limit: number = 10): Promise<LatestFeedbackItem[]> {
+/** Legacy: fetch patients then compute KPIs. Prefer computeDashboardKpis(patientsRes) when you already have patients. */
+export async function getDoctorsMeDashboard(): Promise<DashboardKPIs> {
   const patientsRes = await getDoctorsMePatients();
-  const confirmed = patientsRes.confirmed ?? patientsRes.items.filter((x): x is DoctorPatientConfirmed => x.type === "patient");
+  return computeDashboardKpis(patientsRes);
+}
+
+/** Fetch latest feedback for patients. Pass patientsRes to avoid redundant getDoctorsMePatients call. */
+export async function getDoctorsMeLatestFeedback(
+  limit: number = 5,
+  patientsRes?: DoctorsMePatientsResponse
+): Promise<LatestFeedbackItem[]> {
+  const resolved = patientsRes ?? await getDoctorsMePatients();
+  const confirmed = resolved.confirmed ?? resolved.items.filter((x): x is DoctorPatientConfirmed => x.type === "patient");
   const slice = confirmed.slice(0, Math.max(0, limit));
 
   const results = await Promise.all(

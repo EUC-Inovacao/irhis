@@ -41,8 +41,7 @@ import ExercisePickerModal from "@components/ExercisePickerModal";
 import SessionFeedbackModal from "@components/SessionFeedbackModal";
 import { usePatients } from "@context/PatientContext";
 import { getCurrentExercise } from "@services/exerciseAssignmentService";
-import { ExerciseTypesRepository } from "@storage/repositories";
-import { createSession } from "@services/localSessionService";
+import { createSessionWithMetrics } from "@services/sessionService";
 
 interface SensorData {
   Quat_W?: number;
@@ -210,7 +209,7 @@ const MovellaScreen = () => {
       try {
         // For doctors, show data for selected patient or first patient
         // For patients, show their own data
-        const patientId = user.role === "patient" ? user.id : selectedPatientId;
+        const patientId = user.role?.toLowerCase() === "patient" ? user.id : selectedPatientId;
         
         if (patientId) {
           // Get current session metrics if available
@@ -243,11 +242,11 @@ const MovellaScreen = () => {
   useFocusEffect(
     useCallback(() => {
       // Refresh patients list
-      if (user?.role === "doctor") {
+      if (user?.role?.toLowerCase() === "doctor") {
         fetchPatients();
       }
       // Refresh assigned exercises if patient is selected (for doctors) or if user is a patient
-      if (user?.role === "patient" && user.id) {
+      if (user?.role?.toLowerCase() === "patient" && user.id) {
         fetchAssignedExercises(user.id);
         // Set selectedPatientId to user.id for patients
         setSelectedPatientId(user.id);
@@ -257,34 +256,18 @@ const MovellaScreen = () => {
     }, [user?.role, user?.id, selectedPatientId, fetchPatients, fetchAssignedExercises])
   );
 
-  // Load exercise name when selectedExerciseId changes
-  useEffect(() => {
-    const loadExerciseName = async () => {
-      if (selectedExerciseId) {
-        try {
-          const exercise = await ExerciseTypesRepository.getById(selectedExerciseId);
-          setSelectedExerciseName(exercise?.name || null);
-        } catch (error) {
-          console.error("Error loading exercise name:", error);
-          setSelectedExerciseName(null);
-        }
-      } else {
-        setSelectedExerciseName(null);
-      }
-    };
-
-    loadExerciseName();
-  }, [selectedExerciseId]);
+  // selectedExerciseName is set by handleExerciseSelect when picking; no ExerciseTypesRepository lookup needed
 
   // Load current exercise for patients
   useEffect(() => {
     const loadCurrentExercise = async () => {
-      if (user?.role === "patient" && user.id) {
+      if (user?.role?.toLowerCase() === "patient" && user.id) {
         try {
           const exercise = await getCurrentExercise(user.id);
           if (exercise) {
             setCurrentExercise(exercise);
             setSelectedExerciseId(exercise.exerciseTypeId);
+            setSelectedExerciseName(exercise.exerciseType?.name || null);
           }
         } catch (error) {
           console.error("Error loading current exercise:", error);
@@ -297,7 +280,7 @@ const MovellaScreen = () => {
 
   const handleFileUpload = async () => {
     // Require patient & exercise selection for doctors before analysis
-    if (user?.role === "doctor") {
+    if (user?.role?.toLowerCase() === "doctor") {
       if (!selectedPatientId) {
         Alert.alert(
           "Select Patient",
@@ -385,9 +368,10 @@ const MovellaScreen = () => {
       const startTime = new Date().toISOString();
       const endTime = new Date(Date.now() + 15 * 60000).toISOString(); // Assume 15 min session
 
-      const session = await createSession({
+      const session = await createSessionWithMetrics(patientId, {
         patientId,
         exerciseTypeId,
+        exerciseDescription: selectedExerciseName ?? undefined,
         startTime,
         endTime,
         metrics: {
@@ -402,7 +386,7 @@ const MovellaScreen = () => {
       console.log("Session created successfully:", session.id);
 
       // For patients, show feedback modal after session creation
-      if (user.role === "patient" && session.id) {
+      if (user.role?.toLowerCase() === "patient" && session.id) {
         setLastCreatedSessionId(session.id);
         setShowFeedbackModal(true);
       }
@@ -1066,8 +1050,9 @@ const MovellaScreen = () => {
     );
   };
 
-  const handleExerciseSelect = (exerciseTypeId: string) => {
+  const handleExerciseSelect = (exerciseTypeId: string, exerciseName?: string) => {
     setSelectedExerciseId(exerciseTypeId);
+    setSelectedExerciseName(exerciseName || null);
     // No longer auto-assigning - just selecting from assigned exercises
   };
   
@@ -1313,7 +1298,7 @@ const MovellaScreen = () => {
         </View>
 
         {/* Patient/Exercise Selection - For Doctors */}
-        {user?.role === "doctor" && (
+        {user?.role?.toLowerCase() === "doctor" && (
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Select Patient & Exercise
@@ -1377,7 +1362,7 @@ const MovellaScreen = () => {
         )}
 
         {/* Exercise Selection - For Patients */}
-        {user?.role === "patient" && (
+        {user?.role?.toLowerCase() === "patient" && (
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Select Exercise
@@ -1467,7 +1452,7 @@ const MovellaScreen = () => {
               ]}
               onPress={() => {
                 // Require patient & exercise selection for doctors before BLE streaming
-                if (user?.role === "doctor") {
+                if (user?.role?.toLowerCase() === "doctor") {
                   if (!selectedPatientId) {
                     Alert.alert(
                       "Select Patient",
@@ -2352,7 +2337,7 @@ const MovellaScreen = () => {
         )}
 
         {/* Progression Charts - Show for doctors or when analysis is complete */}
-        {(user?.role === "doctor" || localAnalysisResult || perKneeAnalysisResult) &&
+        {(user?.role?.toLowerCase() === "doctor" || localAnalysisResult || perKneeAnalysisResult) &&
           renderProgressionCharts()}
 
         {/* Add bottom padding to account for tab bar */}
@@ -2384,7 +2369,7 @@ const MovellaScreen = () => {
       />
 
       {/* Feedback Modal - For Patients */}
-      {user?.role === 'patient' && user.id && lastCreatedSessionId && (
+      {user?.role?.toLowerCase() === 'patient' && user.id && lastCreatedSessionId && (
         <SessionFeedbackModal
           visible={showFeedbackModal}
           onClose={() => {

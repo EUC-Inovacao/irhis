@@ -5,6 +5,7 @@ import React, {
   ReactNode,
   useCallback,
   useEffect,
+  useRef,
 } from "react";
 import type { Patient, Session } from "../types";
 
@@ -16,8 +17,7 @@ import {
 
 import {
   getDoctorsMePatients,
-  getDoctorsMeDashboard,
-  getDoctorsMeLatestFeedback,
+  computeDashboardKpis,
   getDoctorsMeMetricsSummary,
   getDoctorsMeRecentActivity,
   getDoctorsMeTrends,
@@ -195,6 +195,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
   const [doctorDashboardError, setDoctorDashboardError] = useState<string | null>(
     null
   );
+  const fetchPatientsInProgress = useRef(false);
 
   const fetchPatientSessions = useCallback(async (patientId: string) => {
     try {
@@ -227,9 +228,8 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
 
   const fetchPatients = useCallback(async () => {
     if (!user) return;
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatientContext.tsx:228',message:'fetchPatients called',data:{userId:user?.id,userRole:user?.role},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
+    if (fetchPatientsInProgress.current) return;
+    fetchPatientsInProgress.current = true;
     setLoading(true);
     setDoctorDashboardError(null);
     try {
@@ -237,21 +237,14 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
         // #region agent log
         fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatientContext.tsx:234',message:'fetchPatients doctor branch - calling getDoctorsMePatients',data:{userId:user.id},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
         // #endregion
-        const [
-          patientsRes,
-          kpisRes,
-          feedbackRes,
-          metricsRes,
-          activityRes,
-          trendsRes,
-        ] = await Promise.all([
-          getDoctorsMePatients(),
-          getDoctorsMeDashboard().catch(() => null),
-          getDoctorsMeLatestFeedback().catch(() => []),
+        const patientsRes = await getDoctorsMePatients();
+        const kpisRes = computeDashboardKpis(patientsRes);
+        const [metricsRes, activityRes, trendsRes] = await Promise.all([
           getDoctorsMeMetricsSummary().catch(() => []),
           getDoctorsMeRecentActivity().catch(() => []),
           getDoctorsMeTrends().catch(() => null),
         ]);
+        const feedbackRes: LatestFeedbackItem[] = [];
         // #region agent log
         fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatientContext.tsx:249',message:'fetchPatients doctor branch - received patientsRes',data:{itemsCount:patientsRes?.items?.length,confirmedCount:patientsRes?.confirmed?.length,hasItems:!!patientsRes?.items,patientsRes},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
         // #endregion
@@ -361,6 +354,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
       }
     } finally {
       setLoading(false);
+      fetchPatientsInProgress.current = false;
     }
   }, [user, fetchPatientSessions]);
 

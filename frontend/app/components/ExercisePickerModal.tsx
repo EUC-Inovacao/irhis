@@ -16,7 +16,7 @@ import { getAvailableExercises, getAssignedExercises, ExerciseTypeRecord } from 
 interface ExercisePickerModalProps {
   visible: boolean;
   onClose: () => void;
-  onSelect: (exerciseTypeId: string) => void;
+  onSelect: (exerciseTypeId: string, exerciseName?: string) => void;
   selectedExerciseId?: string | null;
   patientId?: string | null; // If provided, show only assigned exercises
   showCreateOption?: boolean; // Show option to create/assign new exercise
@@ -119,8 +119,8 @@ const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
     data: groupedExercises[category],
   }));
 
-  const handleSelect = (exerciseTypeId: string) => {
-    onSelect(exerciseTypeId);
+  const handleSelect = (exercise: ExerciseTypeRecord) => {
+    onSelect(exercise.id, exercise.name);
     onClose();
   };
 
@@ -151,7 +151,7 @@ const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
             borderColor: isSelected ? colors.primary : colors.mediumGray,
           },
         ]}
-        onPress={() => handleSelect(item.id)}
+        onPress={() => handleSelect(item)}
       >
         <View style={styles.exerciseItemContent}>
           <View
