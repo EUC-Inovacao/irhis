@@ -1102,30 +1102,34 @@ def get_patient_exercises(current_user, patient_id):
     if not is_db_enabled():
         return jsonify({"error": "Database not configured"}), 500
     
-    # Get sessions assigned to this patient
-    sessions = get_patient_sessions(patient_id)
-    if not sessions:
-        return jsonify([])
-    
-    # Convert sessions to assigned exercises format
-    assigned_exercises = []
-    for session in sessions.get('assigned', []):
-        assigned_exercises.append({
-            "id": session.get('id', ''),
-            "patientId": patient_id,
-            "exerciseTypeId": session.get('exerciseType', ''),
-            "assignedDate": session.get('timeCreated'),
-            "completed": 0,
-            "targetReps": session.get('repetitions'),
-            "targetSets": None,
-            "exerciseType": {
-                "id": session.get('exerciseType', ''),
-                "name": session.get('exerciseDescription', 'Exercise'),
-                "category": "general",
-            }
-        })
-    
-    return jsonify(assigned_exercises)
+    try:
+        # get_patient_sessions returns a list of session rows, not a dict
+        sessions = get_patient_sessions(patient_id)
+        if not sessions:
+            return jsonify([])
+
+        # Convert sessions to assigned exercises format (DB uses PascalCase keys)
+        assigned_exercises = []
+        for session in sessions:
+            assigned_exercises.append({
+                "id": session.get('ID', session.get('id', '')),
+                "patientId": patient_id,
+                "exerciseTypeId": session.get('ExerciseType', session.get('exerciseType', '')),
+                "assignedDate": session.get('TimeCreated', session.get('timeCreated')),
+                "completed": 0,
+                "targetReps": session.get('Repetitions', session.get('repetitions')),
+                "targetSets": None,
+                "exerciseType": {
+                    "id": session.get('ExerciseType', session.get('exerciseType', '')),
+                    "name": session.get('ExerciseDescription', session.get('exerciseDescription', 'Exercise')),
+                    "category": "general",
+                }
+            })
+
+        return jsonify(assigned_exercises)
+    except Exception as e:
+        import traceback
+        return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
 
 @app.route('/patients/<patient_id>/exercises', methods=['POST'])
 @token_required
