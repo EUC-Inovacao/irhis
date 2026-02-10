@@ -39,7 +39,6 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
     assignedExercises,
     sessionsByPatient,
     fetchPatientSessions,
-    fetchAssignedExercises,
     fetchPatients,
   } = usePatients();
   const patientData = patients[patientId];
@@ -48,14 +47,9 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
   // Refresh data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      // Refresh patient data
       fetchPatients();
-      // Refresh assigned exercises for this patient
-      if (patientId) {
-        fetchAssignedExercises(patientId);
-        fetchPatientSessions(patientId);
-      }
-    }, [patientId, fetchPatients, fetchAssignedExercises, fetchPatientSessions])
+      if (patientId) fetchPatientSessions(patientId);
+    }, [patientId, fetchPatients, fetchPatientSessions])
   );
 
   const [exercises, setExercises] = useState<RecoveryProcess[]>([]);
@@ -105,12 +99,6 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
     }
   }, [patientId, listFromContext, patientData?.recovery_process]);
 
-  // Ensure we have up-to-date sessions for this patient
-  useEffect(() => {
-    if (patientId) {
-      fetchPatientSessions(patientId);
-    }
-  }, [patientId, fetchPatientSessions]);
 
   const handleToggleComplete = (
     id: string,
@@ -354,24 +342,16 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
     );
   };
 
-  // Load patient data if not in context and fetch sessions
+  // Load patient data if not in context
   useEffect(() => {
-    if (patientId) {
-      // Fetch sessions for this patient
-      fetchPatientSessions(patientId);
-      
-      // Load patient data if not in context
-      if (!patientData) {
-        patientService.getPatientById(patientId).then((patient) => {
-          if (patient) {
-            updatePatient(patientId, patient);
-          }
-        }).catch((error) => {
-          console.error("Failed to load patient:", error);
-        });
-      }
+    if (patientId && !patientData) {
+      patientService.getPatientById(patientId).then((patient) => {
+        if (patient) updatePatient(patientId, patient);
+      }).catch((error) => {
+        console.error("Failed to load patient:", error);
+      });
     }
-  }, [patientId, patientData, fetchPatientSessions, updatePatient]);
+  }, [patientId, patientData, updatePatient]);
 
   if (!patientData) {
     return (

@@ -381,6 +381,85 @@ const MovellaScreen = () => {
 
       const existingSession = await findUncompletedSession(patientId, exerciseTypeId);
 
+      const metricsPerJoint: Array<{
+        joint: string;
+        side: string;
+        rom?: number;
+        maxFlexion?: number;
+        maxExtension?: number;
+        reps?: number;
+        avgVelocity?: number;
+        maxVelocity?: number;
+        p95Velocity?: number;
+        centerMassDisplacement?: number;
+      }> = [];
+
+      if (result.knee?.left) {
+        const k = result.knee.left;
+        metricsPerJoint.push({
+          joint: "knee",
+          side: "left",
+          rom: k.rom,
+          maxFlexion: k.maxFlexion,
+          maxExtension: k.maxExtension,
+          reps: k.repetitions,
+          avgVelocity: k.avgVelocity,
+          maxVelocity: k.peakVelocity,
+          p95Velocity: k.p95Velocity,
+        });
+      }
+      if (result.knee?.right) {
+        const k = result.knee.right;
+        metricsPerJoint.push({
+          joint: "knee",
+          side: "right",
+          rom: k.rom,
+          maxFlexion: k.maxFlexion,
+          maxExtension: k.maxExtension,
+          reps: k.repetitions,
+          avgVelocity: k.avgVelocity,
+          maxVelocity: k.peakVelocity,
+          p95Velocity: k.p95Velocity,
+        });
+      }
+      if (result.hip?.left) {
+        const h = result.hip.left;
+        metricsPerJoint.push({
+          joint: "hip",
+          side: "left",
+          rom: h.rom,
+          maxFlexion: h.maxFlexion,
+          maxExtension: h.maxExtension,
+          reps: h.repetitions,
+          avgVelocity: h.avgVelocity,
+          maxVelocity: h.peakVelocity,
+          p95Velocity: h.p95Velocity,
+        });
+      }
+      if (result.hip?.right) {
+        const h = result.hip.right;
+        metricsPerJoint.push({
+          joint: "hip",
+          side: "right",
+          rom: h.rom,
+          maxFlexion: h.maxFlexion,
+          maxExtension: h.maxExtension,
+          reps: h.repetitions,
+          avgVelocity: h.avgVelocity,
+          maxVelocity: h.peakVelocity,
+          p95Velocity: h.p95Velocity,
+        });
+      }
+      if (result.com && (result.com.rms_cm || result.com.apAmp_cm)) {
+        const cm = result.com.rms_cm ?? result.com.apAmp_cm ?? 0;
+        metricsPerJoint.push({
+          joint: "com",
+          side: "left",
+          centerMassDisplacement: Math.round(cm * 100) / 100,
+          reps: Math.round(reps),
+        });
+      }
+
       const session = await createSessionWithMetrics(patientId, {
         patientId,
         exerciseTypeId,
@@ -388,7 +467,8 @@ const MovellaScreen = () => {
         existingSessionId: existingSession?.id ?? undefined,
         startTime,
         endTime,
-        metrics: {
+        metricsPerJoint: metricsPerJoint.length > 0 ? metricsPerJoint : undefined,
+        metrics: metricsPerJoint.length === 0 ? {
           rom: Math.round(avgRom * 10) / 10,
           maxFlexion: Math.round(avgMaxFlexion * 10) / 10,
           maxExtension: Math.round(avgMaxExtension * 10) / 10,
@@ -398,7 +478,7 @@ const MovellaScreen = () => {
           maxVelocity: maxVelocity ? Math.round(maxVelocity * 10) / 10 : undefined,
           p95Velocity: p95Velocity ? Math.round(p95Velocity * 10) / 10 : undefined,
           centerMassDisplacement: centerMassDisplacement ? Math.round(centerMassDisplacement * 100) / 100 : undefined,
-        },
+        } : undefined,
       });
 
       console.log("Session created successfully:", session.id);

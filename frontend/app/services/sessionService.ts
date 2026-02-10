@@ -202,6 +202,7 @@ export async function getSessionStats(
 export interface CreateSessionWithMetricsDto extends CreateSessionDto {
   /** If provided, add metrics to this existing session instead of creating a new one. */
   existingSessionId?: string;
+  /** Single aggregated metrics (legacy) */
   metrics?: {
     rom?: number;
     maxFlexion?: number;
@@ -213,6 +214,19 @@ export interface CreateSessionWithMetricsDto extends CreateSessionDto {
     p95Velocity?: number;
     centerMassDisplacement?: number;
   };
+  /** Per-joint metrics (knee left, knee right, hip left, hip right, COM) - shown in session details */
+  metricsPerJoint?: Array<{
+    joint: string;
+    side: string;
+    rom?: number;
+    maxFlexion?: number;
+    maxExtension?: number;
+    reps?: number;
+    avgVelocity?: number;
+    maxVelocity?: number;
+    p95Velocity?: number;
+    centerMassDisplacement?: number;
+  }>;
 }
 
 export async function createSessionWithMetrics(
@@ -228,9 +242,31 @@ export async function createSessionWithMetrics(
     session = await createSession(patientId, dto);
   }
 
-  if (dto.metrics) {
+  if (dto.metricsPerJoint && dto.metricsPerJoint.length > 0) {
+    for (const m of dto.metricsPerJoint) {
+      try {
+        await api.post(`/sessions/${session.id}/metrics`, {
+          joint: m.joint,
+          side: m.side,
+          avg_rom: m.rom,
+          max_rom: m.maxFlexion,
+          min_rom: m.maxExtension,
+          repetitions: m.reps,
+          avg_velocity: m.avgVelocity,
+          max_velocity: m.maxVelocity,
+          p95_velocity: m.p95Velocity,
+          center_mass_displacement: m.centerMassDisplacement,
+        });
+      } catch (e: any) {
+        const msg = e?.response?.data?.error ?? e?.message;
+        console.error("Failed to persist metric:", m.joint, m.side, msg);
+      }
+    }
+  } else if (dto.metrics) {
     try {
       await api.post(`/sessions/${session.id}/metrics`, {
+        joint: "knee",
+        side: "left",
         AvgROM: dto.metrics.rom,
         MaxFlexion: dto.metrics.maxFlexion,
         MaxExtension: dto.metrics.maxExtension,

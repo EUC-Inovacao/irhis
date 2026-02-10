@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { useTheme } from "@theme/ThemeContext";
 import { AnalysisResult } from "@types";
+import MetricsDisplayCard from "./MetricsDisplayCard";
 
 interface LocalAnalysisResultsProps {
   result: AnalysisResult;
@@ -13,64 +14,20 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
   const { colors } = useTheme();
 
   const renderMetricCard = (title: string, metrics: any, side: string) => (
-    <View
+    <MetricsDisplayCard
       key={`${title}-${side}`}
-      style={[styles.metricCard, { backgroundColor: colors.card }]}
-    >
-      <Text style={[styles.cardTitle, { color: colors.text }]}>
-        {side} {title}
-      </Text>
-      <View style={styles.metricsGrid}>
-        <View style={styles.metricRow}>
-          <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-            ROM (°)
-          </Text>
-          <Text style={[styles.metricValue, { color: colors.text }]}>
-            {metrics.rom.toFixed(1)}
-          </Text>
-        </View>
-        <View style={styles.metricRow}>
-          <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-            Max Flexion (°)
-          </Text>
-          <Text style={[styles.metricValue, { color: colors.text }]}>
-            {metrics.maxFlexion.toFixed(1)}
-          </Text>
-        </View>
-        <View style={styles.metricRow}>
-          <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-            Max Extension (°)
-          </Text>
-          <Text style={[styles.metricValue, { color: colors.text }]}>
-            {metrics.maxExtension.toFixed(1)}
-          </Text>
-        </View>
-        <View style={styles.metricRow}>
-          <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-            Avg Velocity (°/s)
-          </Text>
-          <Text style={[styles.metricValue, { color: colors.text }]}>
-            {metrics.avgVelocity.toFixed(1)}
-          </Text>
-        </View>
-        <View style={styles.metricRow}>
-          <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-            Peak Velocity (°/s)
-          </Text>
-          <Text style={[styles.metricValue, { color: colors.text }]}>
-            {metrics.peakVelocity.toFixed(1)}
-          </Text>
-        </View>
-        <View style={styles.metricRow}>
-          <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-            P95 Velocity (°/s)
-          </Text>
-          <Text style={[styles.metricValue, { color: colors.text }]}>
-            {metrics.p95Velocity.toFixed(1)}
-          </Text>
-        </View>
-      </View>
-    </View>
+      title={title}
+      sideLabel={side}
+      metrics={{
+        rom: metrics.rom,
+        maxFlexion: metrics.maxFlexion,
+        maxExtension: metrics.maxExtension,
+        repetitions: metrics.repetitions,
+        avgVelocity: metrics.avgVelocity,
+        peakVelocity: metrics.peakVelocity,
+        p95Velocity: metrics.p95Velocity,
+      }}
+    />
   );
 
   const renderAsymmetryCard = () => (

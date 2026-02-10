@@ -100,13 +100,19 @@ const DoctorHomeScreen = ({ navigation }: any) => {
                     />
                     <StatCard
                         icon="checkmark-circle"
-                        value={dashboardKpis.completedPatients}
+                        value={dashboardKpis.completedPatients ?? 0}
                         label="Completed"
                         color={colors.info}
                     />
                     <StatCard
                         icon="trending-up"
-                        value={dashboardKpis.totalPatients > 0 ? `${Math.round(dashboardKpis.avgProgress)}%` : '—'}
+                        value={
+                            dashboardKpis.totalPatients > 0 &&
+                            typeof dashboardKpis.avgProgress === "number" &&
+                            !Number.isNaN(dashboardKpis.avgProgress)
+                                ? `${Math.round(dashboardKpis.avgProgress)}%`
+                                : "—"
+                        }
                         label="Avg. Progress"
                         color={colors.warning}
                     />

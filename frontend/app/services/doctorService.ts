@@ -38,8 +38,10 @@ export interface DoctorsMePatientsResponse {
 export interface DashboardKPIs {
   totalPatients: number;
   activePatients: number;
+  completedPatients: number;
   pendingInvites: number;
   sessionsThisWeek: number;
+  avgProgress?: number;
 }
 
 export interface LatestFeedbackItem {
@@ -98,9 +100,11 @@ export async function getDoctorsMePatients(params?: {
 export function computeDashboardKpis(patientsRes: DoctorsMePatientsResponse): DashboardKPIs {
   const confirmed = patientsRes.confirmed ?? patientsRes.items.filter((x): x is DoctorPatientConfirmed => x.type === "patient");
   const pending = patientsRes.pending ?? patientsRes.items.filter((x): x is DoctorPatientPending => x.type === "pending");
+  const completedPatients = confirmed.filter((p) => (p.sessionCount ?? 0) > 0).length;
   return {
     totalPatients: confirmed.length,
     activePatients: confirmed.length,
+    completedPatients,
     pendingInvites: pending.length,
     sessionsThisWeek: 0,
   };

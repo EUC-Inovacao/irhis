@@ -68,6 +68,16 @@ def execute(sql: str, params: Optional[dict[str, Any]] = None) -> None:
     with _engine.begin() as connection:
         connection.execute(text(sql), params or {})
 
+
+def execute_and_return_id(sql: str, params: Optional[dict[str, Any]] = None) -> Optional[str]:
+    """Execute INSERT and return LAST_INSERT_ID() from the same connection."""
+    if _engine is None:
+        raise RuntimeError("DATABASE_URL not configured")
+    with _engine.begin() as connection:
+        connection.execute(text(sql), params or {})
+        row = connection.execute(text("SELECT LAST_INSERT_ID() AS id")).fetchone()
+        return str(row[0]) if row and row[0] else None
+
 def create_manual_patient(user_data, patient_data, doctor_id):
     user_id = str(uuid.uuid4())
     temp_email = f"paciente_{user_id[:8]}@irhis_sistema.com"
@@ -523,5 +533,93 @@ def get_metrics_by_session(session_id: str):
     for row in rows:
         if row.get('TimeCreated'):
             row['TimeCreated'] = str(row['TimeCreated'])
-            
+
     return rows
+
+
+def update_patient_details(patient_id: str, details: dict) -> None:
+    """Update patient record. patient_id is UserID. Details: weight, height, bmi, sex, medical_history."""
+    if not details:
+        return
+    # Ensure patient row exists (create if missing)
+    existing = fetch_one(
+        "SELECT UserID FROM patient WHERE UserID = :pid LIMIT 1",
+        {"pid": patient_id},
+    )
+    if not existing:
+        try:
+            create_patient_record(patient_id, birth_date=None)
+        except Exception:
+            pass
+
+    updates = []
+    params = {}
+    if "weight" in details and details["weight"] is not None:
+        updates.append("Weight = :weight")
+        params["weight"] = float(details["weight"])
+    if "height" in details and details["height"] is not None:
+        updates.append("Height = :height")
+        params["height"] = float(details["height"]) * 100  # m to cm
+    if "bmi" in details and details["bmi"] is not None:
+        updates.append("BMI = :bmi")
+        params["bmi"] = float(details["bmi"])
+    elif "weight" in details and "height" in details:
+        w, h = float(details.get("weight", 0)), float(details.get("height", 0))
+        if h > 0 and w > 0:
+            updates.append("BMI = :bmi")
+            params["bmi"] = w / (h * h)
+    if "sex" in details and details["sex"] is not None:
+        updates.append("Sex = :sex")
+        params["sex"] = str(details["sex"]).lower()[:32]
+    if "clinicalInfo" in details:
+        updates.append("MedicalHistory = :medical_history")
+        params["medical_history"] = str(details["clinicalInfo"])[:4096]
+    if "medicalHistory" in details:
+        updates.append("MedicalHistory = :medical_history")
+        params["medical_history"] = str(details["medicalHistory"])[:4096]
+
+    if not updates:
+        return
+    params["pid"] = patient_id
+    execute(
+        f"UPDATE patient SET {', '.join(updates)} WHERE UserID = :pid",
+        params,
+    )
+
+
+def insert_feedback(patient_id: str, feedback: dict) -> str:
+    """Insert a feedback record into PatientFeedback. Returns feedback ID."""
+    pain = int(feedback.get("pain", 0))
+    fatigue = int(feedback.get("fatigue", 0))
+    difficulty = int(feedback.get("difficulty", 0))
+    comments = feedback.get("comments") or ""
+    session_id = feedback.get("sessionId")
+    fid = execute_and_return_id(
+        """
+        INSERT INTO PatientFeedback (UserID, SessionID, Pain, Fatigue, Difficulty, Comments)
+        VALUES (:user_id, :session_id, :pain, :fatigue, :difficulty, :comments)
+        """,
+        {
+            "user_id": patient_id,
+            "session_id": session_id,
+            "pain": pain,
+            "fatigue": fatigue,
+            "difficulty": difficulty,
+            "comments": comments[:4096] if comments else None,
+        },
+    )
+    return fid or ""
+
+
+def get_feedback_by_patient(patient_id: str, limit: int = 100):
+    """Get feedback entries for a patient from PatientFeedback."""
+    return fetch_all(
+        """
+        SELECT ID, UserID AS PatientID, SessionID, TimeCreated AS FeedbackTime, Pain, Fatigue, Difficulty, Comments
+        FROM PatientFeedback
+        WHERE UserID = :patient_id
+        ORDER BY TimeCreated DESC
+        LIMIT :limit
+        """,
+        {"patient_id": patient_id, "limit": limit},
+    )

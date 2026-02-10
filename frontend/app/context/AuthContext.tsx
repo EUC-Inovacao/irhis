@@ -9,7 +9,7 @@ interface AuthContextData {
   user: User | null;
   token: string | null;
   loading: boolean;
-  login: (email: string, password: string, role: AuthRole) => Promise<void>;
+  login: (email: string, password: string, role?: AuthRole) => Promise<void>;
   signup: (name: string, email: string, password: string, role: AuthRole) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -44,7 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     restore();
   }, []);
 
-  async function login(email: string, password: string, role: AuthRole) {
+  async function login(email: string, password: string, role?: AuthRole) {
     setLoading(true);
     try {
       const { token: newToken, user: newUser } = await RemoteAuth.login(email, password, role);
@@ -56,6 +56,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         AsyncStorage.setItem(STORAGE_USER_KEY, JSON.stringify(newUser)),
         AsyncStorage.setItem(STORAGE_TOKEN_KEY, newToken),
       ]);
+    } catch (error) {
+      setLoading(false);
+      throw error; // Re-throw so caller can handle it
     } finally {
       setLoading(false);
     }
@@ -73,6 +76,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         AsyncStorage.setItem(STORAGE_USER_KEY, JSON.stringify(newUser)),
         AsyncStorage.setItem(STORAGE_TOKEN_KEY, newToken),
       ]);
+    } catch (error) {
+      setLoading(false);
+      throw error; // Re-throw so caller can handle it
     } finally {
       setLoading(false);
     }

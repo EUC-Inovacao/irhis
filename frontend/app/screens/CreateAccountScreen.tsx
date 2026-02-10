@@ -4,13 +4,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { signup } from '../services/localAuthService';
 import { useAuth } from '../context/AuthContext';
 
 const CreateAccountScreen = () => {
   const { colors } = useTheme();
   const navigation = useNavigation();
-  const { setUser } = useAuth();
+  const { signup } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -108,19 +107,12 @@ const CreateAccountScreen = () => {
     try {
       // Convert birth date to database format if patient
       const birthDateForDB = role === 'patient' ? convertToDatabaseFormat(birthDateTrim) : undefined;
+
+      // Create account using remote signup (AuthContext handles user/token + storage)
+      await signup(nameTrim, emailTrim, password, role);
       
-      // Create account using local signup service
-      const { user } = await signup(nameTrim, emailTrim, password, role, birthDateForDB);
-      
-      // Set user directly in AuthContext (no need to login again)
-      await setUser(user);
-      
-      // Navigate to Home screen instead of going back
-      // The AppNavigator will automatically show the correct screen based on user role
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Home' }],
-      });
+      // AppNavigator will automatically switch to authenticated stack when user state changes
+      // No manual navigation needed - the navigator re-renders based on user state
     } catch (err: any) {
       const msg = err.message || 'Failed to create account. Please try again.';
       setError(msg);

@@ -47,10 +47,12 @@ export async function assignExerciseToPatient(
   patientId: string,
   exerciseTypeId: string,
   targetReps?: number,
-  targetSets?: number
+  targetSets?: number,
+  exerciseTypeName?: string
 ): Promise<void> {
   await api.post(`/patients/${patientId}/exercises`, {
     exercise_type_id: exerciseTypeId,
+    exercise_type_name: exerciseTypeName,
     target_reps: targetReps,
     target_sets: targetSets,
   });

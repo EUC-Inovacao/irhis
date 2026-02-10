@@ -101,6 +101,8 @@ const CreatePatientScreen = ({ navigation }: any) => {
         try {
             setLoading(true);
             const data = await getUnassignedPatients();
+            console.log('Unassigned patients from API:', JSON.stringify(data, null, 2));
+            console.log('Number of unassigned patients:', data.length);
             setUnassignedPatients(data);
         } catch (error) {
             console.error('Failed to fetch unassigned patients:', error);

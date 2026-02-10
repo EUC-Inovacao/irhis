@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useTheme } from "@theme/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { AssignedExerciseWithDetails } from "@services/exerciseAssignmentService";
-import { getSessionHistory } from "@services/localSessionService";
+import { getSessionHistory } from "@services/sessionService";
 
 interface ExerciseCardProps {
   exercise: AssignedExerciseWithDetails;

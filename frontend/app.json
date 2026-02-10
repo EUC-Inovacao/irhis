@@ -26,7 +26,19 @@
         "NSMicrophoneUsageDescription": "Microphone is used for audio features.",
         "NSBluetoothAlwaysUsageDescription": "This app uses Bluetooth to connect to Movella DOT sensors for movement analysis.",
         "NSBluetoothPeripheralUsageDescription": "This app uses Bluetooth to connect to Movella DOT sensors for movement analysis.",
-        "UIBackgroundModes": ["bluetooth-central"]
+        "UIBackgroundModes": ["bluetooth-central"],
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false,
+          "NSAllowsLocalNetworking": true,
+          "NSExceptionDomains": {
+            "irhis-api.azurewebsites.net": {
+              "NSExceptionAllowsInsecureHTTPLoads": false,
+              "NSIncludesSubdomains": true,
+              "NSExceptionRequiresForwardSecrecy": false,
+              "NSExceptionMinimumTLSVersion": "TLSv1.2"
+            }
+          }
+        }
       }
     },
     "web": {

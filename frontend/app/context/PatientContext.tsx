@@ -78,6 +78,8 @@ interface PatientContextData {
   trends: TrendsData | null;
   /** Doctor dashboard load error */
   doctorDashboardError: string | null;
+  /** Patient dashboard load error */
+  patientDashboardError: string | null;
   fetchPatients: () => Promise<void>;
   fetchMetricsSummary: () => Promise<void>;
   fetchRecentActivity: () => Promise<void>;
@@ -92,16 +94,15 @@ interface PatientContextData {
 }
 
 function sessionToExercise(session: Session, completed: boolean): SessionAsExercise {
-  const exerciseTypeName =
-    (session as any).exerciseTypeName ??
-    (session as any).exerciseType ??
-    "Exercise";
-
   const exerciseTypeId =
     (session as any).exerciseTypeId ??
     (session as any).exercise_id ??
     (session as any).exerciseType ??
     session.id;
+
+  // exerciseDescription holds the user-friendly name from backend; exerciseType is often the ID
+  const desc = (session as any).exerciseDescription ?? (session as any).exerciseTypeName ?? "";
+  const exerciseTypeName = desc && !desc.startsWith("ex_") ? desc : "Exercise";
 
   const createdAt =
     (session as any).timeCreated ??
@@ -151,6 +152,7 @@ export const PatientContext = createContext<PatientContextData>({
   recentActivity: [],
   trends: null,
   doctorDashboardError: null,
+  patientDashboardError: null,
   fetchPatients: async () => {},
   fetchMetricsSummary: async () => {},
   fetchRecentActivity: async () => {},
@@ -195,9 +197,15 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
   const [doctorDashboardError, setDoctorDashboardError] = useState<string | null>(
     null
   );
+  const [patientDashboardError, setPatientDashboardError] = useState<string | null>(
+    null
+  );
   const fetchPatientsInProgress = useRef(false);
+  const fetchSessionsInFlight = useRef<Set<string>>(new Set());
 
   const fetchPatientSessions = useCallback(async (patientId: string) => {
+    if (fetchSessionsInFlight.current.has(patientId)) return;
+    fetchSessionsInFlight.current.add(patientId);
     try {
       const { assigned, completed } = await getPatientSessions(patientId);
       setSessionsByPatient((prev) => ({
@@ -223,6 +231,8 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
         [patientId]: { assigned: [], completed: [] },
       }));
       setAssignedExercises((prev) => ({ ...prev, [patientId]: [] }));
+    } finally {
+      fetchSessionsInFlight.current.delete(patientId);
     }
   }, []);
 
@@ -320,14 +330,28 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
           confirmed.map((c: any) => fetchPatientSessions(c.id).catch(() => undefined))
         );
       } else {
-        const fullPatient = await getPatientById(user.id);
+        let fullPatient = await getPatientById(user.id);
 
-        if (fullPatient) {
-          setPatients({ [fullPatient.id]: fullPatient });
-          await fetchPatientSessions(fullPatient.id);
-        } else {
-          setPatients({});
+        if (!fullPatient) {
+          // Fallback: build minimal patient from authenticated user (backend may not have record yet)
+          fullPatient = {
+            id: user.id,
+            name: user.name ?? "Patient",
+            details: {
+              age: 0,
+              sex: "Other" as const,
+              height: 0,
+              weight: 0,
+              bmi: 0,
+              clinicalInfo: "No information provided.",
+            },
+            recovery_process: [],
+          };
         }
+
+        setPatients({ [fullPatient.id]: fullPatient });
+        await fetchPatientSessions(fullPatient.id);
+        setPatientDashboardError(null);
 
         setDoctorPatientsItems([]);
         setDashboardKpis(null);
@@ -351,6 +375,11 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
         setMetricsSummary([]);
         setRecentActivity([]);
         setTrends(null);
+      } else {
+        setPatientDashboardError(
+          (error as Error)?.message || "Failed to load dashboard"
+        );
+        setPatients({});
       }
     } finally {
       setLoading(false);
@@ -370,6 +399,28 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
   useEffect(() => {
     if (user) fetchPatients();
   }, [user, fetchPatients]);
+
+  // Update avgProgress when assignedExercises are loaded (doctor dashboard)
+  useEffect(() => {
+    if (user?.role?.toLowerCase() !== "doctor") return;
+    const confirmed = doctorPatientsItems.filter(
+      (x: any) => x.type === "patient"
+    ) as { id: string }[];
+    if (confirmed.length === 0) return;
+
+    const progresses: number[] = [];
+    for (const p of confirmed) {
+      const exercises = assignedExercises[p.id] || [];
+      const total = exercises.length;
+      if (total === 0) continue;
+      const completed = exercises.filter((ex) => ex.completed === 1).length;
+      progresses.push((completed / total) * 100);
+    }
+    if (progresses.length === 0) return;
+
+    const avg = progresses.reduce((a, b) => a + b, 0) / progresses.length;
+    setDashboardKpis((prev) => (prev ? { ...prev, avgProgress: avg } : null));
+  }, [user?.role, doctorPatientsItems, assignedExercises]);
 
   const assignPatient = async (patientId: string) => {
     await assignPatientToDoctor(patientId);
@@ -433,6 +484,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
         recentActivity,
         trends,
         doctorDashboardError,
+        patientDashboardError,
         fetchPatients,
         fetchPatientSessions,
         fetchAssignedExercises: fetchPatientSessions, // Alias for backward compatibility

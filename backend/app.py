@@ -34,7 +34,10 @@ from db import (
     get_patient_by_id,
     create_patient_record,
     user_exists,
-    create_user
+    create_user,
+    update_patient_details as db_update_patient_details,
+    insert_feedback,
+    get_feedback_by_patient,
 )
 
 
@@ -434,56 +437,98 @@ def update_patient_details(current_user, patient_id):
     if current_user['role'].lower() != 'doctor':
         return jsonify({"error": "Only doctors can update patient details"}), 403
 
-    if patient_id not in patients:
-        return jsonify({"error": "Patient not found"}), 404
+    if not is_db_enabled():
+        return jsonify({"error": "Database not configured"}), 500
 
     data = request.get_json()
     if not data:
         return jsonify({"error": "Missing data"}), 400
 
-    patient_details = patients[patient_id].get('details', {})
-    patient_details.update(data)
-    patients[patient_id]['details'] = patient_details
-    
-    if 'weight' in data or 'height' in data:
-        weight = patient_details.get('weight', 0)
-        height = patient_details.get('height', 0)
-        if height > 0 and weight > 0:
-            patients[patient_id]['details']['bmi'] = weight / (height * height)
+    details = data.get('details', data)
+    if not details:
+        return jsonify({"error": "Missing details"}), 400
 
-    return jsonify(patients[patient_id])
+    try:
+        db_update_patient_details(patient_id, details)
+        patient_data = get_patient_by_id(patient_id)
+        if not patient_data:
+            return jsonify({"error": "Patient not found"}), 404
+        age = 0
+        if patient_data.get('BirthDate'):
+            try:
+                from datetime import datetime
+                birth_date = datetime.strptime(patient_data['BirthDate'], '%Y-%m-%d')
+                today = datetime.now()
+                age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+            except Exception:
+                pass
+        sex_map = {'male': 'Male', 'female': 'Female'}
+        sex = sex_map.get(patient_data.get('Sex', '').lower(), 'Other')
+        height = patient_data.get('Height')
+        if height:
+            height = height / 100
+        patient = {
+            "id": patient_data.get('ID') or patient_id,
+            "name": f"{patient_data.get('FirstName', '')} {patient_data.get('LastName', '')}".strip() or patient_data.get('Email', ''),
+            "details": {
+                "age": age,
+                "birthDate": patient_data.get('BirthDate'),
+                "sex": sex,
+                "height": height or 0,
+                "weight": patient_data.get('Weight') or 0,
+                "bmi": patient_data.get('BMI') or 0,
+                "clinicalInfo": patient_data.get('MedicalHistory') or 'No information provided.',
+                "medicalHistory": patient_data.get('MedicalHistory'),
+            },
+            "recovery_process": [],
+            "feedback": [],
+        }
+        return jsonify(patient)
+    except Exception as e:
+        import traceback
+        return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
 
 @app.route('/patients/<patient_id>/feedback', methods=['PUT'])
 @token_required
 def update_patient_feedback(current_user, patient_id):
-    print(f"Feedback request - User: {current_user['id']}, Role: {current_user['role']}, Patient: {patient_id}")
-    
-    # Allow both patients and doctors to update feedback
     if current_user['role'] == 'patient' and current_user['id'] != patient_id:
         return jsonify({"error": "Patients can only update their own feedback"}), 403
 
-    if patient_id not in patients:
-        print(f"Patient {patient_id} not found in patients data")
-        return jsonify({"error": "Patient not found"}), 404
+    if not is_db_enabled():
+        return jsonify({"error": "Database not configured"}), 500
 
     data = request.get_json()
-    print(f"Received data: {data}")
-    
     if not data or 'feedback' not in data:
         return jsonify({"error": "Missing feedback data"}), 400
 
-    # Initialize feedback array if it doesn't exist
-    if 'feedback' not in patients[patient_id]:
-        patients[patient_id]['feedback'] = []
-    
-    # Add new feedback to the array
-    if isinstance(data['feedback'], list):
-        patients[patient_id]['feedback'].extend(data['feedback'])
-    else:
-        patients[patient_id]['feedback'].append(data['feedback'])
+    feedback_payload = data['feedback']
+    entries = feedback_payload if isinstance(feedback_payload, list) else [feedback_payload]
 
-    print(f"Updated patient {patient_id} with feedback")
-    return jsonify(patients[patient_id])
+    try:
+        for entry in entries:
+            insert_feedback(patient_id, entry)
+        patient_data = get_patient_by_id(patient_id)
+        feedback_rows = get_feedback_by_patient(patient_id, limit=50)
+        feedback_list = [
+            {
+                "id": r.get("ID"),
+                "sessionId": r.get("SessionID"),
+                "timestamp": str(r.get("FeedbackTime", r.get("Timestamp", ""))),
+                "pain": r.get("Pain", 0),
+                "fatigue": r.get("Fatigue", 0),
+                "difficulty": r.get("Difficulty", 0),
+                "comments": r.get("Comments"),
+            }
+            for r in feedback_rows
+        ]
+        return jsonify({
+            "id": patient_id,
+            "name": f"{patient_data.get('FirstName', '')} {patient_data.get('LastName', '')}".strip() if patient_data else "",
+            "feedback": feedback_list,
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
 
 @app.route('/doctors/me/metrics-summary', methods=['GET'])
 @token_required
@@ -1236,6 +1281,7 @@ def assign_patient_exercise(current_user, patient_id):
             return jsonify({"error": "No data provided"}), 400
         
         exercise_type_id = data.get('exercise_type_id')
+        exercise_type_name = data.get('exercise_type_name') or data.get('exerciseTypeName')
         target_reps = data.get('target_reps')
         target_sets = data.get('target_sets')
         
@@ -1250,8 +1296,8 @@ def assign_patient_exercise(current_user, patient_id):
         
         relation_id = relation['ID']
         
-        # Get exercise type name (for now, use the ID as name)
-        exercise_name = exercise_type_id.replace('_', ' ').title()
+        # Use provided name, or fall back to formatting the ID
+        exercise_name = (exercise_type_name or "").strip() or exercise_type_id.replace('_', ' ').title()
         
         # Assign session (exercise) to patient
         assign_session_to_patient(

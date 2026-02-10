@@ -15,7 +15,7 @@ import ExerciseCard from '@components/ExerciseCard';
 const PatientHomeScreen = ({ navigation }: any) => {
     const { colors } = useTheme();
     const { user } = useAuth();
-    const { patients, assignedExercises, fetchAssignedExercises, fetchPatients } = usePatients();
+    const { patients, assignedExercises, loading, patientDashboardError, fetchAssignedExercises, fetchPatients } = usePatients();
     const { healthData, dailyData, isConnected, isLoading, connectDevice, refreshHealthData } = useHealth();
     const patient = user ? patients[user.id] : null;
     const exercises = user ? (assignedExercises[user.id] || []) : [];
@@ -45,6 +45,23 @@ const PatientHomeScreen = ({ navigation }: any) => {
     }, [user, patients, patient, exercises]);
 
     if (!patient) {
+        if (patientDashboardError) {
+            return (
+                <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+                    <View style={[styles.container, styles.errorContainer]}>
+                        <Ionicons name="cloud-offline-outline" size={48} color={colors.textSecondary} />
+                        <Text style={[styles.errorTitle, { color: colors.text }]}>Failed to load dashboard</Text>
+                        <Text style={[styles.errorText, { color: colors.textSecondary }]}>{patientDashboardError}</Text>
+                        <TouchableOpacity
+                            style={[styles.retryButton, { backgroundColor: colors.primary }]}
+                            onPress={() => fetchPatients()}
+                        >
+                            <Text style={styles.retryButtonText}>Try again</Text>
+                        </TouchableOpacity>
+                    </View>
+                </SafeAreaView>
+            );
+        }
         return (
             <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
                 <View style={styles.container}>
@@ -247,6 +264,34 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         padding: 16,
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    errorTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        marginTop: 16,
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    errorText: {
+        fontSize: 14,
+        textAlign: 'center',
+        marginBottom: 24,
+    },
+    retryButton: {
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 12,
+    },
+    retryButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
     },
     header: {
         flexDirection: 'row',

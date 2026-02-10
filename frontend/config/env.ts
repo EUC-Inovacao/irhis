@@ -1,12 +1,11 @@
-function requireEnv(name: string): string {
+function getEnv(name: string): string | undefined {
   const value = process.env[name];
-  if (!value || !String(value).trim()) {
-    throw new Error(
-      `[env] Missing required environment variable: ${name}. ` +
-        `Create a .env file in irhis/frontend with ${name}=...`
-    );
-  }
-  return String(value).trim();
+  if (!value) return undefined;
+  const trimmed = String(value).trim();
+  return trimmed.length ? trimmed : undefined;
 }
 
-export const API_URL = requireEnv("EXPO_PUBLIC_API_URL");
+// Default to Azure backend URL when EXPO_PUBLIC_API_URL is not provided.
+// You can override this in development by setting EXPO_PUBLIC_API_URL.
+export const API_URL =
+  getEnv("EXPO_PUBLIC_API_URL") ?? "https://irhis-api-czc8f3awe0c4eydv.westeurope-01.azurewebsites.net";

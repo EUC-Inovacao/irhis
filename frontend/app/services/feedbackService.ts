@@ -29,4 +29,12 @@ export async function createFeedback(
   };
 
   await api.put(`/patients/${patientId}/feedback`, { feedback: feedbackRecord });
+
+  // Also save locally so SessionDetailScreen can display it
+  try {
+    const { FeedbackRepository } = await import("../storage/repositories");
+    await FeedbackRepository.create(feedbackRecord);
+  } catch {
+    // Ignore local save errors
+  }
 }

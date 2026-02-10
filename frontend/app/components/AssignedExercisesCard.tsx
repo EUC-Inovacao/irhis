@@ -115,29 +115,16 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
                     patient.id,
                     exerciseType.id,
                     ex.targetRepetitions,
-                    ex.targetSets
+                    ex.targetSets,
+                    ex.name
                 );
                 // #region agent log
                 fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AssignedExercisesCard.tsx:89',message:'Exercise assigned successfully',data:{exerciseTypeId:exerciseType.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
                 // #endregion
             }
             
-            // Refresh assigned exercises - call multiple times to ensure update
-            await fetchAssignedExercises(patient.id);
-            // Wait for context state to update
-            await new Promise(resolve => setTimeout(resolve, 500));
-            // Fetch again to ensure we have the latest data from database
-            await fetchAssignedExercises(patient.id);
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            // Close editing mode to allow useEffect to run and update UI
             setIsEditing(false);
-            
-            // Force one more refresh after closing edit mode to ensure UI updates
-            setTimeout(async () => {
-                await fetchAssignedExercises(patient.id);
-            }, 200);
-            
+            await fetchAssignedExercises(patient.id);
             Alert.alert('Success', 'Exercise plan updated.');
         } catch (error) {
             // #region agent log

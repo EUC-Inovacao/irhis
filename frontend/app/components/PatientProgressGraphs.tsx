@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Dimensions, ScrollView } from "react-native";
 import { LineChart, BarChart } from "react-native-chart-kit";
 import { useTheme } from "@theme/ThemeContext";
-import { getSessionHistory, SessionWithMetrics } from "@services/localSessionService";
+import { getSessionHistory } from "@services/sessionService";
 import { getPatientFeedback } from "@services/feedbackService";
 
 interface PatientProgressGraphsProps {
@@ -13,7 +13,7 @@ const PatientProgressGraphs: React.FC<PatientProgressGraphsProps> = ({
   patientId,
 }) => {
   const { colors } = useTheme();
-  const [sessions, setSessions] = useState<SessionWithMetrics[]>([]);
+  const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasMetrics, setHasMetrics] = useState(false);
   const [feedbackCount, setFeedbackCount] = useState(0);

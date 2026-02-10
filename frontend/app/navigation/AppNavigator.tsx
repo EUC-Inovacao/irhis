@@ -219,9 +219,9 @@ const AppNavigator = () => {
           <>
             <Stack.Screen
               name="Home"
-              component={user.role === 'doctor' ? DoctorTabNavigator : PatientTabNavigator}
+              component={user.role?.toLowerCase() === 'doctor' ? DoctorTabNavigator : PatientTabNavigator}
               options={{ 
-                headerTitle: user.role === 'doctor' ? 'Clinical Dashboard' : 'My Dashboard'
+                headerTitle: user.role?.toLowerCase() === 'doctor' ? 'Clinical Dashboard' : 'My Dashboard'
               }}
             />
             <Stack.Screen

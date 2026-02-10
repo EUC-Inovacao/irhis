@@ -110,7 +110,7 @@ const ProfileScreen = () => {
                 <View style={styles.profileInfo}>
                     <Text style={[styles.userName, { color: colors.text }]}>{user?.name || 'User Name'}</Text>
                     <Text style={[styles.userRole, { color: colors.textSecondary }]}>
-                        {user?.role === 'doctor' ? 'Healthcare Provider' : 'Patient'}
+                        {user?.role?.toLowerCase() === 'doctor' ? 'Healthcare Provider' : 'Patient'}
                     </Text>
                     <View style={styles.institutionRow}>
                          <Text style={[styles.institutionText, { color: colors.textSecondary }]}>

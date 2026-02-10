@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
@@ -9,6 +9,31 @@ interface PatientDetailsCardProps {
     onUpdateDetails: (details: Partial<PatientDetails>) => void;
     isEditable: boolean;
 }
+
+const DetailItem: React.FC<{
+    label: string;
+    value: string | number;
+    unit?: string;
+    isEditingValue: string | number;
+    isEditing: boolean;
+    onChangeText?: (text: string) => void;
+    keyboardType?: 'default' | 'numeric';
+    colors: Record<string, string>;
+}> = ({ label, value, unit = '', isEditingValue, isEditing, onChangeText, keyboardType = 'default', colors }) => (
+    <View style={styles.detailItem}>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
+        {isEditing && onChangeText ? (
+            <TextInput
+                style={[styles.value, styles.input, { color: colors.text, borderBottomColor: colors.border }]}
+                value={String(isEditingValue ?? '')}
+                onChangeText={onChangeText}
+                keyboardType={keyboardType}
+            />
+        ) : (
+            <Text style={[styles.value, { color: colors.text }]}>{value}{unit}</Text>
+        )}
+    </View>
+);
 
 const PatientDetailsCard: React.FC<PatientDetailsCardProps> = ({ details, onUpdateDetails, isEditable }) => {
     const { colors } = useTheme();
@@ -32,22 +57,10 @@ const PatientDetailsCard: React.FC<PatientDetailsCardProps> = ({ details, onUpda
         setEditableDetails(details);
         setIsEditing(false);
     };
-    
-    const DetailItem = ({ label, value, unit, isEditingValue, onChangeText, keyboardType = 'default' }: any) => (
-        <View style={styles.detailItem}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
-            {isEditing && onChangeText ? (
-                <TextInput
-                    style={[styles.value, styles.input, { color: colors.text, borderBottomColor: colors.border }]}
-                    value={String(isEditingValue ?? '')}
-                    onChangeText={onChangeText}
-                    keyboardType={keyboardType}
-                />
-            ) : (
-                <Text style={[styles.value, { color: colors.text }]}>{value}{unit}</Text>
-            )}
-        </View>
-    );
+
+    const updateField = useCallback((field: keyof PatientDetails, value: string | number) => {
+        setEditableDetails(prev => ({ ...prev, [field]: value }));
+    }, []);
     
     const calculateBmi = (weight: number, height: number) => {
         if (height > 0 && weight > 0) {
@@ -71,42 +84,49 @@ const PatientDetailsCard: React.FC<PatientDetailsCardProps> = ({ details, onUpda
             </View>
 
             <View style={styles.detailsGrid}>
-                <DetailItem 
-                    label="Age" 
-                    value={details.age} 
+                <DetailItem
+                    label="Age"
+                    value={details.age}
                     isEditingValue={editableDetails.age}
-                    isEditing={isEditing} 
-                    onChangeText={(text: string) => setEditableDetails({ ...editableDetails, age: Number(text) })}
-                    keyboardType="numeric" 
+                    isEditing={isEditing}
+                    onChangeText={(text) => updateField('age', Number(text) || 0)}
+                    keyboardType="numeric"
+                    colors={colors}
                 />
-                <DetailItem 
-                    label="Sex" 
-                    value={details.sex} 
+                <DetailItem
+                    label="Sex"
+                    value={details.sex}
                     isEditingValue={editableDetails.sex}
-                    isEditing={isEditing} 
-                    onChangeText={(text: string) => setEditableDetails({ ...editableDetails, sex: text as any })} 
+                    isEditing={isEditing}
+                    onChangeText={(text) => updateField('sex', text)}
+                    colors={colors}
                 />
-                <DetailItem 
-                    label="Height" 
-                    value={details.height} 
-                    unit=" m" 
+                <DetailItem
+                    label="Height"
+                    value={details.height}
+                    unit=" m"
                     isEditingValue={editableDetails.height}
-                    isEditing={isEditing} 
-                    onChangeText={(text: string) => setEditableDetails({ ...editableDetails, height: Number(text) })}
-                    keyboardType="numeric" 
+                    isEditing={isEditing}
+                    onChangeText={(text) => updateField('height', Number(text) || 0)}
+                    keyboardType="numeric"
+                    colors={colors}
                 />
-                <DetailItem 
-                    label="Weight" 
-                    value={details.weight} 
-                    unit=" kg" 
+                <DetailItem
+                    label="Weight"
+                    value={details.weight}
+                    unit=" kg"
                     isEditingValue={editableDetails.weight}
-                    isEditing={isEditing} 
-                    onChangeText={(text: string) => setEditableDetails({ ...editableDetails, weight: Number(text) })}
-                    keyboardType="numeric" 
+                    isEditing={isEditing}
+                    onChangeText={(text) => updateField('weight', Number(text) || 0)}
+                    keyboardType="numeric"
+                    colors={colors}
                 />
-                <DetailItem 
-                    label="BMI" 
-                    value={isEditing ? editableBmi : originalBmi} 
+                <DetailItem
+                    label="BMI"
+                    value={isEditing ? editableBmi : originalBmi}
+                    isEditingValue={isEditing ? editableBmi : originalBmi}
+                    isEditing={false}
+                    colors={colors}
                 />
             </View>
 
@@ -116,7 +136,7 @@ const PatientDetailsCard: React.FC<PatientDetailsCardProps> = ({ details, onUpda
                     <TextInput
                         style={[styles.textInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.mediumGray }]}
                         value={editableDetails.clinicalInfo}
-                        onChangeText={(text) => setEditableDetails({ ...editableDetails, clinicalInfo: text })}
+                        onChangeText={(text) => setEditableDetails(prev => ({ ...prev, clinicalInfo: text }))}
                         multiline
                         placeholder="Add specific information about the patient..."
                         placeholderTextColor={colors.textSecondary}
