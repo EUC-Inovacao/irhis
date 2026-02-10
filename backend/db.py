@@ -444,8 +444,10 @@ def insert_session_metrics(session_id, data):
     new_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
     # Ensure no None for required columns (MySQL rejects NULL in NOT NULL columns)
+    # Side column may be ENUM('left','right') - map 'both' to 'left' for bilateral data
     joint = data.get('joint') or 'knee'
-    side = data.get('side') or 'both'
+    raw_side = (data.get('side') or 'both').lower()
+    side = raw_side if raw_side in ('left', 'right') else 'left'
     repetition = int(data.get('repetition') or 0)
     min_v = float(data.get('min_velocity') or 0)
     max_v = float(data.get('max_velocity') or 0)
