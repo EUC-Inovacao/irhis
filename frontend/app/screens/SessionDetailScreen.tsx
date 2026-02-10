@@ -108,7 +108,25 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
     : "";
 
   const metrics = session.metrics ?? [];
-  const primaryMetric = metrics[0]; // Get first metric (local storage typically has one per session)
+  const primaryMetric = metrics[0];
+
+  const toNum = (v: unknown): number | null => {
+    if (typeof v === "number" && !isNaN(v)) return v;
+    if (typeof v === "string") {
+      const n = parseFloat(v);
+      return !isNaN(n) ? n : null;
+    }
+    return null;
+  };
+
+  const num = (m: any, ...keys: string[]) => {
+    for (const k of keys) {
+      const v = m?.[k];
+      const n = toNum(v);
+      if (n !== null) return n;
+    }
+    return null;
+  };
 
   return (
     <SafeAreaView
@@ -152,6 +170,25 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
           )}
         </View>
 
+        {/* Session info */}
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Session info</Text>
+          <View style={{ gap: 8, width: "100%" }}>
+            {session.duration && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4 }}>
+                <Ionicons name="time-outline" size={20} color={colors.textSecondary} />
+                <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Duration</Text>
+                <Text style={[styles.metricValue, { color: colors.text, flex: 1 }]}>{session.duration}</Text>
+              </View>
+            )}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4 }}>
+              <Ionicons name="finger-print-outline" size={20} color={colors.textSecondary} />
+              <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Session ID</Text>
+              <Text style={[styles.metricValue, { color: colors.text, flex: 1, fontSize: 12 }]} numberOfLines={1}>{session.id}</Text>
+            </View>
+          </View>
+        </View>
+
         {/* Metrics Section */}
         {primaryMetric && (
           <View style={[styles.section, { backgroundColor: colors.card }]}>
@@ -159,51 +196,101 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
               Performance Metrics
             </Text>
             <View style={styles.metricsGrid}>
-              {primaryMetric.AvgROM != null && (
+              {num(primaryMetric, "AvgROM", "avgROM") !== null && (
                 <View style={[styles.metricCard, { backgroundColor: colors.background }]}>
                   <Ionicons name="pulse-outline" size={24} color={colors.primary} />
-                  <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-                    Average ROM
-                  </Text>
-                  <Text style={[styles.metricValue, { color: colors.text }]}>
-                    {primaryMetric.AvgROM.toFixed(1)}°
-                  </Text>
+                  <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Average ROM</Text>
+                  <Text style={[styles.metricValue, { color: colors.text }]}>{num(primaryMetric, "AvgROM", "avgROM")!.toFixed(1)}°</Text>
                 </View>
               )}
-              {primaryMetric.MaxROM != null && (
+              {num(primaryMetric, "MaxROM", "maxROM") !== null && (
                 <View style={[styles.metricCard, { backgroundColor: colors.background }]}>
                   <Ionicons name="arrow-up-outline" size={24} color={colors.success} />
-                  <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-                    Max Flexion
-                  </Text>
-                  <Text style={[styles.metricValue, { color: colors.text }]}>
-                    {primaryMetric.MaxROM.toFixed(1)}°
-                  </Text>
+                  <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Max Flexion</Text>
+                  <Text style={[styles.metricValue, { color: colors.text }]}>{num(primaryMetric, "MaxROM", "maxROM")!.toFixed(1)}°</Text>
                 </View>
               )}
-              {primaryMetric.MinROM != null && (
+              {num(primaryMetric, "MinROM", "minROM") !== null && (
                 <View style={[styles.metricCard, { backgroundColor: colors.background }]}>
                   <Ionicons name="arrow-down-outline" size={24} color={colors.info} />
-                  <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-                    Max Extension
-                  </Text>
-                  <Text style={[styles.metricValue, { color: colors.text }]}>
-                    {primaryMetric.MinROM.toFixed(1)}°
-                  </Text>
+                  <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Max Extension</Text>
+                  <Text style={[styles.metricValue, { color: colors.text }]}>{num(primaryMetric, "MinROM", "minROM")!.toFixed(1)}°</Text>
                 </View>
               )}
-              {(primaryMetric.Repetitions != null || session.repetitions != null) && (
+              {(num(primaryMetric, "Repetitions") ?? session.repetitions) != null && (
                 <View style={[styles.metricCard, { backgroundColor: colors.background }]}>
                   <Ionicons name="repeat-outline" size={24} color={colors.warning} />
+                  <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Repetitions</Text>
+                  <Text style={[styles.metricValue, { color: colors.text }]}>{num(primaryMetric, "Repetitions") ?? session.repetitions ?? 0}</Text>
+                </View>
+              )}
+              {num(primaryMetric, "AvgVelocity", "avgVelocity") !== null && (
+                <View style={[styles.metricCard, { backgroundColor: colors.background }]}>
+                  <Ionicons name="speedometer-outline" size={24} color={colors.primary} />
+                  <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Avg Velocity</Text>
+                  <Text style={[styles.metricValue, { color: colors.text }]}>{num(primaryMetric, "AvgVelocity", "avgVelocity")!.toFixed(1)}°/s</Text>
+                </View>
+              )}
+              {num(primaryMetric, "MaxVelocity", "maxVelocity") !== null && (
+                <View style={[styles.metricCard, { backgroundColor: colors.background }]}>
+                  <Ionicons name="trending-up-outline" size={24} color={colors.success} />
+                  <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Peak Velocity</Text>
+                  <Text style={[styles.metricValue, { color: colors.text }]}>{num(primaryMetric, "MaxVelocity", "maxVelocity")!.toFixed(1)}°/s</Text>
+                </View>
+              )}
+              {num(primaryMetric, "P95Velocity", "p95Velocity") !== null && (
+                <View style={[styles.metricCard, { backgroundColor: colors.background }]}>
+                  <Ionicons name="stats-chart-outline" size={24} color={colors.primary} />
+                  <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>P95 Velocity</Text>
+                  <Text style={[styles.metricValue, { color: colors.text }]}>{num(primaryMetric, "P95Velocity", "p95Velocity")!.toFixed(1)}°/s</Text>
+                </View>
+              )}
+              {num(primaryMetric, "CenterMassDisplacement", "centerMassDisplacement") !== null && (
+                <View style={[styles.metricCard, { backgroundColor: colors.background }]}>
+                  <Ionicons name="move-outline" size={24} color={colors.primary} />
+                  <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Center of Mass</Text>
+                  <Text style={[styles.metricValue, { color: colors.text }]}>{num(primaryMetric, "CenterMassDisplacement", "centerMassDisplacement")!.toFixed(2)} cm</Text>
+                </View>
+              )}
+              {(((primaryMetric as any).Joint ?? (primaryMetric as any).joint) || ((primaryMetric as any).Side ?? (primaryMetric as any).side)) && (
+                <View style={[styles.metricCard, { backgroundColor: colors.background }]}>
+                  <Ionicons name="body-outline" size={24} color={colors.primary} />
                   <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-                    Repetitions
+                    Joint / Side
                   </Text>
                   <Text style={[styles.metricValue, { color: colors.text }]}>
-                    {primaryMetric.Repetitions ?? session.repetitions ?? 0}
+                    {[primaryMetric.Joint ?? (primaryMetric as any).joint, primaryMetric.Side ?? (primaryMetric as any).side].filter(Boolean).join(" · ")}
                   </Text>
                 </View>
               )}
             </View>
+            {metrics.length > 1 && (
+              <View style={{ marginTop: 16 }}>
+                <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 14, marginBottom: 8 }]}>
+                  All metrics ({metrics.length})
+                </Text>
+                {metrics.map((m, idx) => {
+                  const rom = num(m, "AvgROM", "avgROM");
+                  const maxR = num(m, "MaxROM", "maxROM");
+                  const minR = num(m, "MinROM", "minROM");
+                  const reps = num(m, "Repetitions");
+                  const vel = num(m, "AvgVelocity", "avgVelocity");
+                  const jointSide = [m.Joint ?? (m as any).joint, m.Side ?? (m as any).side].filter(Boolean).join(" · ") || "Metric";
+                  return (
+                    <View key={idx} style={[styles.metricCard, { backgroundColor: colors.background, marginBottom: 8 }]}>
+                      <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>{jointSide}</Text>
+                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 4 }}>
+                        {rom !== null && <Text style={[styles.metricValue, { color: colors.text, fontSize: 14 }]}>ROM: {rom.toFixed(1)}°</Text>}
+                        {maxR !== null && <Text style={[styles.metricValue, { color: colors.text, fontSize: 14 }]}>Max: {maxR.toFixed(1)}°</Text>}
+                        {minR !== null && <Text style={[styles.metricValue, { color: colors.text, fontSize: 14 }]}>Ext: {minR.toFixed(1)}°</Text>}
+                        {reps !== null && <Text style={[styles.metricValue, { color: colors.text, fontSize: 14 }]}>{reps} reps</Text>}
+                        {vel !== null && <Text style={[styles.metricValue, { color: colors.text, fontSize: 14 }]}>Vel: {vel.toFixed(1)}°/s</Text>}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
           </View>
         )}
 

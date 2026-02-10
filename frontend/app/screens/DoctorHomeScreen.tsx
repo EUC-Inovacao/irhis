@@ -120,7 +120,7 @@ const DoctorHomeScreen = ({ navigation }: any) => {
                         <View key={idx} style={styles.quickViewRow}>
                             <Text style={[styles.quickViewName, { color: colors.text }]} numberOfLines={1}>{metric.patientName}</Text>
                             <Text style={[styles.quickViewMeta, { color: colors.textSecondary }]}>
-                                {metric.joint} {metric.side ? `(${metric.side})` : ''} · {metric.avgROM !== undefined ? `ROM: ${metric.avgROM.toFixed(1)}°` : metric.avgVelocity !== undefined ? `Velocity: ${metric.avgVelocity.toFixed(2)}` : '—'}
+                                {metric.joint} {metric.side ? `(${metric.side})` : ''} · {typeof metric.avgROM === 'number' ? `ROM: ${metric.avgROM.toFixed(1)}°` : typeof metric.avgVelocity === 'number' ? `Velocity: ${metric.avgVelocity.toFixed(2)}` : '—'}
                             </Text>
                             {metric.date ? <Text style={[styles.quickViewComment, { color: colors.textSecondary }]} numberOfLines={1}>
                                 {new Date(metric.date).toLocaleDateString()}

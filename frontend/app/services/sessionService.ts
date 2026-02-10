@@ -39,9 +39,43 @@ type MetricRow = {
   Repetitions?: number;
   MaxFlexion?: number;
   MaxExtension?: number;
+  MinROM?: number;
+  MaxROM?: number;
+  Joint?: string;
+  Side?: string;
+  MinVelocity?: number;
+  MaxVelocity?: number;
+  P95Velocity?: number;
+  CenterMassDisplacement?: number;
 };
 
-function toSession(row: SessionRow, metrics?: MetricRow): Session {
+function toNum(v: unknown): number | null {
+  if (typeof v === "number" && !isNaN(v)) return v;
+  if (typeof v === "string") {
+    const n = parseFloat(v);
+    return !isNaN(n) ? n : null;
+  }
+  return null;
+}
+
+function mapMetricRow(m: MetricRow) {
+  const raw = m as Record<string, unknown>;
+  return {
+    Repetitions: toNum(m.Repetitions ?? raw.Repetitions) ?? m.Repetitions ?? null,
+    AvgROM: toNum(m.AvgROM ?? raw.AvgROM ?? raw.avgROM) ?? null,
+    MinROM: toNum(m.MinROM ?? raw.MinROM ?? raw.minROM ?? m.MaxExtension ?? raw.MaxExtension) ?? null,
+    MaxROM: toNum(m.MaxROM ?? raw.MaxROM ?? raw.maxROM ?? m.MaxFlexion ?? raw.MaxFlexion) ?? null,
+    AvgVelocity: toNum(m.AvgVelocity ?? raw.AvgVelocity ?? raw.avgVelocity) ?? null,
+    Joint: (m.Joint ?? raw.Joint ?? raw.joint) ?? null,
+    Side: (m.Side ?? raw.Side ?? raw.side) ?? null,
+    MinVelocity: toNum(m.MinVelocity ?? raw.MinVelocity ?? raw.minVelocity) ?? null,
+    MaxVelocity: toNum(m.MaxVelocity ?? raw.MaxVelocity ?? raw.maxVelocity) ?? null,
+    P95Velocity: toNum(m.P95Velocity ?? raw.P95Velocity ?? raw.p95Velocity) ?? null,
+    CenterMassDisplacement: toNum(m.CenterMassDisplacement ?? raw.CenterMassDisplacement ?? raw.centerMassDisplacement) ?? null,
+  };
+}
+
+function toSession(row: SessionRow, metrics?: MetricRow, metricsList?: MetricRow[]): Session {
   const durationText =
     row.Duration === null || row.Duration === undefined
       ? null
@@ -49,23 +83,18 @@ function toSession(row: SessionRow, metrics?: MetricRow): Session {
         ? row.Duration
         : String(row.Duration);
 
+  const list = metricsList ?? (metrics ? [metrics] : []);
+  const mappedMetrics = list.length > 0 ? list.map(mapMetricRow) : undefined;
+  const primary = metrics ?? list[0];
+
   return {
     id: row.ID,
     exerciseType: row.ExerciseType ?? "",
     exerciseDescription: row.ExerciseDescription ?? "",
-    repetitions: typeof row.Repetitions === "number" ? row.Repetitions : (metrics?.Repetitions ?? null),
+    repetitions: typeof row.Repetitions === "number" ? row.Repetitions : (primary?.Repetitions ?? null),
     duration: durationText,
     timeCreated: row.TimeCreated ?? new Date().toISOString(),
-    metrics: metrics
-      ? [
-          {
-            Repetitions: metrics.Repetitions ?? null,
-            AvgROM: metrics.AvgROM ?? null,
-            MinROM: metrics.MaxExtension ?? null,
-            MaxROM: metrics.MaxFlexion ?? null,
-          },
-        ]
-      : undefined,
+    metrics: mappedMetrics,
   };
 }
 
@@ -179,6 +208,10 @@ export interface CreateSessionWithMetricsDto extends CreateSessionDto {
     maxExtension?: number;
     reps?: number;
     score?: number;
+    avgVelocity?: number;
+    maxVelocity?: number;
+    p95Velocity?: number;
+    centerMassDisplacement?: number;
   };
 }
 
@@ -203,6 +236,10 @@ export async function createSessionWithMetrics(
         MaxExtension: dto.metrics.maxExtension,
         Repetitions: dto.metrics.reps,
         Score: dto.metrics.score,
+        avg_velocity: dto.metrics.avgVelocity,
+        max_velocity: dto.metrics.maxVelocity,
+        p95_velocity: dto.metrics.p95Velocity,
+        center_mass_displacement: dto.metrics.centerMassDisplacement,
       });
     } catch (e: any) {
       const msg = e?.response?.data?.error ?? e?.message;
@@ -243,6 +280,16 @@ export async function createSession(patientId: string, dto: CreateSessionDto): P
   const res = await api.post<SessionRow>(`/patients/${patientId}/sessions`, payload);
   const row = res.data;
   return toSession(row);
+}
+
+export async function getSessionById(sessionId: string): Promise<Session> {
+  const [sessionRes, metricsRes] = await Promise.all([
+    api.get<SessionRow>(`/sessions/${sessionId}`),
+    api.get<MetricRow[]>(`/sessions/${sessionId}/metrics`).catch(() => ({ data: [] as MetricRow[] })),
+  ]);
+  const row = sessionRes.data;
+  const metricsList = Array.isArray(metricsRes.data) ? metricsRes.data : [];
+  return toSession(row, metricsList[0], metricsList);
 }
 
 export async function updateSession(sessionId: string, dto: UpdateSessionDto): Promise<void> {

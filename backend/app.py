@@ -989,11 +989,11 @@ def post_session_metrics(current_user, session_id):
     repetition = int(data.get('repetition') or data.get('Repetitions') or data.get('repetitions') or 0)
     joint = str(data.get('joint') or 'knee')
     side = str(data.get('side') or 'both')
-    min_v = float(data.get('min_velocity') or 0)
-    max_v = float(data.get('max_velocity') or 0)
-    avg_v = float(data.get('avg_velocity') or 0)
-    p95_v = float(data.get('p95_velocity') or 0)
-    cmd = float(data.get('center_mass_displacement') or data.get('cmd') or 0)
+    min_v = float(data.get('min_velocity') or data.get('minVelocity') or 0)
+    max_v = float(data.get('max_velocity') or data.get('maxVelocity') or 0)
+    avg_v = float(data.get('avg_velocity') or data.get('avgVelocity') or 0)
+    p95_v = float(data.get('p95_velocity') or data.get('p95Velocity') or 0)
+    cmd = float(data.get('center_mass_displacement') or data.get('centerMassDisplacement') or data.get('cmd') or 0)
 
     adapted = {
         'joint': joint, 'side': side, 'repetition': repetition,
