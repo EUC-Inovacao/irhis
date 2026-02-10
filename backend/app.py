@@ -483,11 +483,15 @@ def get_doctors_me_metrics_summary(current_user):
     
     metrics_summary = []
     for patient_id in patient_ids:
-        if patient_id not in patients:
-            continue
-        
-        patient = patients[patient_id]
-        movement_analyses = patient.get('movement_analyses', [])
+        patient = get_patient_by_id(patient_id)
+        fname = (patient or {}).get('FirstName') or (patient or {}).get('first_name') or ''
+        lname = (patient or {}).get('LastName') or (patient or {}).get('last_name') or ''
+        patient_name = f"{fname} {lname}".strip() or 'Unknown'
+        metrics_rows = get_metrics_by_patient(patient_id, limit=20) or []
+        movement_analyses = [
+            {"result": {"joint": r.get('Joint'), "side": r.get('Side'), "avgROM": r.get('AvgROM'), "avgVelocity": r.get('AvgVelocity')}, "timestamp": r.get('TimeCreated') or '', "exercise_type": r.get('ExerciseType') or 'general'}
+            for r in metrics_rows
+        ]
         
         for analysis in movement_analyses:
             result = analysis.get('result', {})
@@ -500,7 +504,7 @@ def get_doctors_me_metrics_summary(current_user):
                 
                 metrics_summary.append({
                     "patientId": patient_id,
-                    "patientName": patient.get('name', ''),
+                    "patientName": patient_name,
                     "joint": joint,
                     "side": side,
                     "avgROM": avg_rom,
@@ -525,6 +529,20 @@ def get_doctors_me_recent_activity(current_user):
         return jsonify({"error": "Database not configured"}), 500
 
     patient_ids = get_doctor_patient_ids(doctor_id)
+    
+    # Build patients dict from DB (feedback has no table; use sessions as movement_analyses)
+    patients = {}
+    for pid in patient_ids:
+        p = get_patient_by_id(pid)
+        fname = (p or {}).get('FirstName') or (p or {}).get('first_name') or ''
+        lname = (p or {}).get('LastName') or (p or {}).get('last_name') or ''
+        name = f"{fname} {lname}".strip() or 'Unknown'
+        sessions = get_patient_sessions(pid) or []
+        movement_analyses = [
+            {"timestamp": (s.get('TimeCreated') or s.get('timeCreated') or ''), "exercise_type": s.get('ExerciseType') or s.get('exerciseType') or 'general', "id": s.get('ID') or s.get('id')}
+            for s in sessions
+        ]
+        patients[pid] = {"name": name, "feedback": [], "movement_analyses": movement_analyses}
     
     # Calculate date 7 days ago
     seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
@@ -595,6 +613,11 @@ def get_doctors_me_trends(current_user):
         return jsonify({"error": "Database not configured"}), 500
 
     patient_ids = get_doctor_patient_ids(doctor_id)
+    
+    # Build patients dict from DB (feedback has no table; empty for now)
+    patients = {}
+    for pid in patient_ids:
+        patients[pid] = {"feedback": []}
     
     # Calculate date 30 days ago
     thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
