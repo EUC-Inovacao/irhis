@@ -234,7 +234,19 @@ def get_patient(current_user, patient_id):
     if not patient_data:
         # Patient requesting own profile: we have current_user from token, so user exists
         if is_own_patient:
-            # Build minimal response from token - patient record may not exist yet
+            feedback_rows = get_feedback_by_patient(patient_id, limit=50)
+            feedback_list = [
+                {
+                    "id": r.get("ID"),
+                    "sessionId": r.get("SessionID"),
+                    "timestamp": str(r.get("FeedbackTime", r.get("Timestamp", ""))),
+                    "pain": r.get("Pain", 0),
+                    "fatigue": r.get("Fatigue", 0),
+                    "difficulty": r.get("Difficulty", 0),
+                    "comments": r.get("Comments"),
+                }
+                for r in feedback_rows
+            ]
             return jsonify({
                 "id": current_user.get('id'),
                 "name": current_user.get('name', ''),
@@ -249,7 +261,7 @@ def get_patient(current_user, patient_id):
                     "medicalHistory": None,
                 },
                 "recovery_process": [],
-                "feedback": [],
+                "feedback": feedback_list,
             })
         # Doctor requesting patient: try to create patient record if user exists
         user_data = get_user_by_id(patient_id)
@@ -287,6 +299,19 @@ def get_patient(current_user, patient_id):
 
     # Build patient response
     try:
+        feedback_rows = get_feedback_by_patient(patient_id, limit=50)
+        feedback_list = [
+            {
+                "id": r.get("ID"),
+                "sessionId": r.get("SessionID"),
+                "timestamp": str(r.get("FeedbackTime", r.get("Timestamp", ""))),
+                "pain": r.get("Pain", 0),
+                "fatigue": r.get("Fatigue", 0),
+                "difficulty": r.get("Difficulty", 0),
+                "comments": r.get("Comments"),
+            }
+            for r in feedback_rows
+        ]
         patient = {
             "id": patient_data.get('ID') or patient_id,
             "name": f"{patient_data.get('FirstName', '')} {patient_data.get('LastName', '')}".strip() or patient_data.get('Email', ''),
@@ -301,7 +326,7 @@ def get_patient(current_user, patient_id):
                 "medicalHistory": patient_data.get('MedicalHistory'),
             },
             "recovery_process": [],
-            "feedback": [],
+            "feedback": feedback_list,
         }
         return jsonify(patient)
     except Exception as e:
