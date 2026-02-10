@@ -1523,7 +1523,7 @@ const MovellaScreen = () => {
 
           {/* Data Source Mode Toggle */}
           <View style={styles.modeToggleContainer}>
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={[
                 styles.modeButton,
                 {
@@ -1549,7 +1549,7 @@ const MovellaScreen = () => {
               >
                 ZIP File
               </Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
             <TouchableOpacity
               style={[
                 styles.modeButton,
@@ -1641,7 +1641,7 @@ const MovellaScreen = () => {
           {/* Analysis Mode Toggle removed: External API only */}
 
           {/* API Status Indicator */}
-          <View style={styles.apiStatusContainer}>
+          {/* <View style={styles.apiStatusContainer}>
             <View
               style={[
                 styles.apiStatusIndicator,
@@ -1665,7 +1665,7 @@ const MovellaScreen = () => {
                   ? "Unavailable"
                   : "Checking..."}
             </Text>
-          </View>
+          </View> */}
 
           {currentFile ? (
             <>{renderDataPreview()}</>

@@ -66,17 +66,6 @@ const DoctorHomeScreen = ({ navigation }: any) => {
                 <View style={{ flexDirection: 'row', gap: 12 }}>
                     <TouchableOpacity
                         style={[styles.addButton, { backgroundColor: colors.primary + '15' }]}
-                        onPress={() => navigation.navigate('ManageInvites')}
-                    >
-                        <Ionicons name="mail-outline" size={24} color={colors.primary} />
-                        {pendingCount > 0 && (
-                            <View style={[styles.badge, { backgroundColor: colors.primary }]}>
-                                <Text style={styles.badgeText}>{pendingCount > 99 ? '99+' : pendingCount}</Text>
-                            </View>
-                        )}
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.addButton, { backgroundColor: colors.primary + '15' }]}
                         onPress={() => navigation.navigate('CreatePatient')}
                     >
                         <Ionicons name="person-add-outline" size={24} color={colors.primary} />

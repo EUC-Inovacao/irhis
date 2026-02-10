@@ -478,7 +478,8 @@ def update_patient_details(current_user, patient_id):
         patient_data = get_patient_by_id(patient_id)
         if not patient_data:
             return jsonify({"error": "Patient not found"}), 404
-        age = 0
+
+        age = patient_data.get('Age') or 0
         if patient_data.get('BirthDate'):
             try:
                 from datetime import datetime

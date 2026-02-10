@@ -59,52 +59,6 @@ const MovementAnalysisCard: React.FC<MovementAnalysisCardProps> = ({ patientId }
         }
     };
 
-    return (
-        <View style={[styles.card, { backgroundColor: colors.card }]}>
-            <View style={styles.header}>
-                <Text style={[styles.title, { color: colors.text }]}>Movement Analysis</Text>
-            </View>
-
-            <SegmentedControl
-                options={['Squat', 'Leg Knee Extension']}
-                selectedValue={selectedExercise}
-                onValueChange={handleExerciseChange}
-            />
-
-            <TouchableOpacity 
-                style={[styles.uploadButton, { backgroundColor: colors.primary }]} 
-                onPress={handleFileUpload}
-                disabled={isLoading}
-            >
-                <Ionicons name="cloud-upload-outline" size={20} color={colors.white} />
-                <Text style={[styles.buttonText, { color: colors.white }]}>
-                    {isLoading ? 'Analyzing...' : 'Upload & Analyze Data'}
-                </Text>
-            </TouchableOpacity>
-
-            {analysisResult && (
-                <>
-                    <DataVisualization analysisResult={analysisResult} />
-                    
-                    <TouchableOpacity 
-                        style={[styles.exportButton, { backgroundColor: colors.primary }]} 
-                        onPress={async () => {
-                            try {
-                                await exportMovementAnalysisPDF(analysisResult);
-                            } catch (error) {
-                                Alert.alert('Error', 'Failed to export PDF report. Please try again.');
-                            }
-                        }}
-                    >
-                        <Ionicons name="download-outline" size={20} color={colors.white} />
-                        <Text style={[styles.buttonText, { color: colors.white }]}>
-                            Export Report
-                        </Text>
-                    </TouchableOpacity>
-                </>
-            )}
-        </View>
-    );
 };
 
 const styles = StyleSheet.create({
