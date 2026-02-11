@@ -23,17 +23,15 @@ const PatientHomeScreen = ({ navigation }: any) => {
     // Refresh data when screen comes into focus
     useFocusEffect(
         useCallback(() => {
-            // Refresh patient data
-            fetchPatients();
-            // Refresh assigned exercises
             if (user?.id) {
+                fetchPatients();
                 fetchAssignedExercises(user.id);
+                
+                if (refreshHealthData) {
+                    refreshHealthData();
+                }
             }
-            // Refresh health data if available
-            if (refreshHealthData) {
-                refreshHealthData();
-            }
-        }, [user?.id, fetchPatients, fetchAssignedExercises, refreshHealthData])
+        }, [user?.id]) 
     );
 
     // Debug logging

@@ -36,26 +36,27 @@ const SignupScreen = ({ navigation }: any) => {
     }
 
     if (!acceptedTerms) {
-      Alert.alert(
-        "Error",
-        "Please accept the Terms and Conditions to continue."
-      );
+      Alert.alert("Error", "Please accept the Terms and Conditions.");
       return;
     }
 
-    setLoading(true);
+  setLoading(true);
     try {
-      await signup(
-        name,
-        email,
-        password,
-        role.toLowerCase() as "patient" | "doctor"
-      );
+      // Ajuste do erro ts(2345): Forçamos o tipo para "patient" | "doctor"
+      const formattedRole = role.toLowerCase() as "patient" | "doctor";
+      
+      await signup(name, email, password, formattedRole);
+
+      // Validação: Só redireciona para termos se for paciente
+      if (formattedRole === 'patient') {
+        navigation.replace('OnboardingPrivacy');
+      } else {
+        // Se for doutor, vai direto para a Home (ou dashboard dele)
+        navigation.replace('Home');
+      }
+
     } catch (error: any) {
-      Alert.alert(
-        "Signup Failed",
-        error?.message || "Could not create account."
-      );
+      Alert.alert("Error", error.message);
     } finally {
       setLoading(false);
     }

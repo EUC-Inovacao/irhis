@@ -3,6 +3,7 @@ export interface User {
   email: string;
   name: string;
   role: "patient" | "doctor";
+  active: number;
 }
 
 /** @deprecated Use Session from API instead */

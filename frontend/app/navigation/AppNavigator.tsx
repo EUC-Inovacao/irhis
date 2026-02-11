@@ -73,12 +73,11 @@ const CustomHeader: React.FC<StackHeaderProps> = ({ navigation, route, options }
             style={styles.avatarButton}
             onPress={() => navigation.navigate('Profile')}
           >
-            {/* MUDANÇA: Usar primary + '15' para fundo claro, e primary para o texto */}
-          <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary + '15' }]}>
-            <Text style={[styles.avatarText, { color: colors.primary }]}>
-              {user?.name?.charAt(0) || 'U'}
-            </Text>
-          </View>
+            <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary + '15' }]}>
+              <Text style={[styles.avatarText, { color: colors.primary }]}>
+                {user?.name?.charAt(0) || 'U'}
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -217,53 +216,64 @@ const AppNavigator = () => {
       >
         {user ? (
           <>
-            <Stack.Screen
-              name="Home"
-              component={user.role?.toLowerCase() === 'doctor' ? DoctorTabNavigator : PatientTabNavigator}
-              options={{ 
-                headerTitle: user.role?.toLowerCase() === 'doctor' ? 'Clinical Dashboard' : 'My Dashboard'
-              }}
-            />
-            <Stack.Screen
-              name="PatientDetail"
-              component={PatientDetailScreen}
-              options={{
-                headerTitle: 'Patient Details',
-                headerBackTitle: 'Back',
-              }}
-            />
-            <Stack.Screen
-              name="SessionDetail"
-              component={SessionDetailScreen}
-              options={{
-                headerTitle: 'Session Details',
-                headerBackTitle: 'Back',
-              }}
-            />
-            <Stack.Screen
-              name="ExerciseDetail"
-              component={ExerciseDetailScreen}
-              options={{
-                headerTitle: 'Exercise',
-                headerBackTitle: 'Back',
-              }}
-            />
-            <Stack.Screen
-              name="ExerciseHistoryDetail"
-              component={ExerciseHistoryDetailScreen}
-              options={{
-                headerTitle: 'Session Detail',
-                headerBackTitle: 'Back',
-              }}
-            />
-            <Stack.Screen
-              name="CreatePatient"
-              component={CreatePatientScreen}
-              options={{
-                headerTitle: 'Add New Patient',
-                headerBackTitle: 'Back',
-              }}
-            />
+            {/* Filtro: Se for paciente e não estiver ativo, vai para os termos */}
+            {user.role?.toLowerCase() === 'patient' && !user.Active ? (
+              <Stack.Screen 
+                name="OnboardingPrivacy" 
+                component={PrivacyTermsScreen} 
+                options={{ headerShown: false }} 
+                // Não passamos params aqui porque o user já está no Contexto
+              />
+            ) : (
+              /* Se for Doctor ou Paciente Ativo, vai para a Home */
+              <Stack.Screen
+                name="Home"
+                component={user.role?.toLowerCase() === 'doctor' ? DoctorTabNavigator : PatientTabNavigator}
+                options={{ 
+                  headerTitle: user.role?.toLowerCase() === 'doctor' ? 'Clinical Dashboard' : 'My Dashboard'
+                }}
+              />
+            )}
+                <Stack.Screen
+                  name="PatientDetail"
+                  component={PatientDetailScreen}
+                  options={{
+                    headerTitle: 'Patient Details',
+                    headerBackTitle: 'Back',
+                  }}
+                />
+                <Stack.Screen
+                  name="SessionDetail"
+                  component={SessionDetailScreen}
+                  options={{
+                    headerTitle: 'Session Details',
+                    headerBackTitle: 'Back',
+                  }}
+                />
+                <Stack.Screen
+                  name="ExerciseDetail"
+                  component={ExerciseDetailScreen}
+                  options={{
+                    headerTitle: 'Exercise',
+                    headerBackTitle: 'Back',
+                  }}
+                />
+                <Stack.Screen
+                  name="ExerciseHistoryDetail"
+                  component={ExerciseHistoryDetailScreen}
+                  options={{
+                    headerTitle: 'Session Detail',
+                    headerBackTitle: 'Back',
+                  }}
+                />
+                <Stack.Screen
+                  name="CreatePatient"
+                  component={CreatePatientScreen}
+                  options={{
+                    headerTitle: 'Add New Patient',
+                    headerBackTitle: 'Back',
+                  }}
+                />
             <Stack.Screen
               name="InvitePatient"
               component={CreateAccountScreen}
@@ -272,40 +282,40 @@ const AppNavigator = () => {
                 headerBackTitle: 'Back',
               }}
             />
-            <Stack.Screen
-              name="ManageInvites"
-              component={ManageInvitesScreen}
-              options={{
-                headerTitle: 'Manage Invites',
-                headerBackTitle: 'Back',
-              }}
-            />
-            <Stack.Screen
-              name="PatientList"
-              component={PatientListScreen}
-              options={{
-                headerTitle: 'Patient List',
-                headerBackTitle: 'Back',
-              }}
-            />
-            <Stack.Screen
-              name="Profile"
-              component={ProfileScreen}
-              options={{
-                headerTitle: 'Profile',
-                headerBackTitle: 'Back',
-              }}
-            />
-            <Stack.Screen
-              name="BleConnection"
-              component={BleConnectionScreen}
-              options={{
-                headerTitle: 'Connect Sensors',
-                headerBackTitle: 'Back',
-              }}
-            />
+                <Stack.Screen
+                  name="ManageInvites"
+                  component={ManageInvitesScreen}
+                  options={{
+                    headerTitle: 'Manage Invites',
+                    headerBackTitle: 'Back',
+                  }}
+                />
+                <Stack.Screen
+                  name="PatientList"
+                  component={PatientListScreen}
+                  options={{
+                    headerTitle: 'Patient List',
+                    headerBackTitle: 'Back',
+                  }}
+                />
+                <Stack.Screen
+                  name="Profile"
+                  component={ProfileScreen}
+                  options={{
+                    headerTitle: 'Profile',
+                    headerBackTitle: 'Back',
+                  }}
+                />
+                <Stack.Screen
+                  name="BleConnection"
+                  component={BleConnectionScreen}
+                  options={{
+                    headerTitle: 'Connect Sensors',
+                    headerBackTitle: 'Back',
+                  }}
+                />
             {/* Novas Rotas da Task IRHIS-25 */}
-            <Stack.Screen 
+                <Stack.Screen 
               name="ChangePassword" 
               component={ChangePasswordScreen} 
               options={{ headerShown: false }} 
@@ -467,4 +477,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AppNavigator; 
+export default AppNavigator;
