@@ -33,11 +33,11 @@ const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = ({ visib
           </Text>
 
           <Text style={[styles.paragraph, { color: colors.text }]}>
-            Welcome to TwinRehab. By registering and using this application, whether as a patient or a healthcare professional, you agree to the following Terms and Conditions, which govern your access to and use of the platform, including the processing of personal and health-related data in accordance with applicable European laws, including the General Data Protection Regulation (GDPR). If you do not agree to these terms, you must not use the app.
+            Welcome to TwinRehabPro. By registering and using this application, whether as a patient or a healthcare professional, you agree to the following Terms and Conditions, which govern your access to and use of the platform, including the processing of personal and health-related data in accordance with applicable European laws, including the General Data Protection Regulation (GDPR). If you do not agree to these terms, you must not use the app.
           </Text>
 
           <Text style={[styles.paragraph, { color: colors.text }]}>
-            TwinRehab is a digital health platform intended to facilitate the secure collection, management, and exchange of health information between patients and licensed healthcare professionals. By signing up, patients confirm that they are at least 18 years old, or have obtained legal consent from a parent or guardian if underage. Healthcare professionals confirm that they are legally authorized and licensed to provide medical care within their jurisdiction and agree to use the platform exclusively for legitimate clinical purposes, in line with medical ethics and applicable law.
+            TwinRehabPro is a digital health platform intended to facilitate the secure collection, management, and exchange of health information between patients and licensed healthcare professionals. By signing up, patients confirm that they are at least 18 years old, or have obtained legal consent from a parent or guardian if underage. Healthcare professionals confirm that they are legally authorized and licensed to provide medical care within their jurisdiction and agree to use the platform exclusively for legitimate clinical purposes, in line with medical ethics and applicable law.
           </Text>
 
           <Text style={[styles.paragraph, { color: colors.text }]}>
@@ -45,7 +45,7 @@ const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = ({ visib
           </Text>
 
           <Text style={[styles.paragraph, { color: colors.text }]}>
-            All users are responsible for the accuracy of the information they provide and for keeping their login credentials secure. Any unauthorized use of an account or suspected data breach must be reported to TwinRehab support immediately. The platform uses industry-standard security measures, including encryption and secure data storage, to protect personal information. However, no system can guarantee absolute security, and by using the app, users acknowledge and accept this risk.
+            All users are responsible for the accuracy of the information they provide and for keeping their login credentials secure. Any unauthorized use of an account or suspected data breach must be reported to TwinRehabPro support immediately. The platform uses industry-standard security measures, including encryption and secure data storage, to protect personal information. However, no system can guarantee absolute security, and by using the app, users acknowledge and accept this risk.
           </Text>
 
           <Text style={[styles.paragraph, { color: colors.text }]}>
@@ -57,11 +57,11 @@ const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = ({ visib
           </Text>
 
           <Text style={[styles.paragraph, { color: colors.text }]}>
-            TwinRehab reserves the right to modify these Terms and Conditions at any time. Significant changes will be communicated through the app or via email. Continued use of the service after such changes constitutes your acceptance of the revised terms.
+            TwinRehabPro reserves the right to modify these Terms and Conditions at any time. Significant changes will be communicated through the app or via email. Continued use of the service after such changes constitutes your acceptance of the revised terms.
           </Text>
 
           <Text style={[styles.paragraph, { color: colors.text }]}>
-            If you have any questions or concerns about these Terms, your rights, or how your data is handled, you may contact us at TwinRehab, Avenida da França, n.º 256, 8.º andar, 4050-276 Porto – Portugal, or via email at manuele.vancin@eucinovacaoportugal.com.
+            If you have any questions or concerns about these Terms, your rights, or how your data is handled, you may contact us at TwinRehabPro, Avenida da França, n.º 256, 8.º andar, 4050-276 Porto – Portugal, or via email at support@eucinovacaoportugal.com.
           </Text>
 
           <Text style={[styles.paragraph, { color: colors.text }]}>

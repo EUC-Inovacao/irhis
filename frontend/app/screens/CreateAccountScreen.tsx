@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import TermsAndConditionsModal from "../components/TermsAndConditionsModal";
 
 const CreateAccountScreen = () => {
   const { colors } = useTheme();
@@ -21,7 +22,9 @@ const CreateAccountScreen = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Format date of birth as DD/MM/YYYY while typing
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+
   const formatBirthDate = (text: string) => {
     const numbers = text.replace(/\D/g, '');
     const limitedNumbers = numbers.slice(0, 8);
@@ -72,19 +75,24 @@ const CreateAccountScreen = () => {
     
     // For patients, birth date is required
     if (role === 'patient' && !birthDateTrim) {
-      setError('Birth date is required for patient accounts.');
-      return;
-    }
+        setError('Birth date is required for patient accounts.');
+        return;
+      }
     
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(emailTrim)) {
-      setError('Please enter a valid email.');
-      return;
-    }
-    
+      if (!emailRegex.test(emailTrim)) {
+        setError('Please enter a valid email.');
+        return;
+      }
+
     if (password.length < 6) {
       setError('Password must be at least 6 characters.');
-      return;
+                return;
+      }
+    
+    if (!acceptedTerms) {
+        setError('You must accept the terms and conditions to continue.');
+        return;
     }
     
     if (password !== confirmPassword) {
@@ -100,7 +108,7 @@ const CreateAccountScreen = () => {
         return;
       }
     }
-    
+
     setError(null);
     setLoading(true);
     
@@ -155,7 +163,10 @@ const CreateAccountScreen = () => {
                 role === 'doctor' && { backgroundColor: colors.primary, borderColor: colors.primary },
                 { borderColor: colors.border },
               ]}
-              onPress={() => setRole('doctor')}
+              onPress={() => {
+                setRole('doctor');
+                setAcceptedTerms(false); 
+              }}
             >
               <Ionicons
                 name="medical-outline"
@@ -255,13 +266,33 @@ const CreateAccountScreen = () => {
                 keyboardType="number-pad"
                 maxLength={10}
               />
+
+              <View style={styles.termsWrapper}>
+                <TouchableOpacity
+                  style={styles.checkboxContainer}
+                  onPress={() => setAcceptedTerms(!acceptedTerms)}
+                >
+                  <View style={[styles.checkbox, { 
+                      backgroundColor: acceptedTerms ? colors.primary : 'transparent',
+                      borderColor: colors.primary 
+                  }]}>
+                    {acceptedTerms && <Ionicons name="checkmark" size={16} color="#fff" />}
+                  </View>
+                  <Text style={[styles.termsText, { color: colors.textSecondary }]}>
+                    I accept the{' '}
+                    <Text style={{ color: colors.primary, fontWeight: 'bold', textDecorationLine: 'underline' }} onPress={() => setShowTermsModal(true)}>
+                      Terms and Conditions
+                    </Text>
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </>
           )}
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.primary }]}
+            style={[styles.button, { backgroundColor: colors.primary, opacity: (role === 'patient' && !acceptedTerms) ? 0.6 : 1 }]}
             onPress={handleSubmit}
             disabled={loading}
           >
@@ -269,6 +300,8 @@ const CreateAccountScreen = () => {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <TermsAndConditionsModal visible={showTermsModal} onClose={() => setShowTermsModal(false)} />
     </SafeAreaView>
   );
 };
@@ -320,8 +353,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   errorText: { color: '#DC2626', fontSize: 14, marginBottom: 12 },
-  button: { height: 52, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 8 },
+  button: { height: 52, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 16 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  termsWrapper: { marginTop: 8, marginBottom: 16 },
+  checkboxContainer: { flexDirection: 'row', alignItems: 'center' },
+  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, marginRight: 12, justifyContent: 'center', alignItems: 'center' },
+  termsText: { fontSize: 14, flex: 1 },
 });
 
 export default CreateAccountScreen;
