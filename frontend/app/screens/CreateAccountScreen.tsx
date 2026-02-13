@@ -267,7 +267,11 @@ const CreateAccountScreen = () => {
                 maxLength={10}
               />
 
-              <View style={styles.termsWrapper}>
+              
+            </>
+          )}
+
+          <View style={styles.termsWrapper}>
                 <TouchableOpacity
                   style={styles.checkboxContainer}
                   onPress={() => setAcceptedTerms(!acceptedTerms)}
@@ -285,9 +289,7 @@ const CreateAccountScreen = () => {
                     </Text>
                   </Text>
                 </TouchableOpacity>
-              </View>
-            </>
-          )}
+            </View>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
