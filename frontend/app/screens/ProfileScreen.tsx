@@ -128,7 +128,7 @@ const ProfileScreen = () => {
                     icon="lock-closed-outline" 
                     onPress={() => navigation.navigate('ChangePassword')} 
                 />
-                <MenuItem 
+                {/* <MenuItem 
                     label="Two-Factor Authentication" 
                     icon="shield-checkmark-outline" 
                     showChevron={false} 
@@ -139,7 +139,7 @@ const ProfileScreen = () => {
                             trackColor={{ false: colors.border, true: colors.primary }} 
                         />
                     } 
-                />
+                /> */}
             </View>
 
             {/* 3. SECÇÃO: PRIVACY & COMPLIANCE */}
@@ -150,11 +150,11 @@ const ProfileScreen = () => {
                     icon="document-text-outline" 
                     onPress={() => navigation.navigate('PrivacyNotice')} 
                 />
-                <MenuItem 
+                {/* <MenuItem 
                     label="Help Center" 
                     icon="help-buoy-outline" 
                     onPress={() => navigation.navigate('HelpCenter')} 
-                />
+                /> */}
                 <MenuItem 
                     label="About" 
                     icon="information-circle-outline" 
