@@ -6,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import TermsAndConditionsModal from "../components/TermsAndConditionsModal";
+import PrivacyNoticeModal from '@components/PrivacyNoticeModal';
 
 const CreateAccountScreen = () => {
   const { colors } = useTheme();
@@ -24,6 +25,8 @@ const CreateAccountScreen = () => {
 
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   const formatBirthDate = (text: string) => {
     const numbers = text.replace(/\D/g, '');
@@ -92,6 +95,11 @@ const CreateAccountScreen = () => {
     
     if (!acceptedTerms) {
         setError('You must accept the terms and conditions to continue.');
+        return;
+    }
+
+        if (!acceptedPrivacy) {
+        setError('You must accept the privacy notice to continue.');
         return;
     }
     
@@ -289,12 +297,30 @@ const CreateAccountScreen = () => {
                     </Text>
                   </Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.checkboxContainer, { marginTop: 12 }]}
+                  onPress={() => setAcceptedPrivacy(!acceptedPrivacy)}
+                >
+                  <View style={[styles.checkbox, { 
+                      backgroundColor: acceptedPrivacy ? colors.primary : 'transparent',
+                      borderColor: colors.primary 
+                  }]}>
+                    {acceptedPrivacy && <Ionicons name="checkmark" size={16} color="#fff" />}
+                  </View>
+                  <Text style={[styles.termsText, { color: colors.textSecondary }]}>
+                    I accept the{' '}
+                    <Text style={{ color: colors.primary, fontWeight: 'bold', textDecorationLine: 'underline' }} 
+                          onPress={() => setShowPrivacyModal(true)}>
+                      Privacy Notice & Consent
+                    </Text>
+                  </Text>
+                </TouchableOpacity>
             </View>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.primary, opacity: (role === 'patient' && !acceptedTerms) ? 0.6 : 1 }]}
+            style={[styles.button, { backgroundColor: colors.primary, opacity: (!acceptedTerms || !acceptedPrivacy) ? 0.6 : 1 }]}
             onPress={handleSubmit}
             disabled={loading}
           >
@@ -304,6 +330,12 @@ const CreateAccountScreen = () => {
       </KeyboardAvoidingView>
 
       <TermsAndConditionsModal visible={showTermsModal} onClose={() => setShowTermsModal(false)} />
+
+      <PrivacyNoticeModal visible={showPrivacyModal} onClose={() => setShowPrivacyModal(false)}
+        onAccept={() => {
+          setAcceptedPrivacy(true);
+          setShowPrivacyModal(false);
+        }}/>
     </SafeAreaView>
   );
 };

@@ -11,6 +11,13 @@ interface TermsAndConditionsModalProps {
 const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = ({ visible, onClose }) => {
   const { colors } = useTheme();
 
+  const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+    <View style={styles.section}>
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>{title}</Text>
+      {children}
+    </View>
+  );
+
   return (
     <Modal
       visible={visible}
@@ -20,7 +27,7 @@ const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = ({ visib
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
-            Terms and Conditions
+            Terms of Use
           </Text>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Ionicons name="close" size={24} color={colors.text} />
@@ -28,49 +35,108 @@ const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = ({ visib
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          <Text style={[styles.effectiveDate, { color: colors.textSecondary }]}>
-            Effective Date: August 1, 2025
+          <Text style={[styles.mainTitle, { color: colors.text }]}>TERMS OF USE - TwinRehabPro</Text>
+          <Text style={[styles.metadata, { color: colors.textSecondary }]}>
+            Last updated: August 1, 2025 | Version: v1.0
           </Text>
 
-          <Text style={[styles.paragraph, { color: colors.text }]}>
-            Welcome to TwinRehabPro. By registering and using this application, whether as a patient or a healthcare professional, you agree to the following Terms and Conditions, which govern your access to and use of the platform, including the processing of personal and health-related data in accordance with applicable European laws, including the General Data Protection Regulation (GDPR). If you do not agree to these terms, you must not use the app.
-          </Text>
+          <Section title="1. Who we are">
+            <Text style={[styles.paragraph, { color: colors.text }]}>
+              EUC Inovação Portugal provides the TwinRehabPro application and related services.
+            </Text>
+            <Text style={[styles.paragraph, { color: colors.text }]}>
+              Registered office: Avenida da França, n.º 256, 8.º andar, 4050-276 Porto – Portugal.
+              {"\n"}Contact: support@eucinovacaoportugal.com
+            </Text>
+          </Section>
 
-          <Text style={[styles.paragraph, { color: colors.text }]}>
-            TwinRehabPro is a digital health platform intended to facilitate the secure collection, management, and exchange of health information between patients and licensed healthcare professionals. By signing up, patients confirm that they are at least 18 years old, or have obtained legal consent from a parent or guardian if underage. Healthcare professionals confirm that they are legally authorized and licensed to provide medical care within their jurisdiction and agree to use the platform exclusively for legitimate clinical purposes, in line with medical ethics and applicable law.
-          </Text>
+          <Section title="2. Purpose of the TwinRehabPro">
+            <Text style={[styles.paragraph, { color: colors.text }]}>
+              The TwinRehabPro is designed to support rehabilitation and related monitoring activities, as described within the TwinRehabPro. The TwinRehabPro must be used only for its intended purposes and in accordance with these Terms.
+            </Text>
+          </Section>
 
-          <Text style={[styles.paragraph, { color: colors.text }]}>
-            All users understand and accept that personal data, including sensitive health data such as symptoms, medical history, clinical notes, and communications, will be collected and processed within the platform. This processing is based on the user's explicit consent, in accordance with Article 9(2)(a) of the GDPR. The data will be used strictly for the delivery of healthcare-related services, operational improvement of the platform, secure communication between patients and professionals, and as otherwise required by law. The platform does not sell user data or use it for advertising purposes. Access to patient data is strictly limited to healthcare professionals involved in the patient's care, and only where appropriate consent has been given or where legally required. Healthcare professionals agree to maintain strict confidentiality, to only access patient data when clinically justified, and to comply fully with GDPR obligations and any relevant national regulations.
-          </Text>
+          <Section title="3. Acceptance and eligibility">
+            <Text style={[styles.paragraph, { color: colors.text }]}>
+              By creating an account or using the TwinRehabPro, you confirm that you have read and accepted these Terms.
+            </Text>
+            <Text style={[styles.paragraph, { color: colors.text }]}>
+              If you are using the TwinRehabPro on behalf of an organisation, you confirm that you have authority to bind that organisation.
+            </Text>
+            <Text style={[styles.paragraph, { color: colors.text }]}>
+              If you are a minor, you may use the TwinRehabPro only if permitted by applicable law and with any required consent from a parent/legal guardian.
+            </Text>
+          </Section>
 
-          <Text style={[styles.paragraph, { color: colors.text }]}>
-            All users are responsible for the accuracy of the information they provide and for keeping their login credentials secure. Any unauthorized use of an account or suspected data breach must be reported to TwinRehabPro support immediately. The platform uses industry-standard security measures, including encryption and secure data storage, to protect personal information. However, no system can guarantee absolute security, and by using the app, users acknowledge and accept this risk.
-          </Text>
+          <Section title="4. Account registration and security">
+            <Text style={[styles.paragraph, { color: colors.text }]}>
+              You must provide accurate, complete and up-to-date information when registering and keep your credentials confidential. You are responsible for all activity carried out through your account.
+            </Text>
+          </Section>
 
-          <Text style={[styles.paragraph, { color: colors.text }]}>
-            In accordance with the GDPR, all users have the right to access their data, request correction or deletion, restrict or object to processing, and request data portability. Users may also withdraw consent at any time, which will not affect the lawfulness of data processing prior to withdrawal. Patients and professionals can delete their accounts at any time through the app or by contacting support. Upon account deletion, all associated personal data will be permanently erased unless we are legally required to retain it.
-          </Text>
+          <Section title="5. Acceptable use">
+            <Text style={[styles.paragraph, { color: colors.text }]}>You agree not to:</Text>
+            <View style={styles.bulletList}>
+              <Text style={[styles.bulletPoint, { color: colors.text }]}>• use the TwinRehabPro unlawfully or in a way that infringes third-party rights;</Text>
+              <Text style={[styles.bulletPoint, { color: colors.text }]}>• upload or share content that is harmful, defamatory, abusive, or illegal;</Text>
+              <Text style={[styles.bulletPoint, { color: colors.text }]}>• interfere with the TwinRehabPro's operation, attempt unauthorised access, or bypass security measures;</Text>
+              <Text style={[styles.bulletPoint, { color: colors.text }]}>• reverse engineer, copy, modify, distribute or commercially exploit the TwinRehabPro except as permitted by law or expressly authorised in writing.</Text>
+            </View>
+            <Text style={[styles.paragraph, { color: colors.text }]}>
+              We may suspend or terminate access for violations, security concerns, or legal requirements.
+            </Text>
+          </Section>
 
-          <Text style={[styles.paragraph, { color: colors.text }]}>
-            Healthcare professionals using the platform are solely responsible for ensuring that their use of the service complies with all legal, ethical, and professional obligations, including but not limited to appropriate licensing, clinical responsibility, patient safety, and data protection. Misuse of the platform or use for non-clinical or unlawful purposes may result in immediate termination of access and potential legal consequences.
-          </Text>
+          <Section title="6. Medical disclaimer">
+            <Text style={[styles.paragraph, { color: colors.text, fontWeight: '600' }]}>
+              The TwinRehabPro does not provide medical diagnosis and does not replace professional medical advice, diagnosis or treatment.
+            </Text>
+            <Text style={[styles.paragraph, { color: colors.text }]}>
+              If you have symptoms requiring urgent attention, contact emergency services or a qualified healthcare professional immediately.
+            </Text>
+          </Section>
 
-          <Text style={[styles.paragraph, { color: colors.text }]}>
-            TwinRehabPro reserves the right to modify these Terms and Conditions at any time. Significant changes will be communicated through the app or via email. Continued use of the service after such changes constitutes your acceptance of the revised terms.
-          </Text>
+          <Section title="7. Intellectual property">
+            <Text style={[styles.paragraph, { color: colors.text }]}>
+              The TwinRehabPro, including its software, design, trademarks, logos and content, is owned by or licensed to the EUC Inovação Portugal and is protected by intellectual property laws.
+            </Text>
+          </Section>
 
-          <Text style={[styles.paragraph, { color: colors.text }]}>
-            If you have any questions or concerns about these Terms, your rights, or how your data is handled, you may contact us at TwinRehabPro, Avenida da França, n.º 256, 8.º andar, 4050-276 Porto – Portugal, or via email at support@eucinovacaoportugal.com.
-          </Text>
+          <Section title="8. Availability, changes and maintenance">
+            <Text style={[styles.paragraph, { color: colors.text }]}>
+              We aim to keep the TwinRehabPro available, but we do not guarantee uninterrupted or error-free operation. We may update, modify or discontinue any part of the TwinRehabPro for technical, security, legal or operational reasons.
+            </Text>
+          </Section>
 
-          <Text style={[styles.paragraph, { color: colors.text }]}>
-            By clicking "Accept" and registering, you confirm that you have read, understood, and agreed to these Terms and Conditions, and you consent to the collection and processing of your personal and health-related data as described.
-          </Text>
+          <Section title="9. Limitation of liability">
+            <Text style={[styles.paragraph, { color: colors.text }]}>
+              To the maximum extent permitted by law, we are not liable for indirect or consequential losses, loss of data, loss of profits, or business interruption arising from your use of (or inability to use) the TwinRehabPro.
+            </Text>
+          </Section>
+
+          <Section title="10. Termination">
+            <Text style={[styles.paragraph, { color: colors.text }]}>
+              You may stop using the TwinRehabPro at any time. We may suspend or terminate your access if you breach these Terms, misuse the TwinRehabPro, or if required for security or legal reasons.
+            </Text>
+          </Section>
+
+          <Section title="11. Changes to these Terms">
+            <Text style={[styles.paragraph, { color: colors.text }]}>
+              We may update these Terms from time to time. Where required, we will notify you in the TwinRehabPro and request re-acceptance. Continued use after the effective date means you accept the updated Terms.
+            </Text>
+          </Section>
+
+          <Section title="12. Governing law and contact">
+            <Text style={[styles.paragraph, { color: colors.text }]}>
+              Governing law: Portugal.
+              {"\n"}For questions about these Terms, contact: support@eucinovacaoportugal.com
+            </Text>
+          </Section>
+          
+          <View style={{ height: 40 }} />
         </ScrollView>
 
-        <View style={[styles.footer, { borderTopColor: colors.border }]}>
-        </View>
+        <View style={[styles.footer, { borderTopColor: colors.border }]} />
       </View>
     </Modal>
   );
@@ -90,7 +156,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   closeButton: {
     padding: 4,
@@ -98,34 +164,46 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 20,
   },
-  effectiveDate: {
-    fontSize: 14,
-    marginBottom: 20,
+  mainTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginTop: 24,
+    marginBottom: 4,
+  },
+  metadata: {
+    fontSize: 13,
+    marginBottom: 24,
     fontStyle: 'italic',
   },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
   paragraph: {
-    fontSize: 16,
-    lineHeight: 24,
-    marginBottom: 16,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 12,
     textAlign: 'justify',
+  },
+  bulletList: {
+    paddingLeft: 8,
+    marginBottom: 12,
+  },
+  bulletPoint: {
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 8,
   },
   footer: {
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderTopWidth: 1,
   },
-  acceptButton: {
-    height: 48,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  acceptButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
 });
 
-export default TermsAndConditionsModal; 
+export default TermsAndConditionsModal;
