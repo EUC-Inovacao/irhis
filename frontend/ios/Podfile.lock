@@ -1,8 +1,6 @@
 PODS:
   - EXConstants (18.0.10):
     - ExpoModulesCore
-  - EXGL_CPP (11.4.0):
-    - React-jsi
   - Expo (54.0.33):
     - ExpoModulesCore
     - hermes-engine
@@ -2010,7 +2008,6 @@ PODS:
 
 DEPENDENCIES:
   - EXConstants (from `../node_modules/expo-constants/ios`)
-  - EXGL_CPP (from `../node_modules/expo-gl-cpp/cpp`)
   - Expo (from `../node_modules/expo`)
   - ExpoAsset (from `../node_modules/expo-asset/ios`)
   - ExpoClipboard (from `../node_modules/expo-clipboard/ios`)
@@ -2110,8 +2107,6 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   EXConstants:
     :path: "../node_modules/expo-constants/ios"
-  EXGL_CPP:
-    :path: "../node_modules/expo-gl-cpp/cpp"
   Expo:
     :path: "../node_modules/expo"
   ExpoAsset:
@@ -2294,7 +2289,6 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   EXConstants: fd688cef4e401dcf798a021cfb5d87c890c30ba3
-  EXGL_CPP: 8b7f4fa33ae673740b6c5438eb53a0e7bc57c5e3
   Expo: aadbcc8c6c14ff3105a9154f1683cb1424ff0d2a
   ExpoAsset: 9ba6fbd677fb8e241a3899ac00fa735bc911eadf
   ExpoClipboard: 44fd1c8959ee8f6175d059dc011b154c9709a969

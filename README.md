@@ -147,6 +147,8 @@ frontend/
    - Create or update `frontend/android/local.properties`:
      ```properties
      sdk.dir=/path/to/your/Android/sdk
+     # Required for Android Studio (doesn't inherit terminal PATH). Find yours with: which node
+     node.executable=/opt/homebrew/bin/node
      ```
    - On macOS, typically: `sdk.dir=/Users/username/Library/Android/sdk`
 

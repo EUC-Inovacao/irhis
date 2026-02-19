@@ -41,7 +41,7 @@ import ExercisePickerModal from "@components/ExercisePickerModal";
 import SessionFeedbackModal from "@components/SessionFeedbackModal";
 import { usePatients } from "@context/PatientContext";
 import { getCurrentExercise } from "@services/exerciseAssignmentService";
-import { createSessionWithMetrics, findUncompletedSession } from "@services/sessionService";
+import { createSessionFromAnalysisResult } from "@services/sessionService";
 
 interface SensorData {
   Quat_W?: number;
@@ -101,6 +101,12 @@ const MovellaScreen = () => {
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [lastCreatedSessionId, setLastCreatedSessionId] = useState<string | null>(null);
   // External API is the only analysis mode now
+
+  const refreshPatientProgress = useCallback(() => {
+    fetchPatients().catch(() => {});
+    const pid = user?.role === "patient" ? user?.id : selectedPatientId;
+    if (pid) fetchAssignedExercises(pid).catch(() => {});
+  }, [fetchPatients, fetchAssignedExercises, user?.role, user?.id, selectedPatientId]);
 
   const createSegmentOrientation = (
     qx: number,
@@ -328,183 +334,43 @@ const MovellaScreen = () => {
     }
   };
 
-  // Create session from analysis results
+  // Create session from analysis results (ZIP flow)
   const createSessionFromAnalysis = async (result: AnalysisResult) => {
     if (!user) return;
 
-    try {
-      const patientId = user.role === "patient" ? user.id : selectedPatientId;
-      if (!patientId) {
-        console.log("No patient selected, skipping session creation");
-        return;
-      }
+    const patientId = user.role === "patient" ? user.id : selectedPatientId;
+    if (!patientId) {
+      console.log("No patient selected, skipping session creation");
+      return;
+    }
 
-      // Get exercise type ID
-      const exerciseTypeId = selectedExerciseId || currentExercise?.exerciseTypeId;
-      if (!exerciseTypeId) {
-        console.log("No exercise selected, skipping session creation");
-        return;
-      }
+    const exerciseTypeId = selectedExerciseId || currentExercise?.exerciseTypeId;
+    if (!exerciseTypeId) {
+      console.log("No exercise selected, skipping session creation");
+      return;
+    }
 
-      // Calculate metrics from analysis result
-      const leftRom = result.knee.left?.rom || 0;
-      const rightRom = result.knee.right?.rom || 0;
-      const avgRom = (leftRom + rightRom) / 2 || leftRom || rightRom || 0;
+    const startTime = new Date();
+    const endTime = new Date(Date.now() + 15 * 60000);
 
-      const leftMaxFlexion = result.knee.left?.maxFlexion || 0;
-      const rightMaxFlexion = result.knee.right?.maxFlexion || 0;
-      const avgMaxFlexion = (leftMaxFlexion + rightMaxFlexion) / 2 || leftMaxFlexion || rightMaxFlexion || 0;
+    const session = await createSessionFromAnalysisResult(result, {
+      patientId,
+      exerciseTypeId,
+      exerciseName: selectedExerciseName ?? currentExercise?.name,
+      startTime,
+      endTime,
+    });
 
-      const leftMaxExtension = result.knee.left?.maxExtension || 0;
-      const rightMaxExtension = result.knee.right?.maxExtension || 0;
-      const avgMaxExtension = (leftMaxExtension + rightMaxExtension) / 2 || leftMaxExtension || rightMaxExtension || 0;
-
-      const leftAvgVel = result.knee.left?.avgVelocity ?? 0;
-      const rightAvgVel = result.knee.right?.avgVelocity ?? 0;
-      const avgVelocity = (leftAvgVel + rightAvgVel) / 2 || leftAvgVel || rightAvgVel || 0;
-
-      const leftPeakVel = result.knee.left?.peakVelocity ?? 0;
-      const rightPeakVel = result.knee.right?.peakVelocity ?? 0;
-      const maxVelocity = Math.max(leftPeakVel, rightPeakVel) || leftPeakVel || rightPeakVel || 0;
-
-      const leftP95 = result.knee.left?.p95Velocity ?? 0;
-      const rightP95 = result.knee.right?.p95Velocity ?? 0;
-      const p95Velocity = Math.max(leftP95, rightP95) || leftP95 || rightP95 || 0;
-
-      const reps = result.knee.left?.repetitions || result.knee.right?.repetitions || 0;
-      const score = Math.min(100, Math.max(0, 60 + (avgRom / 90) * 35));
-
-      const centerMassDisplacement = result.com?.rms_cm ?? result.com?.apAmp_cm ?? 0;
-
-      const startTime = new Date().toISOString();
-      const endTime = new Date(Date.now() + 15 * 60000).toISOString();
-
-      const existingSession = await findUncompletedSession(patientId, exerciseTypeId);
-
-      const metricsPerJoint: Array<{
-        joint: string;
-        side: string;
-        rom?: number;
-        maxFlexion?: number;
-        maxExtension?: number;
-        reps?: number;
-        avgVelocity?: number;
-        maxVelocity?: number;
-        p95Velocity?: number;
-        centerMassDisplacement?: number;
-      }> = [];
-
-      if (result.knee?.left) {
-        const k = result.knee.left;
-        metricsPerJoint.push({
-          joint: "knee",
-          side: "left",
-          rom: k.rom,
-          maxFlexion: k.maxFlexion,
-          maxExtension: k.maxExtension,
-          reps: k.repetitions,
-          avgVelocity: k.avgVelocity,
-          maxVelocity: k.peakVelocity,
-          p95Velocity: k.p95Velocity,
-        });
-      }
-      if (result.knee?.right) {
-        const k = result.knee.right;
-        metricsPerJoint.push({
-          joint: "knee",
-          side: "right",
-          rom: k.rom,
-          maxFlexion: k.maxFlexion,
-          maxExtension: k.maxExtension,
-          reps: k.repetitions,
-          avgVelocity: k.avgVelocity,
-          maxVelocity: k.peakVelocity,
-          p95Velocity: k.p95Velocity,
-        });
-      }
-      if (result.hip?.left) {
-        const h = result.hip.left;
-        metricsPerJoint.push({
-          joint: "hip",
-          side: "left",
-          rom: h.rom,
-          maxFlexion: h.maxFlexion,
-          maxExtension: h.maxExtension,
-          reps: h.repetitions,
-          avgVelocity: h.avgVelocity,
-          maxVelocity: h.peakVelocity,
-          p95Velocity: h.p95Velocity,
-        });
-      }
-      if (result.hip?.right) {
-        const h = result.hip.right;
-        metricsPerJoint.push({
-          joint: "hip",
-          side: "right",
-          rom: h.rom,
-          maxFlexion: h.maxFlexion,
-          maxExtension: h.maxExtension,
-          reps: h.repetitions,
-          avgVelocity: h.avgVelocity,
-          maxVelocity: h.peakVelocity,
-          p95Velocity: h.p95Velocity,
-        });
-      }
-      // COM: Azure Metrics Joint enum only has 'knee'|'hip'. Store centerMassDisplacement in first knee row
-      if (result.com && (result.com.rms_cm || result.com.apAmp_cm)) {
-        const cm = result.com.rms_cm ?? result.com.apAmp_cm ?? 0;
-        const firstKnee = metricsPerJoint.find((m) => m.joint?.toLowerCase() === "knee");
-        if (firstKnee) {
-          firstKnee.centerMassDisplacement = Math.round(cm * 100) / 100;
-        } else {
-          metricsPerJoint.push({
-            joint: "knee",
-            side: "left",
-            centerMassDisplacement: Math.round(cm * 100) / 100,
-            reps: Math.round(reps),
-          });
-        }
-      }
-
-      const session = await createSessionWithMetrics(patientId, {
-        patientId,
-        exerciseTypeId,
-        exerciseDescription: selectedExerciseName ?? undefined,
-        existingSessionId: existingSession?.id ?? undefined,
-        startTime,
-        endTime,
-        repetitions: reps,
-        metricsPerJoint: metricsPerJoint.length > 0 ? metricsPerJoint : undefined,
-        metrics: metricsPerJoint.length === 0 ? {
-          rom: Math.round(avgRom * 10) / 10,
-          maxFlexion: Math.round(avgMaxFlexion * 10) / 10,
-          maxExtension: Math.round(avgMaxExtension * 10) / 10,
-          reps: Math.round(reps),
-          score: Math.round(score),
-          avgVelocity: avgVelocity ? Math.round(avgVelocity * 10) / 10 : undefined,
-          maxVelocity: maxVelocity ? Math.round(maxVelocity * 10) / 10 : undefined,
-          p95Velocity: p95Velocity ? Math.round(p95Velocity * 10) / 10 : undefined,
-          centerMassDisplacement: centerMassDisplacement ? Math.round(centerMassDisplacement * 100) / 100 : undefined,
-        } : undefined,
-      });
-
+    if (session) {
       console.log("Session created successfully:", session.id);
-
-      // For patients, show feedback modal after session creation
+      refreshPatientProgress();
       if (user.role?.toLowerCase() === "patient" && session.id) {
         setLastCreatedSessionId(session.id);
         setShowFeedbackModal(true);
       }
-
       return session.id;
-    } catch (error: any) {
-      console.error("Error creating session:", error);
-      // #region agent log
-      const errData = error?.response?.data || {};
-      fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MovellaScreen.tsx:createSessionFromAnalysis',message:'Session creation 500',data:{error:errData?.error,traceback:errData?.traceback?.slice?.(0,500),status:error?.response?.status},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
-      return null;
     }
+    return null;
   };
 
   const analyzeWithLocalApi = async (fileUri: string, fileName: string) => {
@@ -1559,7 +1425,7 @@ const MovellaScreen = () => {
                 },
               ]}
               onPress={() => {
-                // Require patient & exercise selection for doctors before BLE streaming
+                // Require patient & exercise selection before BLE (same as ZIP upload)
                 if (user?.role?.toLowerCase() === "doctor") {
                   if (!selectedPatientId) {
                     Alert.alert(
@@ -1575,12 +1441,24 @@ const MovellaScreen = () => {
                     );
                     return;
                   }
+                } else if (user?.role?.toLowerCase() === "patient") {
+                  if (!selectedExerciseId && !currentExercise) {
+                    Alert.alert(
+                      "Select Exercise",
+                      "Please select an exercise before starting a live BLE session."
+                    );
+                    return;
+                  }
                 }
 
                 setDataSourceMode("ble");
-                // Navigate to BLE connection screen
+                // Navigate to BLE connection screen with patient/exercise context for saving results
                 if (navigation) {
-                  navigation.navigate("BleConnection");
+                  navigation.navigate("BleConnection", {
+                    patientId: selectedPatientId ?? (user?.role === "patient" ? user.id : undefined),
+                    exerciseTypeId: selectedExerciseId ?? currentExercise?.exerciseTypeId,
+                    exerciseName: selectedExerciseName ?? currentExercise?.name,
+                  });
                 }
               }}
             >

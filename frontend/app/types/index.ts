@@ -259,7 +259,7 @@ export type RootStackParamList = {
   
   Profile: { twoFactorEnabled?: boolean } | undefined;
   
-  BleConnection: undefined;
+  BleConnection: { patientId?: string; exerciseTypeId?: string; exerciseName?: string } | undefined;
   
   ExerciseDetail: { exercise: any };
   ExerciseHistory: undefined;

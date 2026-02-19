@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "@theme/ThemeContext";
+import { useRoute } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import {
   MovellaBleService,
@@ -25,6 +26,9 @@ import {
 } from "@services/movellaBleService";
 import { convertBleDataToZip, createCSVForSensor } from "@services/bleDataConverter";
 import { createLocalAnalysisApi, AnalysisResult } from "@services/analysisApi";
+import { createSessionFromAnalysisResult } from "@services/sessionService";
+import { useAuth } from "@context/AuthContext";
+import { usePatients } from "@context/PatientContext";
 import ErrorBoundary from "@components/ErrorBoundary";
 import LocalAnalysisResults from "@components/LocalAnalysisResults";
 
@@ -38,6 +42,10 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
   onSensorsConnected,
 }) => {
   const { colors } = useTheme();
+  const route = useRoute<any>();
+  const { user } = useAuth();
+  const { fetchPatients, fetchAssignedExercises } = usePatients();
+  const params = route.params ?? {};
   const [bleService] = useState<MovellaBleService>(getMovellaBleService());
   const [sensors, setSensors] = useState<MovellaSensor[]>([]);
   const [scanning, setScanning] = useState(false);
@@ -428,10 +436,56 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
 
       setBleAnalysisResult(result);
 
-      Alert.alert(
-        "Analysis Complete",
-        `Analysis completed successfully!\n\nMissing sensors: ${result.missingSensors.length > 0 ? result.missingSensors.join(", ") : "None"}`
-      );
+      // Auto-save to Azure (same as ZIP upload flow)
+      if (user) {
+        const patientId = user.role === "patient" ? user.id : params.patientId;
+        const exerciseTypeId = params.exerciseTypeId;
+        const exerciseName = params.exerciseName;
+
+        if (patientId && exerciseTypeId) {
+          try {
+            const endTime = new Date();
+            const session = await createSessionFromAnalysisResult(result, {
+              patientId,
+              exerciseTypeId,
+              exerciseName,
+              startTime: exerciseStartTime,
+              endTime,
+            });
+            if (session) {
+              console.log("🔬 [UI] Session saved to server:", session.id);
+              // Refresh dashboard so patient card progress bar updates (same as ZIP flow)
+              fetchPatients().catch(() => {});
+              fetchAssignedExercises(patientId).catch(() => {});
+              Alert.alert(
+                "Analysis Complete",
+                `Results saved successfully!\n\nMissing sensors: ${result.missingSensors.length > 0 ? result.missingSensors.join(", ") : "None"}`
+              );
+            } else {
+              Alert.alert(
+                "Analysis Complete",
+                `Analysis completed but save failed. Please try again.\n\nMissing sensors: ${result.missingSensors.length > 0 ? result.missingSensors.join(", ") : "None"}`
+              );
+            }
+          } catch (saveError) {
+            console.error("Error saving BLE results to server:", saveError);
+            Alert.alert(
+              "Analysis Complete",
+              `Analysis completed but could not save to server: ${saveError instanceof Error ? saveError.message : String(saveError)}\n\nYou can try analyzing again.`
+            );
+          }
+        } else {
+          Alert.alert(
+            "Analysis Complete",
+            `Analysis completed. Go back to Movement Analysis, select patient and exercise, then record and analyze again to save.\n\nMissing sensors: ${result.missingSensors.length > 0 ? result.missingSensors.join(", ") : "None"}`
+          );
+        }
+      } else {
+        Alert.alert(
+          "Analysis Complete",
+          `Analysis completed successfully!\n\nMissing sensors: ${result.missingSensors.length > 0 ? result.missingSensors.join(", ") : "None"}`
+        );
+      }
     } catch (error) {
       console.error("❌ [UI] Error analyzing exercise:", error);
       console.error("❌ [UI] Error type:", typeof error);
