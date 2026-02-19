@@ -11,6 +11,7 @@ import {
   Switch,
   Modal,
   Platform,
+  ToastAndroid,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "@theme/ThemeContext";
@@ -57,6 +58,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
   const [exerciseStartTime, setExerciseStartTime] = useState<Date | null>(null);
   const [packetCounters, setPacketCounters] = useState<Map<string, number>>(new Map());
   const [canAnalyze, setCanAnalyze] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [bleAnalysisResult, setBleAnalysisResult] = useState<AnalysisResult | null>(null);
   
   // Testing Mode and Real-time Logs
@@ -350,10 +352,15 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
       setCanAnalyze(exerciseDataRef.current.size > 0);
       
       const sensorCount = exerciseDataRef.current.size;
-      Alert.alert(
-        "Exercise Stopped",
-        `Recorded data from ${sensorCount} sensor${sensorCount !== 1 ? 's' : ''}. ${sensorCount > 0 ? 'You can now analyze the exercise.' : 'No data was recorded.'}`
-      );
+      const message = sensorCount > 0
+        ? `Recorded data from ${sensorCount} sensor${sensorCount !== 1 ? 's' : ''}. You can now analyze the exercise.`
+        : "No data was recorded.";
+      // On Android, use Toast instead of Alert to avoid screen exit/focus issues
+      if (Platform.OS === "android") {
+        ToastAndroid.show(message, ToastAndroid.LONG);
+      } else {
+        Alert.alert("Exercise Stopped", message);
+      }
     } catch (error) {
       console.error("Error stopping exercise:", error);
       Alert.alert("Error", `Failed to stop exercise: ${error instanceof Error ? error.message : String(error)}`);
@@ -365,6 +372,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
   };
 
   const handleAnalyzeExercise = async () => {
+    if (isAnalyzing) return;
     console.log("🔬 [UI] handleAnalyzeExercise() called");
     console.log("🔬 [UI] exerciseStartTime:", exerciseStartTime);
     console.log("🔬 [UI] exerciseDataRef.current.size:", exerciseDataRef.current.size);
@@ -376,6 +384,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
       return;
     }
 
+    setIsAnalyzing(true);
     try {
       // Create device tag map
       const deviceTagMap = new Map<string, DeviceTag>();
@@ -454,6 +463,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
             });
             if (session) {
               console.log("🔬 [UI] Session saved to server:", session.id);
+              setCanAnalyze(false);
               // Refresh dashboard so patient card progress bar updates (same as ZIP flow)
               fetchPatients().catch(() => {});
               fetchAssignedExercises(patientId).catch(() => {});
@@ -495,6 +505,8 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
         "Analysis Error",
         `Failed to analyze exercise: ${error instanceof Error ? error.message : String(error)}`
       );
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -1121,13 +1133,21 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
             <TouchableOpacity
               style={[
                 styles.analyzeButton,
-                { backgroundColor: colors.success || "#34C759" },
+                {
+                  backgroundColor: isAnalyzing ? (colors.gray?.[400] ?? "#9E9E9E") : (colors.success || "#34C759"),
+                  opacity: isAnalyzing ? 0.7 : 1,
+                },
               ]}
               onPress={handleAnalyzeExercise}
+              disabled={isAnalyzing}
             >
-              <Ionicons name="analytics" size={20} color={colors.white} />
+              {isAnalyzing ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Ionicons name="analytics" size={20} color={colors.white} />
+              )}
               <Text style={[styles.analyzeButtonText, { color: colors.white }]}>
-                Analyze Exercise
+                {isAnalyzing ? "Analyzing..." : "Analyze Exercise"}
               </Text>
             </TouchableOpacity>
           )}
