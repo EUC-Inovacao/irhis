@@ -1,0 +1,7 @@
+{
+  "welcome": "Bem-vindo ao App",
+  "login": {
+    "button": "Entrar",
+    "error": "Usuário inválido"
+  }
+}
