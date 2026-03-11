@@ -10,6 +10,7 @@ import healthService from "./app/services/healthService";
 import { runMigrations } from "./app/storage/db";
 import { seedPresetUsers } from "./app/storage/seed";
 import { seedExerciseTypes } from "./app/storage/exerciseSeed";
+import './app/translation';
 // import { clearAllSessionData } from "./app/storage/cleanupMockData"; // Removed - was clearing all data on every startup
 
 export default function App() {

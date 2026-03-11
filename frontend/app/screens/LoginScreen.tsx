@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -18,6 +19,7 @@ import { useAuth } from "../context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 
 const LoginScreen = ({ navigation }: any) => {
+    const { t, i18n } = useTranslation();
   const { colors } = useTheme();
   const { login } = useAuth();
   const [email, setEmail] = useState("");
@@ -28,7 +30,7 @@ const LoginScreen = ({ navigation }: any) => {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert("Required", "Please enter email and password.");
+      Alert.alert(t('Required'), t('RequiredMessage'));
       return;
     }
     setLoading(true);
@@ -36,7 +38,7 @@ const LoginScreen = ({ navigation }: any) => {
       // ATUALIZADO: Já não enviamos a role, o backend decide quem é
       await login(email, password); 
     } catch (error: any) {
-      Alert.alert("Login Failed", error?.message || "Invalid credentials.");
+      Alert.alert(t('Login Failed'), t('InvalidCredentials'));
     } finally {
       setLoading(false);
     }
@@ -57,11 +59,11 @@ const LoginScreen = ({ navigation }: any) => {
                 style={styles.logo}
             />
             <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>
-                Welcome back to
+                {t('welcome')}
             </Text>
             <Text style={[styles.title, { color: colors.text }]}>TwinRehab</Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                Sign in to continue your rehabilitation journey
+                {t('signInPhrase')}
             </Text>
             </View>
 
@@ -99,7 +101,7 @@ const LoginScreen = ({ navigation }: any) => {
                     styles.input,
                     { backgroundColor: colors.card, color: colors.text },
                 ]}
-                placeholder="Password"
+                placeholder={t('Password')}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
@@ -125,7 +127,7 @@ const LoginScreen = ({ navigation }: any) => {
                 disabled={loading}
             >
                 <Text style={[styles.buttonText, { color: colors.white }]}>
-                {loading ? "Signing in..." : "Sign In"}
+                {loading ? t('PSignIn') : t('SignIn')}
                 </Text>
             </TouchableOpacity>
 
@@ -134,11 +136,11 @@ const LoginScreen = ({ navigation }: any) => {
             {/* Sign Up Link */}
             <View style={styles.signupContainer}>
                 <Text style={[styles.signupLabel, { color: colors.textSecondary }]}>
-                    Don't have an account?
+                    {t('NoAccount')}
                 </Text>
                 <TouchableOpacity onPress={() => navigation.navigate("InvitePatient")}>
                     <Text style={[styles.signupLink, { color: colors.purple[600] }]}>
-                        Sign Up
+                        {t('Sign Up')}
                     </Text>
                 </TouchableOpacity>
             </View>

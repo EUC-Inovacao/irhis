@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -18,6 +19,7 @@ import { useAuth } from "@context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 
 const SignupScreen = ({ navigation }: any) => {
+    const { t, i18n } = useTranslation();
   const { colors } = useTheme();
   const { signup } = useAuth();
   const [name, setName] = useState("");
