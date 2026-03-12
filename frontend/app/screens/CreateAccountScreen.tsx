@@ -96,12 +96,12 @@ const CreateAccountScreen = () => {
     }
     
     if (!acceptedTerms) {
-        setError(t('Terms and Conditions'));
+        setError(t('Terms and Conditions A'));
         return;
     }
 
         if (!acceptedPrivacy) {
-        setError(t('Privacy Notice'));
+        setError(t('Privacy Notice A'));
         return;
     }
     
@@ -239,11 +239,11 @@ const CreateAccountScreen = () => {
           </View>
 
           {/* Confirm Password Input */}
-          <Text style={[styles.label, { color: colors.text }]}>Confirm Password</Text>
+          <Text style={[styles.label, { color: colors.text }]}>{t('Confirm Password')}</Text>
           <View style={styles.passwordContainer}>
             <TextInput
               style={[styles.passwordInput, { borderColor: colors.border, color: colors.text }]}
-              placeholder="Confirm password"
+              placeholder={t('Confirm Password')}
               placeholderTextColor={colors.textSecondary}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
@@ -266,7 +266,7 @@ const CreateAccountScreen = () => {
           {/* Birth Date Input - Only for Patients */}
           {role === 'patient' && (
             <>
-              <Text style={[styles.label, { color: colors.text }]}>Date of Birth *</Text>
+              <Text style={[styles.label, { color: colors.text }]}>{t('Date Birth')}</Text>
               <TextInput
                 style={[styles.input, { borderColor: colors.border, color: colors.text }]}
                 placeholder="DD/MM/YYYY"
@@ -293,9 +293,9 @@ const CreateAccountScreen = () => {
                     {acceptedTerms && <Ionicons name="checkmark" size={16} color="#fff" />}
                   </View>
                   <Text style={[styles.termsText, { color: colors.textSecondary }]}>
-                    I accept the{' '}
+                    {t('Accept')}{' '}
                     <Text style={{ color: colors.primary, fontWeight: 'bold', textDecorationLine: 'underline' }} onPress={() => setShowTermsModal(true)}>
-                      Terms and Conditions
+                      {t('Terms and Conditions')}
                     </Text>
                   </Text>
                 </TouchableOpacity>
@@ -310,10 +310,10 @@ const CreateAccountScreen = () => {
                     {acceptedPrivacy && <Ionicons name="checkmark" size={16} color="#fff" />}
                   </View>
                   <Text style={[styles.termsText, { color: colors.textSecondary }]}>
-                    I accept the{' '}
+                    {t('Accept')}{' '}
                     <Text style={{ color: colors.primary, fontWeight: 'bold', textDecorationLine: 'underline' }} 
                           onPress={() => setShowPrivacyModal(true)}>
-                      Privacy Notice & Consent
+                      {t('Privacy Notice')}
                     </Text>
                   </Text>
                 </TouchableOpacity>
@@ -326,7 +326,7 @@ const CreateAccountScreen = () => {
             onPress={handleSubmit}
             disabled={loading}
           >
-            <Text style={styles.buttonText}>{loading ? 'Creating Account...' : 'Create Account'}</Text>
+            <Text style={styles.buttonText}>{loading ? t('Creating Account') + '...' : t('Create Account')}</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>

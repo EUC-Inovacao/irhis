@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { StackHeaderProps } from '@react-navigation/stack';
+import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@theme/ThemeContext';
 import { useAuth } from '@context/AuthContext';
@@ -87,6 +88,7 @@ const CustomHeader: React.FC<StackHeaderProps> = ({ navigation, route, options }
 };
 
 const PatientTabNavigator = () => {
+    const { t, i18n } = useTranslation();
   const { colors } = useTheme();
   return (
     <Tab.Navigator
@@ -107,6 +109,8 @@ const PatientTabNavigator = () => {
         name="My Exercises"
         component={PatientHomeScreen}
         options={{
+          HeaderTitle: t('My Exercises'),
+          tabBarLabel: t('My Exercises'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="fitness-outline" size={size} color={color} />
           ),
@@ -116,6 +120,8 @@ const PatientTabNavigator = () => {
         name="History"
         component={ExerciseHistoryScreen}
         options={{
+            HeaderTitle: t('History'),
+            tabBarLabel: t('History'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="time-outline" size={size} color={color} />
           ),
@@ -125,6 +131,8 @@ const PatientTabNavigator = () => {
         name="Live Session"
         component={MovellaScreen}
         options={{
+            HeaderTitle: t('Live Session'),
+            tabBarLabel: t('Live Session'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="recording-outline" size={size} color={color} />
           ),
@@ -135,6 +143,7 @@ const PatientTabNavigator = () => {
 };
 
 const DoctorTabNavigator = () => {
+    const { t, i18n } = useTranslation();
   const { colors } = useTheme();
   return (
     <Tab.Navigator
@@ -155,6 +164,8 @@ const DoctorTabNavigator = () => {
         name="Patients"
         component={DoctorHomeScreen}
         options={{
+            HeaderTitle: t('Patients'),
+            tabBarLabel: t('Patients'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people-outline" size={size} color={color} />
           ),
@@ -164,6 +175,8 @@ const DoctorTabNavigator = () => {
         name="Live Session"
         component={MovellaScreen}
         options={{
+            HeaderTitle: t('Live Session'),
+            tabBarLabel: t('Live Session'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="recording-outline" size={size} color={color} />
           ),
@@ -174,6 +187,7 @@ const DoctorTabNavigator = () => {
 };
 
 const AppNavigator = () => {
+    const { t, i18n } = useTranslation();
   const { colors, isDark } = useTheme(); 
   const { user, loading } = useAuth();
 
@@ -221,14 +235,15 @@ const AppNavigator = () => {
               name="Home"
               component={user.role?.toLowerCase() === 'doctor' ? DoctorTabNavigator : PatientTabNavigator}
               options={{ 
-                headerTitle: user.role?.toLowerCase() === 'doctor' ? 'Clinical Dashboard' : 'My Dashboard'
+                headerTitle: user.role?.toLowerCase() === 'doctor' ? t('Clinical Dashboard') : t('My Dashboard')
               }}
             />
             <Stack.Screen
               name="PatientDetail"
               component={PatientDetailScreen}
               options={{
-                headerTitle: 'Patient Details',
+                headerTitle: t('Patient Details'),
+                tabBarLabel: t('Patient Details'),
                 headerBackTitle: 'Back',
               }}
             />
@@ -236,7 +251,8 @@ const AppNavigator = () => {
               name="SessionDetail"
               component={SessionDetailScreen}
               options={{
-                headerTitle: 'Session Details',
+                headerTitle: t('Session Details'),
+                tabBarLabel: t('Session Details'),
                 headerBackTitle: 'Back',
               }}
             />
@@ -244,7 +260,8 @@ const AppNavigator = () => {
               name="ExerciseDetail"
               component={ExerciseDetailScreen}
               options={{
-                headerTitle: 'Exercise',
+                headerTitle: t('Exercise'),
+                tabBarLabel: t('Exercise'),
                 headerBackTitle: 'Back',
               }}
             />
@@ -252,7 +269,8 @@ const AppNavigator = () => {
               name="ExerciseHistoryDetail"
               component={ExerciseHistoryDetailScreen}
               options={{
-                headerTitle: 'Session Detail',
+                headerTitle: t('Session Details'),
+                tabBarLabel: t('Session Details'),
                 headerBackTitle: 'Back',
               }}
             />
@@ -260,7 +278,8 @@ const AppNavigator = () => {
               name="CreatePatient"
               component={CreatePatientScreen}
               options={{
-                headerTitle: 'Add New Patient',
+                headerTitle: t('Add Patient'),
+                tabBarLabel: t('Add Patient'),
                 headerBackTitle: 'Back',
               }}
             />
@@ -268,7 +287,8 @@ const AppNavigator = () => {
               name="InvitePatient"
               component={CreateAccountScreen}
               options={{
-                headerTitle: 'Create Account',
+                headerTitle: t('Create Account'),
+                tabBarLabel: t('Create Account'),
                 headerBackTitle: 'Back',
               }}
             />
@@ -276,7 +296,8 @@ const AppNavigator = () => {
               name="ManageInvites"
               component={ManageInvitesScreen}
               options={{
-                headerTitle: 'Manage Invites',
+                headerTitle: t('Manage Invites'),
+                tabBarLabel: t('Manage Invites'),
                 headerBackTitle: 'Back',
               }}
             />
@@ -284,7 +305,8 @@ const AppNavigator = () => {
               name="PatientList"
               component={PatientListScreen}
               options={{
-                headerTitle: 'Patient List',
+                headerTitle: t('Patient List'),
+                tabBarLabel: t('Patient List'),
                 headerBackTitle: 'Back',
               }}
             />
@@ -292,7 +314,8 @@ const AppNavigator = () => {
               name="Profile"
               component={ProfileScreen}
               options={{
-                headerTitle: 'Profile',
+                headerTitle: t('Profile'),
+                tabBarLabel: t('Profile'),
                 headerBackTitle: 'Back',
               }}
             />
@@ -300,13 +323,14 @@ const AppNavigator = () => {
               name="BleConnection"
               component={BleConnectionScreen}
               options={{
-                headerTitle: 'Connect Sensors',
+                headerTitle: t('Connect Sensors'),
+                tabBarLabel: t('Connect Sensors'),
                 headerBackTitle: 'Back',
               }}
             />
             {/* Novas Rotas da Task IRHIS-25 */}
             <Stack.Screen 
-              name="ChangePassword" 
+              name="ChangePassword"
               component={ChangePasswordScreen} 
               options={{ headerShown: false }} 
             />

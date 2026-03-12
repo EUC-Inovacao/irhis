@@ -4,8 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 
 const AboutScreen = () => {
+    const { t, i18n } = useTranslation();
     const { colors } = useTheme();
     const navigation = useNavigation();
 
@@ -15,28 +17,28 @@ const AboutScreen = () => {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <Ionicons name="chevron-back" size={24} color={colors.text} />
                 </TouchableOpacity>
-                <Text style={[styles.title, { color: colors.text }]}>About</Text>
+                <Text style={[styles.title, { color: colors.text }]}>{t('About')}</Text>
             </View>
 
             <View style={styles.content}>
                 <View style={styles.logoContainer}>
                     <Image source={require('../../assets/logo.png')} style={styles.logo} />
                     <Text style={[styles.appName, { color: colors.text }]}>IRHIS</Text>
-                    <Text style={[styles.version, { color: colors.textSecondary }]}>Version 1.0.0 (Beta)</Text>
+                    <Text style={[styles.version, { color: colors.textSecondary }]}>{t('Version')}</Text>
                 </View>
 
                 <View style={[styles.infoContainer, { backgroundColor: colors.card }]}>
                     <Text style={[styles.description, { color: colors.text }]}>
-                        Integrated Rehabilitation Health Information System
+                        {t('Integrated Text')}
                     </Text>
                     <Text style={[styles.subtext, { color: colors.textSecondary }]}>
-                        This application is designed to help patients and doctors manage rehabilitation processes efficiently using advanced sensor technology.
+                        {t('App purpose')}
                     </Text>
                 </View>
 
                 <View style={styles.footerContainer}>
                     <Text style={[styles.footer, { color: colors.textSecondary }]}>
-                        © 2026 EUC Inovação. All rights reserved.
+                        {t('EUC Rights')}
                     </Text>
                 </View>
             </View>

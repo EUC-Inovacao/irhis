@@ -42,6 +42,7 @@ import SessionFeedbackModal from "@components/SessionFeedbackModal";
 import { usePatients } from "@context/PatientContext";
 import { getCurrentExercise } from "@services/exerciseAssignmentService";
 import { createSessionFromAnalysisResult } from "@services/sessionService";
+import { useTranslation } from 'react-i18next';
 
 interface SensorData {
   Quat_W?: number;
@@ -62,6 +63,7 @@ interface RealtimeData {
 }
 
 const MovellaScreen = () => {
+  const { t, i18n } = useTranslation();
   const { colors } = useTheme();
   const { user } = useAuth();
   const navigation = useNavigation();
@@ -289,15 +291,15 @@ const MovellaScreen = () => {
     if (user?.role?.toLowerCase() === "doctor") {
       if (!selectedPatientId) {
         Alert.alert(
-          "Select Patient",
-          "Please select a patient before uploading movement data."
+          t('Select Patient'),
+          t('Select Patient movement')
         );
         return;
       }
       if (!selectedExerciseId && !currentExercise) {
         Alert.alert(
-          "Select Exercise",
-          "Please select an exercise for this session before uploading data."
+          t('Select Exercise'),
+          t('Select Exercise movement')
         );
         return;
       }
@@ -330,7 +332,7 @@ const MovellaScreen = () => {
       }
     } catch (error) {
       console.error("Error picking document:", error);
-      Alert.alert("Error", "Failed to pick the document.");
+      Alert.alert(t('Error'), t('Failed document'));
     }
   };
 
@@ -407,14 +409,14 @@ const MovellaScreen = () => {
       await createSessionFromAnalysis(result);
 
       Alert.alert(
-        "Analysis Complete",
-        `Local analysis completed successfully!\n\nMissing sensors: ${result.missingSensors.length > 0 ? result.missingSensors.join(", ") : "None"}\n\nScroll down to view detailed results.`
+        t('Analysis Complete'),
+        `${t('Local analysis completed')} ${result.missingSensors.length > 0 ? result.missingSensors.join(", ") : t("None")}\n\n${t('Scroll')}`
       );
     } catch (error) {
       console.error("Local analysis failed:", error);
       Alert.alert(
-        "Analysis Error",
-        `Failed to analyze movement data locally: ${error}`
+        t('Analysis Error'),
+        `${t('Failed movement data')} ${error}`
       );
     } finally {
       setIsAnalyzing(false);
@@ -461,8 +463,8 @@ const MovellaScreen = () => {
     } catch (error) {
       console.error("Error processing ZIP file:", error);
       Alert.alert(
-        "Error",
-        "Failed to process the ZIP file. It might be corrupted or in an unexpected format."
+        t('Error'),
+        t('Failed ZIP')
       );
     }
   };
@@ -482,20 +484,20 @@ const MovellaScreen = () => {
         // TODO: Implement per-knee analysis with the parsed data
         // For now, we'll show a message about the new capability
         Alert.alert(
-          "Analysis Complete",
-          "Data processed successfully. Per-knee analysis will be available in the next update."
+          t('Analysis Complete'),
+          t('Data processed')
         );
       } else {
         Alert.alert(
-          "Not Enough Data",
-          "At least two sensor data files are needed to calculate joint angles."
+          t('Not Enough Data'),
+          t('Two sensor data')
         );
       }
     } catch (error) {
       console.error("Error processing data:", error);
       Alert.alert(
-        "Analysis Error",
-        "Failed to analyze movement data. Please check the file format."
+        t('Analysis Error'),
+        t('Failed analyze')
       );
     }
   };
@@ -508,7 +510,7 @@ const MovellaScreen = () => {
     return (
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Parsed Data
+          {t('Parsed Data')}
         </Text>
         {Object.entries(sensorData).map(([fileName, data]) => {
           const mapping = `Sensor ${Object.keys(sensorData).indexOf(fileName) + 1}`;
@@ -681,20 +683,20 @@ const MovellaScreen = () => {
               <Text
                 style={[styles.dataRowText, { color: colors.textSecondary }]}
               >
-                <Text style={styles.dataLabel}>Orient:</Text>{" "}
+                <Text style={styles.dataLabel}>{t('Orient')}</Text>{" "}
                 {formatQuat(orientation)}
               </Text>
               <Text
                 style={[styles.dataRowText, { color: colors.textSecondary }]}
               >
-                <Text style={styles.dataLabel}>Accel:</Text> x:
+                <Text style={styles.dataLabel}>{t('Accel')}</Text> x:
                 {formatValue(undefined)}, y:{formatValue(undefined)}, z:
                 {formatValue(undefined)}
               </Text>
               <Text
                 style={[styles.dataRowText, { color: colors.textSecondary }]}
               >
-                <Text style={styles.dataLabel}>Gyro:</Text> x:
+                <Text style={styles.dataLabel}>{t('Gyro')}</Text> x:
                 {formatValue(undefined)}, y:{formatValue(undefined)}, z:
                 {formatValue(undefined)}
               </Text>
@@ -713,7 +715,7 @@ const MovellaScreen = () => {
     return (
       <View style={styles.jointAnglesContainer}>
         <Text style={[styles.jointAnglesTitle, { color: colors.text }]}>
-          Joint Angles Detected
+          {t('Joint Angle')}
         </Text>
         {jointAnglesData.map((angleData, index) => (
           <View key={index} style={styles.jointAngleItem}>
@@ -1012,12 +1014,12 @@ const MovellaScreen = () => {
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
           <Text style={[styles.loadingText, { color: colors.text }]}>
-            Analyzing Movement Data...
+            {t('Analyzing')}
           </Text>
           <Text
             style={[styles.loadingSubtext, { color: colors.textSecondary }]}
           >
-            This may take a few moments
+            {t('Few moments')}
           </Text>
         </View>
       </View>
@@ -1034,8 +1036,8 @@ const MovellaScreen = () => {
     // Navigate to exercise management or show create exercise modal
     // For now, show an alert suggesting to assign exercise from patient detail screen
     Alert.alert(
-      "Assign Exercise",
-      "To assign a new exercise to this patient, please go to the patient's detail page and use the 'Assign Exercise' option there.",
+      t('Assign Exercise'),
+      t("Assign new exercise"),
       [{ text: "OK" }]
     );
   };
@@ -1119,7 +1121,7 @@ const MovellaScreen = () => {
     return (
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Progression Over Time
+          {t('Progression Time')}
         </Text>
         <Text
           style={[
@@ -1127,7 +1129,7 @@ const MovellaScreen = () => {
             { color: colors.textSecondary, marginBottom: 16 },
           ]}
         >
-          Last 8 sessions - showing improvement trends
+          {t('Last 8 sessions')}
         </Text>
 
         {/* ROM Chart */}
@@ -1136,7 +1138,7 @@ const MovellaScreen = () => {
             <View style={styles.chartHeaderLeft}>
               <Ionicons name="trending-up" size={20} color={colors.primary} />
               <Text style={[styles.chartTitle, { color: colors.text }]}>
-                Range of Motion (ROM)
+                {t('ROM')}
               </Text>
             </View>
             <Text style={[styles.chartValue, { color: colors.text }]}>
@@ -1164,7 +1166,7 @@ const MovellaScreen = () => {
             <View style={styles.chartHeaderLeft}>
               <Ionicons name="repeat" size={20} color={colors.success || "#4CAF50"} />
               <Text style={[styles.chartTitle, { color: colors.text }]}>
-                Repetitions
+                {t('Repetitions')}
               </Text>
             </View>
             <Text style={[styles.chartValue, { color: colors.text }]}>
@@ -1264,10 +1266,10 @@ const MovellaScreen = () => {
       >
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.text }]}>
-            Live Session
+            {t('Live Session')}
           </Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Upload and analyze your movement data
+            {t('Upload data')}
           </Text>
         </View>
 
@@ -1328,7 +1330,7 @@ const MovellaScreen = () => {
             >
               <Ionicons name="fitness-outline" size={20} color={colors.textSecondary} />
               <Text style={[styles.pickerText, { color: colors.text }]}>
-                {selectedExerciseName || "Select Exercise"}
+                {selectedExerciseName || t('Select Exercise')}
               </Text>
               <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
@@ -1339,7 +1341,7 @@ const MovellaScreen = () => {
         {user?.role?.toLowerCase() === "patient" && (
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Select Exercise
+              {t('Select Exercise')}
             </Text>
             <TouchableOpacity
               style={[
@@ -1363,7 +1365,7 @@ const MovellaScreen = () => {
             >
               <Ionicons name="fitness-outline" size={20} color={colors.textSecondary} />
               <Text style={[styles.pickerText, { color: colors.text }]}>
-                {selectedExerciseName || currentExercise?.exerciseType?.name || "Select Exercise"}
+                {selectedExerciseName || currentExercise?.exerciseType?.name || t('Select Exercise')}
               </Text>
               <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
@@ -1374,7 +1376,7 @@ const MovellaScreen = () => {
                   { color: colors.textSecondary, marginTop: 8 },
                 ]}
               >
-                No exercise assigned. Your doctor will assign exercises for you.
+                {t('No exercise assigned')}
               </Text>
             )}
           </View>
@@ -1383,7 +1385,7 @@ const MovellaScreen = () => {
         <View style={[styles.section, { backgroundColor: colors.card }]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Movement Data
+              {t('Movement Data')}
             </Text>
           </View>
 
@@ -1476,7 +1478,7 @@ const MovellaScreen = () => {
                   },
                 ]}
               >
-                BLE Stream
+                {t('BLE Stream')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -1498,7 +1500,7 @@ const MovellaScreen = () => {
                 color={colors.white}
               />
               <Text style={[styles.buttonText, { color: colors.white }]}>
-                {isAnalyzing ? "Analyzing..." : "Upload Data"}
+                {isAnalyzing ? "Analyzing..." : t('Upload Data')}
               </Text>
             </TouchableOpacity>
           )}
@@ -1511,7 +1513,7 @@ const MovellaScreen = () => {
                 color={colors.info}
               />
               <Text style={[styles.bleInfoText, { color: colors.textSecondary }]}>
-                Connect to Movella DOT sensors via Bluetooth to stream real-time data
+                {t('Connect Movella')}
               </Text>
             </View>
           )}
@@ -1560,7 +1562,7 @@ const MovellaScreen = () => {
                   { color: colors.textSecondary },
                 ]}
               >
-                Upload a movement data file to begin analysis
+                {t('Upload movement')}
               </Text>
             </View>
           )}

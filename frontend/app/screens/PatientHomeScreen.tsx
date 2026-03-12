@@ -10,8 +10,10 @@ import ActivityRings from '@components/ActivityRings';
 import ChartCard from '@components/ChartCard';
 import WeeklyFeedbackCard from '@components/WeeklyFeedbackCard';
 import ExerciseCard from '@components/ExerciseCard';
+import { useTranslation } from 'react-i18next';
 
 const PatientHomeScreen = ({ navigation }: any) => {
+    const { t, i18n } = useTranslation();
     const { colors } = useTheme();
     const { user } = useAuth();
     const { patients, assignedExercises, loading, patientDashboardError, fetchAssignedExercises, fetchPatients } = usePatients();
@@ -49,13 +51,13 @@ const PatientHomeScreen = ({ navigation }: any) => {
                 <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
                     <View style={[styles.container, styles.errorContainer]}>
                         <Ionicons name="cloud-offline-outline" size={48} color={colors.textSecondary} />
-                        <Text style={[styles.errorTitle, { color: colors.text }]}>Failed to load dashboard</Text>
+                        <Text style={[styles.errorTitle, { color: colors.text }]}>{t('Failed Dashboard')}</Text>
                         <Text style={[styles.errorText, { color: colors.textSecondary }]}>{patientDashboardError}</Text>
                         <TouchableOpacity
                             style={[styles.retryButton, { backgroundColor: colors.primary }]}
                             onPress={() => refreshDashboard()}
                         >
-                            <Text style={styles.retryButtonText}>Try again</Text>
+                            <Text style={styles.retryButtonText}>{t('Try again')}</Text>
                         </TouchableOpacity>
                     </View>
                 </SafeAreaView>
@@ -65,14 +67,14 @@ const PatientHomeScreen = ({ navigation }: any) => {
             <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
                 <View style={styles.container}>
                     <Text style={[styles.title, { color: colors.text }]}>
-                        {loading ? 'Loading...' : 'Loading dashboard...'}
+                        {loading ? t('Loading') + '...' : t('Loading') + 'dashboard...'}
                     </Text>
                     {!loading && (
                         <TouchableOpacity
                             style={[styles.retryButton, { backgroundColor: colors.primary, marginTop: 16 }]}
                             onPress={() => fetchPatients()}
                         >
-                            <Text style={styles.retryButtonText}>Retry</Text>
+                            <Text style={styles.retryButtonText}>{t('Try again')}</Text>
                         </TouchableOpacity>
                     )}
                 </View>
@@ -151,7 +153,7 @@ const PatientHomeScreen = ({ navigation }: any) => {
             >
                 <View style={styles.header}>
                     <View>
-                        <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>Welcome back,</Text>
+                        <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>{t('Welcome')}</Text>
                         <Text style={[styles.title, { color: colors.text }]}>{patient.name}</Text>
                     </View>
                     {/* Botão Connect Watch removido conforme ticket IRHIS-18 */}
@@ -171,9 +173,9 @@ const PatientHomeScreen = ({ navigation }: any) => {
                 <View style={[styles.progressCard, { backgroundColor: colors.primary, marginBottom: 20 }]}>
                     {/* <ActivityRings data={activityData} size={180} /> */}
                     <View style={styles.progressInfo}>
-                        <Text style={[styles.progressTitle, { color: "#FFF" }]}>Today's Progress</Text>
+                        <Text style={[styles.progressTitle, { color: "#FFF" }]}>{t('Today Progress')}</Text>
                         <Text style={[styles.progressText, { color: "rgba(255,255,255,0.9)" }]}>
-                        {`${completedExercises} of ${totalExercises} exercises completed`}
+                        {`${completedExercises} ${t('of')} ${totalExercises} ${t('exercises completed')}`}
                         </Text>
                     </View>
                 </View>
@@ -227,10 +229,10 @@ const PatientHomeScreen = ({ navigation }: any) => {
 
                 <WeeklyFeedbackCard onSubmit={handleWeeklyFeedbackSubmit} />
 
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Your Exercises</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('Your Exercises')}</Text>
                 {assignedList.length > 0 ? (
                     <>
-                        <Text style={[styles.subsectionTitle, { color: colors.textSecondary }]}>Assigned</Text>
+                        <Text style={[styles.subsectionTitle, { color: colors.textSecondary }]}>{t('Assigned')}</Text>
                         <FlatList
                             data={assignedList}
                             renderItem={renderExerciseItem}
@@ -242,7 +244,7 @@ const PatientHomeScreen = ({ navigation }: any) => {
                 ) : null}
                 {completedList.length > 0 ? (
                     <>
-                        <Text style={[styles.subsectionTitle, { color: colors.textSecondary }]}>Completed</Text>
+                        <Text style={[styles.subsectionTitle, { color: colors.textSecondary }]}>{t('Completed')}</Text>
                         <FlatList
                             data={completedList}
                             renderItem={renderExerciseItem}
@@ -255,7 +257,7 @@ const PatientHomeScreen = ({ navigation }: any) => {
                             onPress={() => navigation.navigate('History')}
                         >
                             <Ionicons name="time-outline" size={20} color={colors.primary} />
-                            <Text style={[styles.historyLinkText, { color: colors.primary }]}>View full history</Text>
+                            <Text style={[styles.historyLinkText, { color: colors.primary }]}>{t('View full history')}</Text>
                         </TouchableOpacity>
                     </>
                 ) : null}
@@ -263,10 +265,10 @@ const PatientHomeScreen = ({ navigation }: any) => {
                     <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
                         <Ionicons name="fitness-outline" size={48} color={colors.textSecondary} />
                         <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                            No Exercises Assigned
+                            {t('No Exercises Assigned')}
                         </Text>
                         <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                            Your doctor will assign exercises for you to complete.
+                            {t('doctor assign exercises')}
                         </Text>
                     </View>
                 ) : null}

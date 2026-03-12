@@ -4,8 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 
 const ChangePasswordScreen = () => {
+    const { t, i18n } = useTranslation();
     const { colors } = useTheme();
     const navigation = useNavigation();
 
@@ -31,7 +33,7 @@ const ChangePasswordScreen = () => {
 
     const handleSave = () => {
         if (isValid) {
-            Alert.alert("Success", "Password updated successfully.", [{ text: "OK", onPress: () => navigation.goBack() }]);
+            Alert.alert(t('Success'), t('Password updated'), [{ text: "OK", onPress: () => navigation.goBack() }]);
         }
     };
 
@@ -49,25 +51,25 @@ const ChangePasswordScreen = () => {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <Ionicons name="chevron-back" size={24} color={colors.text} />
                 </TouchableOpacity>
-                <Text style={[styles.navTitle, { color: colors.text }]}>Create a New Password</Text>
+                <Text style={[styles.navTitle, { color: colors.text }]}>{t('New Password')}</Text>
             </View>
 
             <ScrollView contentContainerStyle={styles.container}>
                 <View style={styles.contentHeader}>
-                    <Text style={[styles.title, { color: colors.text }]}>Create a New Password</Text>
+                    <Text style={[styles.title, { color: colors.text }]}>{t('New Password')}</Text>
                     <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                        Create a secure password for your account.
+                        {t('Secure Password')}
                     </Text>
                 </View>
 
                 <View style={styles.inputGroup}>
-                    <Text style={[styles.label, { color: colors.text }]}>Password</Text>
+                    <Text style={[styles.label, { color: colors.text }]}>{t('Password')}</Text>
                     <View style={[styles.inputContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                         <TextInput 
                             style={[styles.input, { color: colors.text }]} 
                             value={password} 
                             onChangeText={setPassword} 
-                            placeholder="Enter password" 
+                            placeholder={t('Enter Password Short')}
                             placeholderTextColor={colors.textSecondary} 
                             secureTextEntry={!showPassword} 
                         />
@@ -78,13 +80,13 @@ const ChangePasswordScreen = () => {
                 </View>
 
                 <View style={styles.inputGroup}>
-                    <Text style={[styles.label, { color: colors.text }]}>Confirm Password</Text>
+                    <Text style={[styles.label, { color: colors.text }]}>{t('Confirm Password')}</Text>
                     <View style={[styles.inputContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                         <TextInput 
                             style={[styles.input, { color: colors.text }]} 
                             value={confirmPassword} 
                             onChangeText={setConfirmPassword} 
-                            placeholder="Confirm password" 
+                            placeholder={t('Confirm Password')}
                             placeholderTextColor={colors.textSecondary} 
                             secureTextEntry={!showConfirm} 
                         />
@@ -95,11 +97,11 @@ const ChangePasswordScreen = () => {
                 </View>
 
                 <View style={[styles.rulesContainer, { backgroundColor: colors.info + '15', borderColor: colors.info + '30' }]}>
-                    <Text style={[styles.rulesTitle, { color: colors.info }]}>Password requirements:</Text>
-                    <Requirement label="At least 8 characters" met={hasMinLength} />
-                    <Requirement label="One uppercase letter" met={hasUpperCase} />
-                    <Requirement label="One number" met={hasNumber} />
-                    <Requirement label="Passwords match" met={passwordsMatch} />
+                    <Text style={[styles.rulesTitle, { color: colors.info }]}>{t('Password requirements')}</Text>
+                    <Requirement label={t('8 characters')} met={hasMinLength} />
+                    <Requirement label={t('uppercase letter')} met={hasUpperCase} />
+                    <Requirement label={t('One number')} met={hasNumber} />
+                    <Requirement label={t('Passwords match')} met={passwordsMatch} />
                 </View>
 
             </ScrollView>
@@ -110,7 +112,7 @@ const ChangePasswordScreen = () => {
                     onPress={handleSave} 
                     disabled={!isValid}
                 >
-                    <Text style={styles.buttonText}>Continue</Text>
+                    <Text style={styles.buttonText}>{t('Continue')}</Text>
                 </TouchableOpacity>
             </View>
         </SafeAreaView>

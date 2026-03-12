@@ -14,8 +14,10 @@ import { useAuth } from "@context/AuthContext";
 import { usePatients } from "@context/PatientContext";
 import { useFocusEffect } from "@react-navigation/native";
 import type { Session } from "../types";
+import { useTranslation } from 'react-i18next';
 
 const ExerciseHistoryScreen = ({ navigation }: any) => {
+  const { t, i18n } = useTranslation();
   const { colors } = useTheme();
   const { user } = useAuth();
   const {
@@ -84,10 +86,10 @@ const ExerciseHistoryScreen = ({ navigation }: any) => {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <View style={styles.container}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Exercise History
+          {t('Exercise History')}
         </Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Completed sessions with metrics and feedback
+          {t('Completed sessions')}
         </Text>
         {loading && completed.length === 0 ? (
           <Text style={[styles.empty, { color: colors.textSecondary }]}>
@@ -97,10 +99,10 @@ const ExerciseHistoryScreen = ({ navigation }: any) => {
           <View style={[styles.emptyCard, { backgroundColor: colors.card }]}>
             <Ionicons name="fitness-outline" size={48} color={colors.textSecondary} />
             <Text style={[styles.emptyTitle, { color: colors.text }]}>
-              No completed exercises yet
+              {t('No exercises')}
             </Text>
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              Your completed sessions will appear here with metrics and feedback.
+              {t('Completed Session appear')}
             </Text>
           </View>
         ) : (
