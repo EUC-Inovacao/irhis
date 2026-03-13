@@ -1197,7 +1197,7 @@ const MovellaScreen = () => {
             <View style={styles.chartHeaderLeft}>
               <Ionicons name="speedometer" size={20} color={colors.info || "#2196F3"} />
               <Text style={[styles.chartTitle, { color: colors.text }]}>
-                Average Velocity
+                {t('Average Velocity')}
               </Text>
             </View>
             <Text style={[styles.chartValue, { color: colors.text }]}>
@@ -1228,7 +1228,7 @@ const MovellaScreen = () => {
             <View style={styles.chartHeaderLeft}>
               <Ionicons name="star" size={20} color={colors.warning || "#FF9800"} />
               <Text style={[styles.chartTitle, { color: colors.text }]}>
-                Session Score
+                {t('Session Score')}
               </Text>
             </View>
             <Text style={[styles.chartValue, { color: colors.text }]}>
@@ -1277,7 +1277,7 @@ const MovellaScreen = () => {
         {user?.role?.toLowerCase() === "doctor" && (
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Select Patient & Exercise
+              {t('Select Patient Exercise')}
             </Text>
             
             <TouchableOpacity
@@ -1291,7 +1291,7 @@ const MovellaScreen = () => {
               <Text style={[styles.pickerText, { color: colors.text }]}>
                 {selectedPatientId
                   ? patients[selectedPatientId]?.name
-                  : "Select Patient"}
+                  : t('Select Patient')}
               </Text>
               <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
@@ -1309,8 +1309,8 @@ const MovellaScreen = () => {
               onPress={async () => {
                 if (!selectedPatientId) {
                   Alert.alert(
-                    "Select Patient First",
-                    "Please select a patient before choosing an exercise."
+                    t('Select Patient First'),
+                    t('Select Select Patient First')
                   );
                   return;
                 }
@@ -1350,7 +1350,7 @@ const MovellaScreen = () => {
               ]}
               onPress={async () => {
                 if (!user?.id) {
-                  Alert.alert("Error", "User not logged in.");
+                  Alert.alert(t('Erro'), t('User not logged in'));
                   return;
                 }
                 // Force refresh assigned exercises before opening the picker
@@ -1431,23 +1431,23 @@ const MovellaScreen = () => {
                 if (user?.role?.toLowerCase() === "doctor") {
                   if (!selectedPatientId) {
                     Alert.alert(
-                      "Select Patient",
-                      "Please select a patient before starting a live BLE session."
+                      t('Select Patient'),
+                      t('Please Patient BLE')
                     );
                     return;
                   }
                   if (!selectedExerciseId && !currentExercise) {
                     Alert.alert(
-                      "Select Exercise",
-                      "Please select an exercise before starting a live BLE session."
+                      t('Select Exercise'),
+                      t('Please Exercise BLE')
                     );
                     return;
                   }
                 } else if (user?.role?.toLowerCase() === "patient") {
                   if (!selectedExerciseId && !currentExercise) {
                     Alert.alert(
-                      "Select Exercise",
-                      "Please select an exercise before starting a live BLE session."
+                      t('Select Exercise'),
+                      t('Please Exercise BLE')
                     );
                     return;
                   }
@@ -1500,7 +1500,7 @@ const MovellaScreen = () => {
                 color={colors.white}
               />
               <Text style={[styles.buttonText, { color: colors.white }]}>
-                {isAnalyzing ? "Analyzing..." : t('Upload Data')}
+                {isAnalyzing ? t('Analyzing...') : t('Upload Data')}
               </Text>
             </TouchableOpacity>
           )}
@@ -1579,7 +1579,7 @@ const MovellaScreen = () => {
         {analysisResult && (
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              External API Analysis
+              {t('External API Analysis')}
             </Text>
             <View style={styles.analysisResultContainer}>
               <View style={styles.analysisMetric}>
@@ -1589,7 +1589,7 @@ const MovellaScreen = () => {
                     { color: colors.textSecondary },
                   ]}
                 >
-                  Status
+                  {t('Status')}
                 </Text>
                 <Text
                   style={[
@@ -1597,7 +1597,7 @@ const MovellaScreen = () => {
                     { color: analysisResult.success ? "#4CAF50" : "#F44336" },
                   ]}
                 >
-                  {analysisResult.success ? "Success" : "Failed"}
+                  {analysisResult.success ? t('Success') : t('Failed')}
                 </Text>
               </View>
 
@@ -1613,7 +1613,7 @@ const MovellaScreen = () => {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        Joints Detected
+                        {t('Joints Detected')}
                       </Text>
                       <Text
                         style={[styles.analysisValue, { color: colors.text }]}
@@ -1629,7 +1629,7 @@ const MovellaScreen = () => {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        Frames Analyzed
+                        {t('Frames Analyzed')}
                       </Text>
                       <Text
                         style={[styles.analysisValue, { color: colors.text }]}
@@ -1652,7 +1652,7 @@ const MovellaScreen = () => {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        Repetitions
+                        {t('Repetitions')}
                       </Text>
                       <Text
                         style={[styles.analysisValue, { color: colors.text }]}
@@ -1668,7 +1668,7 @@ const MovellaScreen = () => {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        Average ROM
+                        {t('Average ROM')}
                       </Text>
                       <Text
                         style={[styles.analysisValue, { color: colors.text }]}
@@ -1687,7 +1687,7 @@ const MovellaScreen = () => {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        Dominant Side
+                        {t('Dominant Side')}
                       </Text>
                       <Text
                         style={[styles.analysisValue, { color: colors.text }]}
@@ -1703,7 +1703,7 @@ const MovellaScreen = () => {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        Reps/Min
+                        {t('Reps/Min')}
                       </Text>
                       <Text
                         style={[styles.analysisValue, { color: colors.text }]}
@@ -1721,7 +1721,7 @@ const MovellaScreen = () => {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        Left Side Weight
+                        {t('Left Side Weight')}
                       </Text>
                       <Text
                         style={[styles.analysisValue, { color: colors.text }]}
@@ -1740,7 +1740,7 @@ const MovellaScreen = () => {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        Right Side Weight
+                        {t('Right Side Weight')}
                       </Text>
                       <Text
                         style={[styles.analysisValue, { color: colors.text }]}
@@ -1764,7 +1764,7 @@ const MovellaScreen = () => {
                                 { color: colors.textSecondary },
                               ]}
                             >
-                              Max Velocity
+                              {t('Max Velocity')}
                             </Text>
                             <Text
                               style={[
@@ -1786,7 +1786,7 @@ const MovellaScreen = () => {
                                 { color: colors.textSecondary },
                               ]}
                             >
-                              Min Velocity
+                              {t('Min Velocity')}
                             </Text>
                             <Text
                               style={[
@@ -1808,7 +1808,7 @@ const MovellaScreen = () => {
                                 { color: colors.textSecondary },
                               ]}
                             >
-                              Average Velocity
+                              {t('Average Velocity')}
                             </Text>
                             <Text
                               style={[
@@ -1837,7 +1837,7 @@ const MovellaScreen = () => {
                                 { color: colors.textSecondary },
                               ]}
                             >
-                              Time per Rep
+                              {t('Time per Rep')}
                             </Text>
                             <Text
                               style={[
@@ -1859,7 +1859,7 @@ const MovellaScreen = () => {
                                 { color: colors.textSecondary },
                               ]}
                             >
-                              Sets
+                              {t('Sets')}
                             </Text>
                             <Text
                               style={[
@@ -1884,7 +1884,7 @@ const MovellaScreen = () => {
                                 { color: colors.textSecondary },
                               ]}
                             >
-                              Stride Length
+                              {t('Stride Length')}
                             </Text>
                             <Text
                               style={[
@@ -1906,7 +1906,7 @@ const MovellaScreen = () => {
                                 { color: colors.textSecondary },
                               ]}
                             >
-                              Stride Speed
+                              {t('Stride Speed')}
                             </Text>
                             <Text
                               style={[
@@ -1928,7 +1928,7 @@ const MovellaScreen = () => {
                                 { color: colors.textSecondary },
                               ]}
                             >
-                              Asymmetry
+                              {t('Asymmetry')}
                             </Text>
                             <Text
                               style={[
@@ -1958,12 +1958,12 @@ const MovellaScreen = () => {
                         { color: colors.textSecondary },
                       ]}
                     >
-                      No movement data available
+                      {t('No movement data')}
                     </Text>
                     <Text
                       style={[styles.analysisValue, { color: colors.text }]}
                     >
-                      Please try with a different file
+                      {t('Different file')}
                     </Text>
                   </View>
                 )}
@@ -1976,7 +1976,7 @@ const MovellaScreen = () => {
                       { color: colors.textSecondary },
                     ]}
                   >
-                    Error Message
+                    {t('Error Message')}
                   </Text>
                   <Text style={[styles.analysisValue, { color: "#F44336" }]}>
                     {analysisResult.message}
@@ -1999,7 +1999,7 @@ const MovellaScreen = () => {
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <View style={{ marginTop: 20 }}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Per-Knee Analysis
+                {t('Per-Knee Analysis')}
               </Text>
               <Text
                 style={{
@@ -2009,7 +2009,7 @@ const MovellaScreen = () => {
                 }}
               >
                 {perKneeAnalysisResult
-                  ? `Left: ${perKneeAnalysisResult.leftKnee.metrics.rangeOfMotion.toFixed(1)}°, Right: ${perKneeAnalysisResult.rightKnee.metrics.rangeOfMotion.toFixed(1)}°`
+                  ? `${t('Left')} ${perKneeAnalysisResult.leftKnee.metrics.rangeOfMotion.toFixed(1)}°, ${t('Right')} ${perKneeAnalysisResult.rightKnee.metrics.rangeOfMotion.toFixed(1)}°`
                   : "No per-knee data available"}
               </Text>
 
