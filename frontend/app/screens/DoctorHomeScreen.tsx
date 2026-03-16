@@ -8,6 +8,8 @@ import type { DoctorPatientItem } from '../services/doctorService';
 import PatientCard from '@components/PatientCard';
 import PendingInviteCard from '@components/PendingInviteCard';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
+
 
 interface StatCardProps {
     icon: keyof typeof Ionicons.glyphMap;
@@ -42,6 +44,7 @@ const StatCard: React.FC<StatCardProps> = ({ icon, value, label, color }) => {
 };
 
 const DoctorHomeScreen = ({ navigation }: any) => {
+    const { t, i18n } = useTranslation();
     const { colors } = useTheme();
     const { user } = useAuth();
     const {
@@ -70,7 +73,7 @@ const DoctorHomeScreen = ({ navigation }: any) => {
         <>
             <View style={styles.header}>
                 <View>
-                    <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>Welcome,</Text>
+                    <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>{t('Welcome')},</Text>
                     <Text style={[styles.title, { color: colors.text }]}>{user?.name}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 12 }}>
@@ -88,13 +91,13 @@ const DoctorHomeScreen = ({ navigation }: any) => {
                     <StatCard
                         icon="people"
                         value={dashboardKpis.totalPatients}
-                        label="Total Patients"
+                        label={t('Total Patients')}
                         color={colors.purple[500]}
                     />
                     <StatCard
                         icon="fitness"
                         value={dashboardKpis.activePatients}
-                        label="Active"
+                        label={t('Active')}
                         color={colors.success}
                     />
                     <StatCard
@@ -106,7 +109,7 @@ const DoctorHomeScreen = ({ navigation }: any) => {
                                 ? `${Math.round(dashboardKpis.avgProgress)}%`
                                 : "—"
                         }
-                        label="Avg. Progress"
+                        label={t('Avg. Progress')}
                         color={colors.warning}
                     />
                 </View>
@@ -114,7 +117,7 @@ const DoctorHomeScreen = ({ navigation }: any) => {
 
             {metricsSummary.length > 0 && (
                 <View style={[styles.quickView, { backgroundColor: colors.card }]}>
-                    <Text style={[styles.quickViewTitle, { color: colors.text }]}>Latest metrics</Text>
+                    <Text style={[styles.quickViewTitle, { color: colors.text }]}>{t('Latest metrics')}</Text>
                     {metricsSummary.slice(0, 5).map((metric, idx) => (
                         <View key={idx} style={styles.quickViewRow}>
                             <Text style={[styles.quickViewName, { color: colors.text }]} numberOfLines={1}>{metric.patientName}</Text>
@@ -131,7 +134,7 @@ const DoctorHomeScreen = ({ navigation }: any) => {
 
             {recentActivity.length > 0 && (
                 <View style={[styles.quickView, { backgroundColor: colors.card }]}>
-                    <Text style={[styles.quickViewTitle, { color: colors.text }]}>Recent activity</Text>
+                    <Text style={[styles.quickViewTitle, { color: colors.text }]}>{t('Recent activity')}</Text>
                     {recentActivity.slice(0, 5).map((activity, idx) => (
                         <View key={idx} style={styles.quickViewRow}>
                             <Text style={[styles.quickViewName, { color: colors.text }]} numberOfLines={1}>{activity.patientName}</Text>
@@ -148,20 +151,20 @@ const DoctorHomeScreen = ({ navigation }: any) => {
 
             {trends !== null && (
                 <View style={[styles.quickView, { backgroundColor: colors.card }]}>
-                    <Text style={[styles.quickViewTitle, { color: colors.text }]}>Trends (last 30 days)</Text>
+                    <Text style={[styles.quickViewTitle, { color: colors.text }]}>{t('Trends')}</Text>
                     <View style={[styles.quickViewRow, { marginBottom: 4 }]}>
                         <Text style={[styles.quickViewMeta, { color: colors.textSecondary }]}>
-                            Avg. Pain: {trends.avgPain.toFixed(1)}/10
+                            {t('Avg. Pain')}: {trends.avgPain.toFixed(1)}/10
                         </Text>
                     </View>
                     <View style={[styles.quickViewRow, { marginBottom: 4 }]}>
                         <Text style={[styles.quickViewMeta, { color: colors.textSecondary }]}>
-                            Avg. Fatigue: {trends.avgFatigue.toFixed(1)}/10
+                           { t('Avg. Fatigue')}: {trends.avgFatigue.toFixed(1)}/10
                         </Text>
                     </View>
                     <View style={[styles.quickViewRow, { marginBottom: 0 }]}>
                         <Text style={[styles.quickViewMeta, { color: colors.textSecondary }]}>
-                            Avg. Difficulty: {trends.avgDifficulty.toFixed(1)}/10
+                            {t('Avg. Difficulty')}: {trends.avgDifficulty.toFixed(1)}/10
                         </Text>
                     </View>
                 </View>
@@ -183,14 +186,14 @@ const DoctorHomeScreen = ({ navigation }: any) => {
 
                 return (
                     <View style={[styles.quickView, { backgroundColor: colors.card }]}>
-                        <Text style={[styles.quickViewTitle, { color: colors.text }]}>Patients needing attention</Text>
+                        <Text style={[styles.quickViewTitle, { color: colors.text }]}>{t('Patients needing attention')}</Text>
                         {patientsNeedingAttention.slice(0, 5).map((item) => (
                             <View key={item.id} style={styles.quickViewRow}>
                                 <Text style={[styles.quickViewName, { color: colors.text }]} numberOfLines={1}>
                                     {item.name}
                                 </Text>
                                 <Text style={[styles.quickViewMeta, { color: colors.textSecondary }]}>
-                                    No exercises assigned
+                                    {t('No Exercises Assigned')}
                                 </Text>
                             </View>
                         ))}
@@ -200,12 +203,12 @@ const DoctorHomeScreen = ({ navigation }: any) => {
 
             {latestFeedback.length > 0 && (
                 <View style={[styles.quickView, { backgroundColor: colors.card }]}>
-                    <Text style={[styles.quickViewTitle, { color: colors.text }]}>Latest feedback</Text>
+                    <Text style={[styles.quickViewTitle, { color: colors.text }]}>{t('Latest feedback')}</Text>
                     {latestFeedback.slice(0, 5).map((fb) => (
                         <View key={fb.id} style={styles.quickViewRow}>
                             <Text style={[styles.quickViewName, { color: colors.text }]} numberOfLines={1}>{fb.patientName}</Text>
                             <Text style={[styles.quickViewMeta, { color: colors.textSecondary }]}>
-                                Pain {fb.pain ?? '—'}/10 · Fatigue {fb.fatigue ?? '—'}/10 · Difficulty {fb.difficulty ?? '—'}/10
+                                {t('Pain')} {fb.pain ?? '—'}/10 · {t('Fatigue')} {fb.fatigue ?? '—'}/10 · {t('Difficulty')} {fb.difficulty ?? '—'}/10
                             </Text>
                             {fb.comments ? <Text style={[styles.quickViewComment, { color: colors.textSecondary }]} numberOfLines={2}>{fb.comments}</Text> : null}
                         </View>
@@ -237,10 +240,10 @@ const DoctorHomeScreen = ({ navigation }: any) => {
             <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
                 <View style={[styles.errorContainer, { backgroundColor: colors.card }]}>
                     <Ionicons name="cloud-offline-outline" size={48} color={colors.textSecondary} />
-                    <Text style={[styles.errorTitle, { color: colors.text }]}>Failed to load dashboard</Text>
+                    <Text style={[styles.errorTitle, { color: colors.text }]}>{t('Failed Dashboard')}</Text>
                     <Text style={[styles.errorText, { color: colors.textSecondary }]}>{doctorDashboardError}</Text>
                     <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={() => fetchPatients()}>
-                        <Text style={styles.retryButtonText}>Try again</Text>
+                        <Text style={styles.retryButtonText}>{t('Try again')}</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -259,9 +262,9 @@ const DoctorHomeScreen = ({ navigation }: any) => {
                 ListEmptyComponent={
                     <View style={[styles.emptyContainer, { backgroundColor: colors.card }]}>
                         <Ionicons name="people-outline" size={48} color={colors.textSecondary} />
-                        <Text style={[styles.emptyTitle, { color: colors.text }]}>No patients assigned yet</Text>
+                        <Text style={[styles.emptyTitle, { color: colors.text }]}>{t('No patients assigned yet')}</Text>
                         <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                            Patients will appear here once they are assigned to you.
+                            {t('Patients will appear')}
                         </Text>
                     </View>
                 }

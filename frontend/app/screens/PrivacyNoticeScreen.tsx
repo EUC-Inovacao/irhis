@@ -4,8 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 
 const PrivacyNoticeScreen = () => {
+    const { t, i18n } = useTranslation();
     const { colors } = useTheme();
     const navigation = useNavigation();
 
@@ -15,33 +17,33 @@ const PrivacyNoticeScreen = () => {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <Ionicons name="chevron-back" size={24} color={colors.text} />
                 </TouchableOpacity>
-                <Text style={[styles.title, { color: colors.text }]}>Privacy Notice</Text>
+                <Text style={[styles.title, { color: colors.text }]}>{t('Privacy Notice')}</Text>
             </View>
 
             <ScrollView contentContainerStyle={styles.content}>
                 <Text style={[styles.paragraph, { color: colors.text }]}>
-                    IRHIS processes personal data to provide and secure the application, support clinical workflows, and deliver patient monitoring features. Depending on how you use IRHIS, this may include:
+                    {t('IRHIS Privacy')}
                 </Text>
                 <View style={styles.bulletList}>
-                    <Text style={[styles.bulletItem, { color: colors.text }]}>• Account information (e.g., name, email, role, institution)</Text>
-                    <Text style={[styles.bulletItem, { color: colors.text }]}>• Clinical context (e.g., your association with a doctor/institution)</Text>
-                    <Text style={[styles.bulletItem, { color: colors.text }]}>• Sensor and movement data (e.g., knee/hip motion measurements) and files you upload (e.g., .zip exports)</Text>
-                    <Text style={[styles.bulletItem, { color: colors.text }]}>• Technical data (e.g., device information, logs, and diagnostics for troubleshooting and security)</Text>
+                    <Text style={[styles.bulletItem, { color: colors.text }]}>{t('Account information')}</Text>
+                    <Text style={[styles.bulletItem, { color: colors.text }]}>{t('Clinical context')}</Text>
+                    <Text style={[styles.bulletItem, { color: colors.text }]}>{t('Sensor and movement data')}</Text>
+                    <Text style={[styles.bulletItem, { color: colors.text }]}>{t('Technical data')}</Text>
                 </View>
 
-                <Text style={[styles.subHeader, { color: colors.text }]}>We process data to:</Text>
+                <Text style={[styles.subHeader, { color: colors.text }]}>{t('We process data')}</Text>
                 <View style={styles.bulletList}>
-                    <Text style={[styles.bulletItem, { color: colors.text }]}>• Provide the service and related support</Text>
-                    <Text style={[styles.bulletItem, { color: colors.text }]}>• Maintain security, prevent abuse, and comply with legal obligations</Text>
-                    <Text style={[styles.bulletItem, { color: colors.text }]}>• Improve the app’s stability and performance</Text>
+                    <Text style={[styles.bulletItem, { color: colors.text }]}>{t('Provide Service')}</Text>
+                    <Text style={[styles.bulletItem, { color: colors.text }]}>{t('Maintain security')}</Text>
+                    <Text style={[styles.bulletItem, { color: colors.text }]}>{t('Improve app')}</Text>
                 </View>
 
                 <Text style={[styles.paragraph, { color: colors.text }]}>
-                    Access to data is restricted to authorized users within the appropriate care context. We retain data only for as long as necessary for the purposes described above and applicable obligations.
+                    {t('Access data')}
                 </Text>
 
                 <Text style={[styles.paragraph, { color: colors.text }]}>
-                    To exercise your rights (access, rectification, deletion, restriction, portability, or objection, where applicable), contact <Text style={{fontWeight: 'bold'}}>support@eucinovacaoportugal.com</Text>.
+                    {t('Exercise rights')} <Text style={{fontWeight: 'bold'}}>support@eucinovacaoportugal.com</Text>.
                 </Text>
             </ScrollView>
         </SafeAreaView>
@@ -64,7 +66,7 @@ const styles = StyleSheet.create({
         marginRight: 16,
     },
     title: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: 'bold',
     },
     content: {

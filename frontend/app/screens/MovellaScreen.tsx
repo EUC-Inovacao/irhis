@@ -1138,7 +1138,7 @@ const MovellaScreen = () => {
             <View style={styles.chartHeaderLeft}>
               <Ionicons name="trending-up" size={20} color={colors.primary} />
               <Text style={[styles.chartTitle, { color: colors.text }]}>
-                {t('ROM')}
+                {t('Range of Motion (ROM)')}
               </Text>
             </View>
             <Text style={[styles.chartValue, { color: colors.text }]}>
@@ -2010,7 +2010,7 @@ const MovellaScreen = () => {
               >
                 {perKneeAnalysisResult
                   ? `${t('Left')} ${perKneeAnalysisResult.leftKnee.metrics.rangeOfMotion.toFixed(1)}°, ${t('Right')} ${perKneeAnalysisResult.rightKnee.metrics.rangeOfMotion.toFixed(1)}°`
-                  : "No per-knee data available"}
+                  : t('No per-knee data')}
               </Text>
 
               {perKneeAnalysisResult && (
@@ -2027,7 +2027,7 @@ const MovellaScreen = () => {
                             { color: colors.primary },
                           ]}
                         >
-                          Left Knee
+                          {t('Left Knee')}
                         </Text>
                       </View>
 
@@ -2038,7 +2038,7 @@ const MovellaScreen = () => {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          Repetitions
+                          {t('Repetitions')}
                         </Text>
                         <Text
                           style={[styles.analysisValue, { color: colors.text }]}
@@ -2057,7 +2057,7 @@ const MovellaScreen = () => {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          ROM
+                          {t('ROM')}
                         </Text>
                         <Text
                           style={[styles.analysisValue, { color: colors.text }]}
@@ -2076,7 +2076,7 @@ const MovellaScreen = () => {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          Max Flexion
+                          {t('Max Flexion')}
                         </Text>
                         <Text
                           style={[styles.analysisValue, { color: colors.text }]}
@@ -2095,7 +2095,7 @@ const MovellaScreen = () => {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          Max Extension
+                          {t('Max Extension')}
                         </Text>
                         <Text
                           style={[styles.analysisValue, { color: colors.text }]}
@@ -2114,7 +2114,7 @@ const MovellaScreen = () => {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          Avg Velocity
+                          {t('Avg Velocity')}
                         </Text>
                         <Text
                           style={[styles.analysisValue, { color: colors.text }]}
@@ -2138,7 +2138,7 @@ const MovellaScreen = () => {
                             { color: colors.primary },
                           ]}
                         >
-                          Right Knee
+                          {t('Right Knee')}
                         </Text>
                       </View>
 
@@ -2149,7 +2149,7 @@ const MovellaScreen = () => {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          Repetitions
+                          {t('Repetitions')}
                         </Text>
                         <Text
                           style={[styles.analysisValue, { color: colors.text }]}
@@ -2168,7 +2168,7 @@ const MovellaScreen = () => {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          ROM
+                          {t('ROM')}
                         </Text>
                         <Text
                           style={[styles.analysisValue, { color: colors.text }]}
@@ -2187,7 +2187,7 @@ const MovellaScreen = () => {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          Max Flexion
+                          {t('Max Flexion')}
                         </Text>
                         <Text
                           style={[styles.analysisValue, { color: colors.text }]}
@@ -2206,7 +2206,7 @@ const MovellaScreen = () => {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          Max Extension
+                          {t('Max Extension')}
                         </Text>
                         <Text
                           style={[styles.analysisValue, { color: colors.text }]}
@@ -2225,7 +2225,7 @@ const MovellaScreen = () => {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          Avg Velocity
+                          {t('Average Velocity')}
                         </Text>
                         <Text
                           style={[styles.analysisValue, { color: colors.text }]}
@@ -2250,7 +2250,7 @@ const MovellaScreen = () => {
                               { color: colors.text },
                             ]}
                           >
-                            Asymmetry Analysis
+                            {t('Asymmetry Analysis')}
                           </Text>
                         </View>
 
@@ -2261,7 +2261,7 @@ const MovellaScreen = () => {
                               { color: colors.textSecondary },
                             ]}
                           >
-                            ROM Difference
+                            {t('ROM Difference')}
                           </Text>
                           <Text
                             style={[
@@ -2283,7 +2283,7 @@ const MovellaScreen = () => {
                               { color: colors.textSecondary },
                             ]}
                           >
-                            Repetition Difference
+                            {t('Repetition Difference')}
                           </Text>
                           <Text
                             style={[
@@ -2305,7 +2305,7 @@ const MovellaScreen = () => {
                               { color: colors.textSecondary },
                             ]}
                           >
-                            Dominant Side
+                            {t('Dominant Side')}
                           </Text>
                           <Text
                             style={[

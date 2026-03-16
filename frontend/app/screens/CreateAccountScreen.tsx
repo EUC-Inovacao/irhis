@@ -266,7 +266,7 @@ const CreateAccountScreen = () => {
           {/* Birth Date Input - Only for Patients */}
           {role === 'patient' && (
             <>
-              <Text style={[styles.label, { color: colors.text }]}>{t('Date Birth')}</Text>
+              <Text style={[styles.label, { color: colors.text }]}>{t('Date Birth')} *</Text>
               <TextInput
                 style={[styles.input, { borderColor: colors.border, color: colors.text }]}
                 placeholder="DD/MM/YYYY"
