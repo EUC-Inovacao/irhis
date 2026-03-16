@@ -5,6 +5,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  Button,
   StyleSheet,
   Image,
   Alert,
@@ -59,7 +60,7 @@ const LoginScreen = ({ navigation }: any) => {
                 style={styles.logo}
             />
             <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>
-                {t('welcome')}
+                {t('Welcome back')}
             </Text>
             <Text style={[styles.title, { color: colors.text }]}>TwinRehab</Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
@@ -146,6 +147,30 @@ const LoginScreen = ({ navigation }: any) => {
             </View>
 
             </View>
+            <Text style={[styles.TextLang, { color: colors.textSecondary }]}>
+                {t('Lang')}
+            </Text>
+            <View style={styles.ViewLang}>
+                  <TouchableOpacity style={[styles.ButtonLang,{ marginRight: 10, backgroundColor: colors.primary}]}
+                  onPress={() => i18n.changeLanguage("en")}
+                  >
+                  <Image
+                        source={require("../../assets/EN-Flag.png")}
+                        style={styles.Flag}
+                  />
+                    <Text style={[styles.TextButton, { color: colors.white, textAlign:"center", justifyContent:"center"}]}>EN</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.ButtonLang, { backgroundColor: colors.primary}]}
+                        title="PT"
+                        onPress={() => i18n.changeLanguage("pt")}
+                        >
+                        <Image
+                            source={require("../../assets/PT-Flag.png")}
+                            style={styles.Flag}
+                        />
+                          <Text style={[styles.TextButton, { color: colors.white, textAlign:"center", justifyContent:"center"}]}>PT</Text>
+                        </TouchableOpacity>
+                  </View>
 
             <View style={styles.footer}>
             <Image
@@ -166,6 +191,36 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  TextLang:{
+      fontSize:14,
+      textAlign:"center",
+      padding:10
+      },
+  ViewLang:{
+    flexDirection: "row",
+    alignSelf:"center",
+    justifyContent:"center",
+  },
+  ButtonLang:{
+       backgroundColor:"gray",
+       width:70,
+       height:30,
+       borderRadius:6,
+       alignItems:"center",
+       justifyContent:"center",
+       flexDirection:"row"
+  },
+  TextButton:{
+      color:"white",
+      textAlign:"center",
+  },
+  Flag:{
+      height:30,
+      maxWidth:30,
+      width:"100%",
+      resizeMode: "contain",
+      marginRight:5
+      },
   header: {
     alignItems: "center",
     paddingTop: 40,
