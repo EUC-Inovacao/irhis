@@ -4,6 +4,7 @@ import { LineChart, BarChart } from "react-native-chart-kit";
 import { useTheme } from "@theme/ThemeContext";
 import { getSessionHistory } from "@services/sessionService";
 import { getPatientFeedback } from "@services/feedbackService";
+import { useTranslation } from "react-i18next"
 
 interface PatientProgressGraphsProps {
   patientId: string;
@@ -12,6 +13,7 @@ interface PatientProgressGraphsProps {
 const PatientProgressGraphs: React.FC<PatientProgressGraphsProps> = ({
   patientId,
 }) => {
+  const { t, i18n } = useTranslation();
   const { colors } = useTheme();
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,10 +56,10 @@ const PatientProgressGraphs: React.FC<PatientProgressGraphsProps> = ({
     return (
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Progress Overview
+          {t('Progress Overview')}
         </Text>
         <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-          Loading progress data...
+          {t('Loading progress data')}...
         </Text>
       </View>
     );
@@ -67,11 +69,10 @@ const PatientProgressGraphs: React.FC<PatientProgressGraphsProps> = ({
     return (
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Progress Overview
+          {t('Progress Overview')}
         </Text>
         <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-          No session metrics available yet. Once you analyze or record
-          exercises, ROM, repetitions, and other metrics will appear here.
+          {t('No session metrics')}
         </Text>
       </View>
     );
@@ -105,11 +106,11 @@ const PatientProgressGraphs: React.FC<PatientProgressGraphsProps> = ({
   return (
     <View style={[styles.section, { backgroundColor: colors.card }]}>
       <Text style={[styles.sectionTitle, { color: colors.text }]}>
-        Progress Overview
+        {t('Progress Overview')}
       </Text>
       <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-        Based on {sessions.length} sessions
-        {feedbackCount ? ` and ${feedbackCount} feedback entries` : ""}.
+        Based on {sessions.length} {t('sessions')}
+        {feedbackCount ? ` and ${feedbackCount} ${t('feedback entries')}` : ""}.
       </Text>
 
       <ScrollView
@@ -120,7 +121,7 @@ const PatientProgressGraphs: React.FC<PatientProgressGraphsProps> = ({
         {/* ROM progression */}
         <View style={styles.chartCard}>
           <Text style={[styles.chartTitle, { color: colors.text }]}>
-            ROM Progression
+            {t('ROM Progression')}
           </Text>
           <LineChart
             data={{
@@ -144,7 +145,7 @@ const PatientProgressGraphs: React.FC<PatientProgressGraphsProps> = ({
         {/* Repetitions progression */}
         <View style={styles.chartCard}>
           <Text style={[styles.chartTitle, { color: colors.text }]}>
-            Repetitions
+            {t('Repetitions')}
           </Text>
           <BarChart
             data={{
@@ -165,7 +166,7 @@ const PatientProgressGraphs: React.FC<PatientProgressGraphsProps> = ({
         {scoreData.some((v) => v && v > 0) && (
           <View style={styles.chartCard}>
             <Text style={[styles.chartTitle, { color: colors.text }]}>
-              Session Score
+              {t('Session Score')}
             </Text>
             <LineChart
               data={{

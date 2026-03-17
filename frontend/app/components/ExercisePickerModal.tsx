@@ -12,6 +12,7 @@ import {
 import { useTheme } from "@theme/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { getAvailableExercises, getAssignedExercises, ExerciseTypeRecord } from "@services/exerciseAssignmentService";
+import { useTranslation } from 'react-i18next';
 
 interface ExercisePickerModalProps {
   visible: boolean;
@@ -32,6 +33,7 @@ const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
   showCreateOption = false,
   onCreateNew,
 }) => {
+  const { t, i18n } = useTranslation();
   const { colors } = useTheme();
   const [exercises, setExercises] = useState<ExerciseTypeRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -214,7 +216,7 @@ const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
                       { color: colors.textSecondary },
                     ]}
                   >
-                    {item.targetSets} sets
+                    {item.targetSets} {t('sets')}
                   </Text>
                 </View>
               )}

@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { useTheme } from "@theme/ThemeContext";
 import { AnalysisResult } from "@types";
+import { useTranslation } from 'react-i18next';
 
 interface LocalAnalysisResultsProps {
   result: AnalysisResult;
@@ -10,6 +11,7 @@ interface LocalAnalysisResultsProps {
 const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
   result,
 }) => {
+  const { t, i18n } = useTranslation();
   const { colors } = useTheme();
 
   const renderMetricCard = (title: string, metrics: any, side: string) => (
@@ -23,7 +25,7 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
       <View style={styles.metricsGrid}>
         <View style={styles.metricRow}>
           <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-            ROM (°)
+            {t('ROM')} (°)
           </Text>
           <Text style={[styles.metricValue, { color: colors.text }]}>
             {metrics.rom.toFixed(1)}
@@ -31,7 +33,7 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
         </View>
         <View style={styles.metricRow}>
           <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-            Max Flexion (°)
+            {t('Max Flexion')} (°)
           </Text>
           <Text style={[styles.metricValue, { color: colors.text }]}>
             {metrics.maxFlexion.toFixed(1)}
@@ -39,7 +41,7 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
         </View>
         <View style={styles.metricRow}>
           <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-            Max Extension (°)
+            {t('Max Extension')} (°)
           </Text>
           <Text style={[styles.metricValue, { color: colors.text }]}>
             {metrics.maxExtension.toFixed(1)}
@@ -47,7 +49,7 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
         </View>
         <View style={styles.metricRow}>
           <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-            Avg Velocity (°/s)
+            {t('Average Velocity')} (°/s)
           </Text>
           <Text style={[styles.metricValue, { color: colors.text }]}>
             {metrics.avgVelocity.toFixed(1)}
@@ -55,7 +57,7 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
         </View>
         <View style={styles.metricRow}>
           <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-            Peak Velocity (°/s)
+            {t('Peak Velocity')} (°/s)
           </Text>
           <Text style={[styles.metricValue, { color: colors.text }]}>
             {metrics.peakVelocity.toFixed(1)}
@@ -63,7 +65,7 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
         </View>
         <View style={styles.metricRow}>
           <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-            P95 Velocity (°/s)
+            {t('P95 Velocity')} (°/s)
           </Text>
           <Text style={[styles.metricValue, { color: colors.text }]}>
             {metrics.p95Velocity.toFixed(1)}
@@ -76,16 +78,16 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
   const renderAsymmetryCard = () => (
     <View style={[styles.asymmetryCard, { backgroundColor: colors.card }]}>
       <Text style={[styles.cardTitle, { color: colors.text }]}>
-        Asymmetry Analysis
+        {t('Asymmetry Analysis')}
       </Text>
       <View style={styles.asymmetryGrid}>
         <View style={styles.asymmetrySection}>
           <Text style={[styles.asymmetrySectionTitle, { color: colors.text }]}>
-            Knee
+            {t('Knee')}
           </Text>
           <View style={styles.metricRow}>
             <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-              ROM Difference (°)
+              {t('ROM Difference')} (°)
             </Text>
             <Text style={[styles.metricValue, { color: colors.text }]}>
               {result.asymmetry.romDifference_knee.toFixed(1)}
@@ -94,7 +96,7 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
           {/* ROM-only asymmetry per spec */}
           <View style={styles.metricRow}>
             <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-              Dominant Side
+              {t('Dominant Side')}
             </Text>
             <Text
               style={[
@@ -118,7 +120,7 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
           </Text>
           <View style={styles.metricRow}>
             <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-              ROM Difference (°)
+              {t('ROM Difference')} (°)
             </Text>
             <Text style={[styles.metricValue, { color: colors.text }]}>
               {result.asymmetry.romDifference_hip.toFixed(1)}
@@ -127,7 +129,7 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
           {/* ROM-only asymmetry per spec */}
           <View style={styles.metricRow}>
             <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-              Dominant Side
+              {t('Dominant Side')}
             </Text>
             <Text
               style={[
@@ -151,12 +153,12 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
   const renderCoMCard = () => (
     <View style={[styles.comCard, { backgroundColor: colors.card }]}>
       <Text style={[styles.cardTitle, { color: colors.text }]}>
-        Center of Mass (CoM)
+        {t('Center of Mass')} (CoM)
       </Text>
       <View style={styles.metricsGrid}>
         <View style={styles.metricRow}>
           <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-            Vertical Amplitude (cm)
+            {t('Vertical Amplitude')} (cm)
           </Text>
           <Text style={[styles.metricValue, { color: colors.text }]}>
             {result.com.verticalAmp_cm.toFixed(1)}
@@ -164,7 +166,7 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
         </View>
         <View style={styles.metricRow}>
           <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-            ML Amplitude (cm)
+            {t('ML Amplitude')} (cm)
           </Text>
           <Text style={[styles.metricValue, { color: colors.text }]}>
             {result.com.mlAmp_cm.toFixed(1)}
@@ -172,7 +174,7 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
         </View>
         <View style={styles.metricRow}>
           <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-            AP Amplitude (cm)
+            {t('AP Amplitude')} (cm)
           </Text>
           <Text style={[styles.metricValue, { color: colors.text }]}>
             {result.com.apAmp_cm.toFixed(1)}
@@ -180,7 +182,7 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
         </View>
         <View style={styles.metricRow}>
           <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-            RMS Displacement (cm)
+            {t('RMS Displacement')} (cm)
           </Text>
           <Text style={[styles.metricValue, { color: colors.text }]}>
             {result.com.rms_cm.toFixed(1)}
@@ -199,7 +201,7 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
         style={[styles.missingSensorsCard, { backgroundColor: colors.card }]}
       >
         <Text style={[styles.cardTitle, { color: colors.text }]}>
-          Missing Sensors
+          {t('Missing Sensors')}
         </Text>
         <View style={styles.missingSensorsList}>
           {result.missingSensors?.map(
@@ -245,8 +247,7 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
         <Text
           style={[styles.missingSensorsNote, { color: colors.textSecondary }]}
         >
-          Analysis performed with available sensors. Some metrics may be
-          unavailable.
+          {t('Analysis performed')}
         </Text>
       </View>
     );
@@ -257,7 +258,7 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <Text style={[styles.sectionTitle, { color: colors.text }]}>
-        Local Analysis Results
+        {t('Local Analysis Results')}
       </Text>
 
       {/* Missing Sensors */}
@@ -266,11 +267,11 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
       {/* Knee Analysis */}
       <View style={styles.jointSection}>
         <Text style={[styles.jointSectionTitle, { color: colors.text }]}>
-          Knee Analysis
+          {t('Knee Analysis')}
         </Text>
         <View style={styles.jointGrid}>
-          {renderMetricCard("Knee", result.knee.left, "Left")}
-          {renderMetricCard("Knee", result.knee.right, "Right")}
+          {renderMetricCard(t('Knee'), result.knee.left, t('Left'))}
+          {renderMetricCard(t('Knee'), result.knee.right, t('Right'))}
         </View>
       </View>
 
@@ -280,26 +281,26 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
           Hip Analysis
         </Text>
         <View style={styles.jointGrid}>
-          {renderMetricCard("Hip", result.hip.left, "Left")}
-          {renderMetricCard("Hip", result.hip.right, "Right")}
+          {renderMetricCard(t('Hip'), result.hip.left, t('Left'))}
+          {renderMetricCard(t('Hip'), result.hip.right, t('Right'))}
         </View>
       </View>
 
       {/* Movement Analysis */}
       <View style={styles.jointSection}>
         <Text style={[styles.jointSectionTitle, { color: colors.text }]}>
-          Movement Analysis
+          {t('Movement Analysis')}
         </Text>
         <View style={[styles.metricCard, { backgroundColor: colors.card }]}>
           <Text style={[styles.cardTitle, { color: colors.text }]}>
-            Overall Movement
+            {t('Overall Movement')}
           </Text>
           <View style={styles.metricsGrid}>
             <View style={styles.metricRow}>
               <Text
                 style={[styles.metricLabel, { color: colors.textSecondary }]}
               >
-                Repetitions
+                {t('Repetitions')}
               </Text>
               <Text style={[styles.metricValue, { color: colors.text }]}>
                 {result.knee.left.repetitions || 0}

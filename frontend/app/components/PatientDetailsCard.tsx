@@ -3,12 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal } from 'reac
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { PatientDetails } from '../types';
-
-/** DB accepts only 'male' | 'female' */
-const SEX_OPTIONS = [
-  { value: 'male', label: 'Male' },
-  { value: 'female', label: 'Female' },
-] as const;
+import { useTranslation } from 'react-i18next';
 
 interface PatientDetailsCardProps {
   details: PatientDetails;
@@ -42,10 +37,16 @@ const DetailItem: React.FC<{
 );
 
 const PatientDetailsCard: React.FC<PatientDetailsCardProps> = ({ details, onUpdateDetails, isEditable }) => {
+  const { t, i18n } = useTranslation();
   const { colors } = useTheme();
   const [isEditing, setIsEditing] = useState(false);
   const [editableDetails, setEditableDetails] = useState<any>(details);
   const [showSexPicker, setShowSexPicker] = useState(false);
+  /** DB accepts only 'male' | 'female' */
+  const SEX_OPTIONS = [
+    { value: 'male', label: t('Male') },
+    { value: 'female', label: t('Female') },
+  ] as const;
 
   useEffect(() => {
     setEditableDetails({
@@ -110,7 +111,7 @@ const PatientDetailsCard: React.FC<PatientDetailsCardProps> = ({ details, onUpda
   return (
     <View style={[styles.card, { backgroundColor: colors.card }]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Patient Details</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{t('Patient Details')}</Text>
         {isEditable && !isEditing && (
           <TouchableOpacity onPress={() => setIsEditing(true)}>
             <Ionicons name="pencil" size={24} color={colors.primary} />
@@ -120,7 +121,7 @@ const PatientDetailsCard: React.FC<PatientDetailsCardProps> = ({ details, onUpda
 
       <View style={styles.detailsGrid}>
         <DetailItem
-            label="Age"
+            label={t('Age')}
             value={details.age || '—'}
             isEditingValue={editableDetails.age}
             isEditing={isEditing}
@@ -129,14 +130,14 @@ const PatientDetailsCard: React.FC<PatientDetailsCardProps> = ({ details, onUpda
             colors={colors}
         />
         <View style={styles.detailItem}>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>Sex</Text>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>{t('Sex')}</Text>
           {isEditing ? (
             <TouchableOpacity
                             style={[styles.value, styles.sexButton, { color: colors.text, borderBottomColor: colors.border }]}
               onPress={() => setShowSexPicker(true)}
             >
               <Text style={[styles.value, { color: colors.text }]}>
-                                {SEX_OPTIONS.find(o => o.value === (editableDetails.sex || '').toLowerCase())?.label ?? (editableDetails.sex || 'Select...')}
+                                {SEX_OPTIONS.find(o => o.value === (editableDetails.sex || '').toLowerCase())?.label ?? (editableDetails.sex || t('Select') + '...')}
               </Text>
               <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
             </TouchableOpacity>
@@ -147,7 +148,7 @@ const PatientDetailsCard: React.FC<PatientDetailsCardProps> = ({ details, onUpda
           )}
         </View>
         <DetailItem
-            label="Height"
+            label={t('Height')}
             value={details.height && details.height > 0 ? details.height * 100 : '—'}
             unit=" cm"
             isEditingValue={editableDetails.height}
@@ -157,7 +158,7 @@ const PatientDetailsCard: React.FC<PatientDetailsCardProps> = ({ details, onUpda
             colors={colors}
         />
         <DetailItem
-          label="Weight"
+          label={t('Weight')}
           value={details.weight || '—'}
           unit=" kg"
           isEditingValue={editableDetails.weight}
@@ -167,7 +168,7 @@ const PatientDetailsCard: React.FC<PatientDetailsCardProps> = ({ details, onUpda
           colors={colors}
         />
         <DetailItem
-          label="BMI"
+          label={t('BMI')}
           value={displayBmi(isEditing ? editableDetails.bmi : details.bmi)}
           isEditingValue={""}
           isEditing={false}
@@ -177,27 +178,27 @@ const PatientDetailsCard: React.FC<PatientDetailsCardProps> = ({ details, onUpda
 
       {isEditing ? (
         <>
-          <Text style={[styles.label, { color: colors.text, marginTop: 16 }]}>Other Clinical Info</Text>
+          <Text style={[styles.label, { color: colors.text, marginTop: 16 }]}>{t('Other Clinical Info')}</Text>
           <TextInput
             style={[styles.textInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.mediumGray }]}
             value={editableDetails.clinicalInfo}
             onChangeText={(text) => updateField('clinicalInfo', text)}
             multiline
-            placeholder="Add info..."
+            placeholder={t('Add info') + "..."}
             placeholderTextColor={colors.textSecondary}
           />
           <View style={styles.buttonRow}>
             <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={handleCancel}>
-              <Text style={[styles.buttonText, { color: colors.text }]}>Cancel</Text>
+              <Text style={[styles.buttonText, { color: colors.text }]}>{t('Cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleSave}>
-              <Text style={[styles.buttonText, { color: colors.white }]}>Save Changes</Text>
+              <Text style={[styles.buttonText, { color: colors.white }]}>{t('Save Changes')}</Text>
             </TouchableOpacity>
           </View>
         </>
       ) : (
         <View style={styles.infoSection}>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>Other Clinical Info</Text>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>{t('Other Clinical Info')}</Text>
           <Text style={[styles.value, { color: colors.text }]}>{details.clinicalInfo || '—'}</Text>
         </View>
       )}
@@ -205,7 +206,7 @@ const PatientDetailsCard: React.FC<PatientDetailsCardProps> = ({ details, onUpda
       <Modal visible={showSexPicker} transparent animationType="fade">
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowSexPicker(false)}>
           <View style={[styles.sexPickerModal, { backgroundColor: colors.card }]}>
-            <Text style={[styles.sexPickerTitle, { color: colors.text }]}>Select Sex</Text>
+            <Text style={[styles.sexPickerTitle, { color: colors.text }]}>{t('Select Sex')}</Text>
             {SEX_OPTIONS.map((opt) => (
               <TouchableOpacity
                 key={opt.value}

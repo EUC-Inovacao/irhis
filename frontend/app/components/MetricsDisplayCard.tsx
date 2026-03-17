@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useTheme } from "@theme/ThemeContext";
+import { useTranslation } from 'react-i18next';
 
 /** Shared metrics display - same layout as LocalAnalysisResults / live session. */
 export interface MetricsDisplayCardProps {
@@ -28,6 +29,7 @@ const toNum = (v: unknown): number | null => {
 };
 
 const MetricsDisplayCard: React.FC<MetricsDisplayCardProps> = ({ title, sideLabel, metrics }) => {
+  const { t, i18n } = useTranslation();
   const { colors } = useTheme();
   const rom = toNum(metrics.rom);
   const maxFlexion = toNum(metrics.maxFlexion);
@@ -56,21 +58,21 @@ const MetricsDisplayCard: React.FC<MetricsDisplayCardProps> = ({ title, sideLabe
         {sideLabel} {title}
       </Text>
       <View style={styles.metricsGrid}>
-        <Row label="ROM (°)" value={rom} />
-        <Row label="Max Flexion (°)" value={maxFlexion} />
-        <Row label="Max Extension (°)" value={maxExtension} />
+        <Row label={t('ROM') + "(°)"} value={rom} />
+        <Row label={t('Max Flexion') + "(°)"} value={maxFlexion} />
+        <Row label={t('Max Extension') + "(°)"} value={maxExtension} />
         {reps !== null && (
           <View style={[styles.metricRow, { borderBottomColor: borderColor }]}>
-            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Repetitions</Text>
+            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>{t('Repetitions')}</Text>
             <Text style={[styles.metricValue, { color: colors.text }]}>{reps}</Text>
           </View>
         )}
-        <Row label="Avg Velocity (°/s)" value={avgVel} />
-        <Row label="Peak Velocity (°/s)" value={peakVel} />
-        <Row label="P95 Velocity (°/s)" value={p95Vel} />
+        <Row label={t('Average Velocity') + "(°/s)"} value={avgVel} />
+        <Row label={t('Peak Velocity') + "(°/s)"} value={peakVel} />
+        <Row label={t('P95 Velocity') + "(°/s)"} value={p95Vel} />
         {com !== null && (
           <View style={[styles.metricRow, { borderBottomColor: borderColor }]}>
-            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Center of Mass (cm)</Text>
+            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>{t('Center of Mass')} (cm)</Text>
             <Text style={[styles.metricValue, { color: colors.text }]}>{com.toFixed(2)}</Text>
           </View>
         )}

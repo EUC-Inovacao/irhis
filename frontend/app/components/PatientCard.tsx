@@ -4,8 +4,10 @@ import { useTheme } from '../theme/ThemeContext';
 import type { Patient } from '../types';
 import { Ionicons } from '@expo/vector-icons';
 import { usePatients } from '@context/PatientContext';
+import { useTranslation } from 'react-i18next';
 
 const PatientCard = ({ item, navigation }: { item: Patient; navigation: any }) => {
+    const { t, i18n } = useTranslation();
     const { colors } = useTheme();
     const { assignedExercises } = usePatients();
     const exercises = assignedExercises[item.id] || [];
@@ -43,8 +45,8 @@ const PatientCard = ({ item, navigation }: { item: Patient; navigation: any }) =
                         <View style={styles.patientMetaRow}>
                             <Text style={[styles.patientSubtext, { color: colors.textSecondary }]}>
                                 {totalExercises > 0 
-                                    ? `${completedExercises}/${totalExercises} exercises`
-                                    : 'No exercises assigned'}
+                                    ? `${completedExercises}/${totalExercises} ${t('Exercise')}`
+                                    : t('No Exercises Assigned')}
                             </Text>
                             {totalExercises > 0 && (
                                 <View style={[styles.exerciseBadge, { backgroundColor: colors.primary + '15' }]}>
@@ -79,21 +81,21 @@ const PatientCard = ({ item, navigation }: { item: Patient; navigation: any }) =
             {item.details && (
                 <View style={styles.dataPreview}>
                     <View style={styles.detailsColumn}>
-                        <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Age</Text>
+                        <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>{t('Age')}</Text>
                         <Text style={[styles.detailValue, { color: colors.text }]}>{item.details.age}</Text>
                         
-                        <Text style={[styles.detailLabel, { color: colors.textSecondary, marginTop: 12 }]}>Sex</Text>
+                        <Text style={[styles.detailLabel, { color: colors.textSecondary, marginTop: 12 }]}>{t('Sex')}</Text>
                         <Text style={[styles.detailValue, { color: colors.text }]}>{item.details.sex}</Text>
                     </View>
                     <View style={styles.detailsColumn}>
-                        <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Height</Text>
+                        <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>{t('Height')}</Text>
                         <Text style={[styles.detailValue, { color: colors.text }]}>{item.details.height} m</Text>
                         
-                        <Text style={[styles.detailLabel, { color: colors.textSecondary, marginTop: 12 }]}>Weight</Text>
+                        <Text style={[styles.detailLabel, { color: colors.textSecondary, marginTop: 12 }]}>{t('Weight')}</Text>
                         <Text style={[styles.detailValue, { color: colors.text }]}>{item.details.weight} kg</Text>
                     </View>
                     <View style={styles.detailsColumn}>
-                        <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>BMI</Text>
+                        <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>{t('BMI')}</Text>
                         <Text style={[styles.detailValue, { color: colors.text }]}>{item.details.bmi.toFixed(1)}</Text>
                     </View>
                 </View>
@@ -101,11 +103,11 @@ const PatientCard = ({ item, navigation }: { item: Patient; navigation: any }) =
 
             {latestFeedback && (
                 <View style={[styles.feedbackContainer, { borderTopColor: colors.border }]}>
-                    <Text style={[styles.feedbackTitle, { color: colors.text }]}>Latest Weekly Feedback</Text>
+                    <Text style={[styles.feedbackTitle, { color: colors.text }]}>{t('Latest Weekly Feedback')}</Text>
                     <View style={styles.feedbackGrid}>
-                        {renderFeedbackIndicator(latestFeedback.pain, 'Pain', 'bandage-outline')}
-                        {renderFeedbackIndicator(latestFeedback.fatigue, 'Fatigue', 'battery-half-outline')}
-                        {renderFeedbackIndicator(latestFeedback.difficulty, 'Difficulty', 'barbell-outline')}
+                        {renderFeedbackIndicator(latestFeedback.pain, t('Pain'), 'bandage-outline')}
+                        {renderFeedbackIndicator(latestFeedback.fatigue, t('Fatigue'), 'battery-half-outline')}
+                        {renderFeedbackIndicator(latestFeedback.difficulty, t('Difficulty'), 'barbell-outline')}
                     </View>
                     {latestFeedback.comments && (
                         <Text style={[styles.comments, { color: colors.textSecondary }]} numberOfLines={2}>

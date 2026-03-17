@@ -7,6 +7,7 @@ import { usePatients, SessionAsExercise } from '@context/PatientContext';
 import { assignExerciseToPatient, getAvailableExercises } from '@services/exerciseAssignmentService';
 import { ExerciseTypesRepository } from '@storage/repositories';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 
 interface AssignedExercisesCardProps {
     patient: Patient;
@@ -24,6 +25,7 @@ type ExerciseItem = {
 };
 
 const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, isEditable, navigation }) => {
+    const { t, i18n } = useTranslation();
     const { colors } = useTheme();
     const { assignedExercises, sessionsByPatient, fetchPatientSessions, createSession, fetchAssignedExercises } = usePatients();
     const [isEditing, setIsEditing] = useState(false);
@@ -125,13 +127,13 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
             
             setIsEditing(false);
             await fetchAssignedExercises(patient.id);
-            Alert.alert('Success', 'Exercise plan updated.');
+            Alert.alert(t('Success'), t('Exercise plan updated'));
         } catch (error) {
             // #region agent log
             fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AssignedExercisesCard.tsx:95',message:'Error saving exercises',data:{error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
             // #endregion
             console.error('Error saving exercises:', error);
-            Alert.alert('Error', `Failed to update exercise plan: ${error instanceof Error ? error.message : String(error)}`);
+            Alert.alert(t('Error'), `${t('Failed exercise update')} ${error instanceof Error ? error.message : String(error)}`);
         }
     };
 
@@ -144,7 +146,7 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
     const handleAddNewExercise = () => {
         setExercises(current => [...current, {
             id: `new_${Date.now()}`,
-            name: 'New Exercise',
+            name: t('New Exercise'),
             targetRepetitions: 10,
             targetSets: 3,
             instructions: '',
@@ -166,7 +168,7 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
                         style={[styles.input, { color: colors.text }]}
                         value={item.name}
                         onChangeText={text => handleExerciseChange(item.id, 'name', text)}
-                        placeholder="Exercise Name"
+                        placeholder={t('Exercise Name')}
                     />
                     <View style={styles.repsSetsContainer}>
                         <TextInput
@@ -182,13 +184,13 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
                             onChangeText={text => handleExerciseChange(item.id, 'targetSets', Number(text) || 0)}
                             keyboardType="number-pad"
                         />
-                        <Text style={{ color: colors.text }}>sets</Text>
+                        <Text style={{ color: colors.text }}>{t('sets')}</Text>
                     </View>
                     <TextInput
                         style={[styles.input, styles.instructionsInput, { color: colors.text }]}
                         value={item.instructions}
                         onChangeText={text => handleExerciseChange(item.id, 'instructions', text)}
-                        placeholder="Instructions"
+                        placeholder={t("Instructions")}
                     />
                 </View>
             );
@@ -204,7 +206,7 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
                     <View>
                         <Text style={[styles.exerciseName, { color: colors.text }]}>{item.name}</Text>
                         <Text style={[styles.exerciseDetails, { color: colors.textSecondary }]}>
-                            {item.targetRepetitions} reps, {item.targetSets} sets
+                            {item.targetRepetitions} {t('reps')}, {item.targetSets} {t('sets')}
                         </Text>
                     </View>
                     {!isEditable && (
@@ -218,7 +220,7 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
     return (
         <View style={[styles.card, { backgroundColor: colors.card }]}>
             <View style={styles.header}>
-                <Text style={[styles.title, { color: colors.text }]}>Assigned Exercises</Text>
+                <Text style={[styles.title, { color: colors.text }]}>{t('Assigned Exercises')}</Text>
                 {isEditable && (
                     <TouchableOpacity onPress={() => setIsEditing(!isEditing)}>
                         <Ionicons name={isEditing ? "close" : "pencil"} size={24} color={colors.primary} />
@@ -235,10 +237,10 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
                 <View style={styles.buttonRow}>
                     <TouchableOpacity style={[styles.button, styles.addButton]} onPress={handleAddNewExercise}>
                         <Ionicons name="add" size={20} color={colors.primary} />
-                        <Text style={[styles.buttonText, { color: colors.primary }]}>Add Exercise</Text>
+                        <Text style={[styles.buttonText, { color: colors.primary }]}>{t('Add Exercise')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleSave}>
-                        <Text style={[styles.buttonText, { color: colors.white }]}>Save Changes</Text>
+                        <Text style={[styles.buttonText, { color: colors.white }]}>{t('Save Changes')}</Text>
                     </TouchableOpacity>
                 </View>
             )}

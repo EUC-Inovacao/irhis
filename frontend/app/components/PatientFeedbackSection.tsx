@@ -11,6 +11,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LineChart } from "react-native-chart-kit";
 import { FeedbackRecord } from "@storage/repositories";
 import { getPatientFeedback } from "@services/feedbackService";
+import { useTranslation } from 'react-i18next';
 
 interface PatientFeedbackSectionProps {
   patientId: string;
@@ -31,6 +32,7 @@ const DEFAULT_COLORS = {
 const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
   patientId,
 }) => {
+  const { t, i18n } = useTranslation();
   const theme = useTheme();
   
   // Safely get colors with fallback - ensure it's always an object
@@ -66,10 +68,10 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
     return (
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Patient Feedback & Progression
+          {t('Patient Feedback Progression')}
         </Text>
         <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Loading feedback...
+          {t('Loading feedback')}...
         </Text>
       </View>
     );
@@ -79,7 +81,7 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
     return (
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Patient Feedback & Progression
+          {t('Patient Feedback Progression')}
         </Text>
         <View style={styles.emptyState}>
           <Ionicons
@@ -88,7 +90,7 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
             color={colors.textSecondary}
           />
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            No feedback available yet
+            {t('No feedback available yet')}
           </Text>
         </View>
       </View>
@@ -181,7 +183,7 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
   return (
     <View style={[styles.section, { backgroundColor: colors.card }]}>
       <Text style={[styles.sectionTitle, { color: colors.text }]}>
-        Patient Feedback & Progression
+        {t('Patient Feedback Progression')}
       </Text>
       <Text
         style={[
@@ -189,7 +191,7 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
           { color: colors.textSecondary, marginBottom: 16 },
         ]}
       >
-        {feedback.length} feedback entries over time
+        {feedback.length} {t('feedback entries over time')}
       </Text>
 
       {/* Summary Cards */}
@@ -207,7 +209,7 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
             {latestFeedback.pain}/10
           </Text>
           <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-            Pain Level
+            {t('Pain Level')}
           </Text>
           <Text
             style={[
@@ -216,7 +218,7 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
             ]}
           >
             {painTrend < 0 ? "↓" : painTrend > 0 ? "↑" : "→"}{" "}
-            {Math.abs(painTrend)} from start
+            {Math.abs(painTrend)} {t('from start')}
           </Text>
         </View>
 
@@ -237,7 +239,7 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
             {latestFeedback.fatigue}/10
           </Text>
           <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-            Fatigue
+            {t('Fatigue')}
           </Text>
           <Text
             style={[
@@ -246,7 +248,7 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
             ]}
           >
             {fatigueTrend < 0 ? "↓" : fatigueTrend > 0 ? "↑" : "→"}{" "}
-            {Math.abs(fatigueTrend)} from start
+            {Math.abs(fatigueTrend)} {t('from start')}
           </Text>
         </View>
 
@@ -263,7 +265,7 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
             {latestFeedback.difficulty}/10
           </Text>
           <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-            Difficulty
+            {t('Difficulty')}
           </Text>
           <Text
             style={[
@@ -272,7 +274,7 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
             ]}
           >
             {difficultyTrend < 0 ? "↓" : difficultyTrend > 0 ? "↑" : "→"}{" "}
-            {Math.abs(difficultyTrend)} from start
+            {Math.abs(difficultyTrend)} {t('from start')}
           </Text>
         </View>
       </View>
@@ -283,7 +285,7 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
           <View style={styles.chartHeaderLeft}>
             <Ionicons name="bandage-outline" size={20} color="#FF6B6B" />
             <Text style={[styles.chartTitle, { color: colors.text }]}>
-              Pain Level Over Time
+              {t('Pain Level Over Time')}
             </Text>
           </View>
           <Text style={[styles.chartValue, { color: colors.text }]}>
@@ -321,7 +323,7 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
               color={colors.warning || "#FF9800"}
             />
             <Text style={[styles.chartTitle, { color: colors.text }]}>
-              Fatigue Over Time
+              {t('Fatigue Over Time')}
             </Text>
           </View>
           <Text style={[styles.chartValue, { color: colors.text }]}>
@@ -356,7 +358,7 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
           <View style={styles.chartHeaderLeft}>
             <Ionicons name="barbell-outline" size={20} color={colors.info || "#2196F3"} />
             <Text style={[styles.chartTitle, { color: colors.text }]}>
-              Exercise Difficulty Over Time
+              {t('Exercise Difficulty Over Time')}
             </Text>
           </View>
           <Text style={[styles.chartValue, { color: colors.text }]}>
@@ -387,7 +389,7 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
       {/* Recent Feedback List */}
       <View style={styles.feedbackListContainer}>
         <Text style={[styles.feedbackListTitle, { color: colors.text }]}>
-          Recent Feedback Entries
+          {t('Recent Feedback Entries')}
         </Text>
         {feedback
           .slice()
