@@ -16,12 +16,14 @@ import type { Session } from "../types";
 import { FeedbackRepository } from "../storage/repositories";
 import SessionFeedbackModal from "@components/SessionFeedbackModal";
 import MetricsDisplayCard from "@components/MetricsDisplayCard";
+import { useTranslation } from 'react-i18next';
 
 const SessionDetailScreen = ({ route, navigation }: any) => {
   const { sessionId, patientId } = route.params as {
     sessionId: string;
     patientId: string;
   };
+  const { t, i18n } = useTranslation();
   const { colors } = useTheme();
   const { user } = useAuth();
   const [session, setSession] = useState<Session | null>(null);
@@ -75,7 +77,7 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Loading session...
+            {t('Loading session')}...
           </Text>
         </View>
       </SafeAreaView>
@@ -90,7 +92,7 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
           <Text style={[styles.errorText, { color: colors.text }]}>
-            {error || "Session not found"}
+            {error || t('Session not found')}
           </Text>
         </View>
       </SafeAreaView>
@@ -133,7 +135,7 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
         {/* Summary Card */}
         <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
           <Text style={[styles.title, { color: colors.text }]}>
-            {session.exerciseDescription || session.exerciseType || "Exercise Session"}
+            {session.exerciseDescription || session.exerciseType || t('Exercise Session')}
           </Text>
           <Text style={[styles.date, { color: colors.textSecondary }]}>
             {dateStr}
@@ -165,18 +167,18 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
 
         {/* Session info */}
         <View style={[styles.section, { backgroundColor: colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Session info</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('Session info')}</Text>
           <View style={{ gap: 8, width: "100%" }}>
             {session.duration && (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4 }}>
                 <Ionicons name="time-outline" size={20} color={colors.textSecondary} />
-                <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Duration</Text>
+                <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>{t('Duration')}</Text>
                 <Text style={[styles.metricValue, { color: colors.text, flex: 1 }]}>{session.duration}</Text>
               </View>
             )}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4 }}>
               <Ionicons name="finger-print-outline" size={20} color={colors.textSecondary} />
-              <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Session ID</Text>
+              <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>{t('Session ID')}</Text>
               <Text style={[styles.metricValue, { color: colors.text, flex: 1, fontSize: 12 }]} numberOfLines={1}>{session.id}</Text>
             </View>
           </View>
@@ -186,11 +188,11 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
         {metrics.length > 0 && (
           <View style={[styles.section, styles.metricsSection, { backgroundColor: colors.card }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Performance Metrics
+              {t('Performance Metrics')}
             </Text>
             <View style={styles.metricsSingleColumn}>
               {metrics.map((m, idx) => {
-                const joint = (m as any).Joint ?? (m as any).joint ?? "Session";
+                const joint = (m as any).Joint ?? (m as any).joint ?? t('Session');
                 const side = (m as any).Side ?? (m as any).side ?? "";
                 const sideLabel = side ? `${joint} · ${side}` : joint;
                 return (
@@ -213,7 +215,7 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
         <View style={[styles.section, { backgroundColor: colors.card }]}>
           <View style={styles.feedbackHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Patient Feedback
+              {t('Patient Feedback')}
             </Text>
             {/* Show "Provide Feedback" button for patients if no feedback exists */}
             {user?.role === "patient" && user.id === patientId && sessionFeedback.length === 0 && (
@@ -223,7 +225,7 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
               >
                 <Ionicons name="chatbubble-outline" size={18} color={colors.white} />
                 <Text style={[styles.feedbackButtonText, { color: colors.white }]}>
-                  Provide Feedback
+                  {t('Provide Feedback')}
                 </Text>
               </TouchableOpacity>
             )}
@@ -241,7 +243,7 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
                   <View style={styles.feedbackMetric}>
                     <Ionicons name="bandage-outline" size={18} color="#FF6B6B" />
                     <Text style={[styles.feedbackLabel, { color: colors.textSecondary }]}>
-                      Pain
+                      {t('Pain')}
                     </Text>
                     <Text style={[styles.feedbackValue, { color: colors.text }]}>
                       {(fb as any).Pain ?? (fb as any).pain ?? "—"}/10
@@ -250,7 +252,7 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
                   <View style={styles.feedbackMetric}>
                     <Ionicons name="battery-half-outline" size={18} color={colors.warning} />
                     <Text style={[styles.feedbackLabel, { color: colors.textSecondary }]}>
-                      Fatigue
+                      {t('Fatigue')}
                     </Text>
                     <Text style={[styles.feedbackValue, { color: colors.text }]}>
                       {(fb as any).Fatigue ?? (fb as any).fatigue ?? "—"}/10
@@ -259,7 +261,7 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
                   <View style={styles.feedbackMetric}>
                     <Ionicons name="barbell-outline" size={18} color={colors.primary} />
                     <Text style={[styles.feedbackLabel, { color: colors.textSecondary }]}>
-                      Difficulty
+                      {t('Difficulty')}
                     </Text>
                     <Text style={[styles.feedbackValue, { color: colors.text }]}>
                       {(fb as any).Difficulty ?? (fb as any).difficulty ?? "—"}/10
@@ -278,8 +280,8 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
           ) : (
             <Text style={[styles.noFeedbackText, { color: colors.textSecondary }]}>
               {user?.role === "patient" && user.id === patientId
-                ? "No feedback provided yet. Click the button above to provide feedback."
-                : "No feedback recorded for this session."}
+                ? t('No feedback provided yet')
+                : t('No feedback recorded')}
             </Text>
           )}
         </View>
@@ -293,7 +295,7 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
               color={colors.textSecondary}
             />
             <Text style={[styles.noData, { color: colors.textSecondary }]}>
-              No metrics or feedback recorded for this session.
+              {t('No metrics or feedback')}
             </Text>
           </View>
         )}

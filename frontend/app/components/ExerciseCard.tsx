@@ -4,6 +4,7 @@ import { useTheme } from "@theme/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { AssignedExerciseWithDetails } from "@services/exerciseAssignmentService";
 import { getSessionHistory } from "@services/sessionService";
+import { useTranslation } from 'react-i18next';
 
 interface ExerciseCardProps {
   exercise: AssignedExerciseWithDetails;
@@ -18,6 +19,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   onPress,
   showProgress = true,
 }) => {
+  const { t, i18n } = useTranslation();
   const { colors } = useTheme();
   const [completionRate, setCompletionRate] = React.useState(0);
   const [lastSessionDate, setLastSessionDate] = React.useState<string | null>(
@@ -82,7 +84,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
     return (
       <View style={[styles.card, { backgroundColor: colors.card }]}>
         <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Loading...
+          {t('Loading')}...
         </Text>
       </View>
     );
@@ -155,7 +157,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
               <Text
                 style={[styles.progressLabel, { color: colors.textSecondary }]}
               >
-                Progress
+                {t('Progress')}
               </Text>
               <Text style={[styles.progressValue, { color: colors.text }]}>
                 {Math.round(completionRate)}%
@@ -206,7 +208,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                 <Text
                   style={[styles.metricText, { color: colors.textSecondary }]}
                 >
-                  {exercise.targetSets} sets
+                  {exercise.targetSets} {t('sets')}
                 </Text>
               </View>
             )}
@@ -237,7 +239,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
           )}
           {exercise.targetSets && (
             <Text style={[styles.metricText, { color: colors.textSecondary }]}>
-              • {exercise.targetSets} sets
+              • {exercise.targetSets} {t('sets')}
             </Text>
           )}
         </View>

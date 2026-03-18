@@ -9,9 +9,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@theme/ThemeContext";
 import type { Session, SessionMetric, SessionFeedback } from "../types";
+import { useTranslation } from 'react-i18next';
 
 const ExerciseHistoryDetailScreen = ({ route }: any) => {
   const { session } = route.params as { session: Session };
+  const { t, i18n } = useTranslation();
   const { colors } = useTheme();
 
   const dateStr = session.timeCreated
@@ -47,7 +49,7 @@ const ExerciseHistoryDetailScreen = ({ route }: any) => {
       >
         <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
           <Text style={[styles.title, { color: colors.text }]}>
-            {session.exerciseType || "Exercise"}
+            {session.exerciseType || t('Exercise')}
           </Text>
           <Text style={[styles.date, { color: colors.textSecondary }]}>
             {dateStr}
@@ -80,21 +82,21 @@ const ExerciseHistoryDetailScreen = ({ route }: any) => {
         {metrics.length > 0 && (
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Metrics
+              {t('Metrics')}
             </Text>
             {metrics.map((m, idx) => (
               <View key={idx} style={styles.metricRow}>
                 <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-                  {(m as any).Joint ?? "—"} / {(m as any).Side ?? "—"}
+                  {t(`joint.${(m as any).Joint}`) ?? "—"} / {t(`side.${(m as any).Side}`) ?? "—"}
                 </Text>
                 <View style={styles.metricGrid}>
                   {hasVelocity && (
                     <>
                       <Text style={[styles.metricValue, { color: colors.text }]}>
-                        Avg velocity: {(m as any).AvgVelocity ?? "—"}
+                        {t('Average Velocity')}: {(m as any).AvgVelocity ?? "—"}
                       </Text>
                       <Text style={[styles.metricValue, { color: colors.text }]}>
-                        P95 velocity: {(m as any).P95Velocity ?? "—"}
+                        {t('P95 Velocity')}: {(m as any).P95Velocity ?? "—"}
                       </Text>
                       <Text style={[styles.metricValue, { color: colors.text }]}>
                         Min/Max: {(m as any).MinVelocity ?? "—"} / {(m as any).MaxVelocity ?? "—"}
@@ -104,16 +106,16 @@ const ExerciseHistoryDetailScreen = ({ route }: any) => {
                   {hasROM && (
                     <>
                       <Text style={[styles.metricValue, { color: colors.text }]}>
-                        Avg ROM: {(m as any).AvgROM ?? "—"}
+                        {t('Average ROM')}: {(m as any).AvgROM ?? "—"}
                       </Text>
                       <Text style={[styles.metricValue, { color: colors.text }]}>
-                        Min/Max ROM: {(m as any).MinROM ?? "—"} / {(m as any).MaxROM ?? "—"}
+                        Min/Max {t('ROM')}: {(m as any).MinROM ?? "—"} / {(m as any).MaxROM ?? "—"}
                       </Text>
                     </>
                   )}
                   {(m as any).CenterMassDisplacement ? (
                     <Text style={[styles.metricValue, { color: colors.text }]}>
-                      Center of mass: {(m as any).CenterMassDisplacement}
+                      {t('Center of Mass')}: {(m as any).CenterMassDisplacement}
                     </Text>
                   ) : null}
                 </View>
@@ -125,7 +127,7 @@ const ExerciseHistoryDetailScreen = ({ route }: any) => {
         {feedbackList.length > 0 && (
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Feedback
+              {t('Feedback')}
             </Text>
             {feedbackList.map((fb, idx) => (
               <View key={idx} style={styles.feedbackRow}>
@@ -133,19 +135,19 @@ const ExerciseHistoryDetailScreen = ({ route }: any) => {
                   <View style={styles.feedbackMetric}>
                     <Ionicons name="bandage-outline" size={16} color={colors.primary} />
                     <Text style={[styles.feedbackValue, { color: colors.text }]}>
-                      Pain: {(fb as any).Pain ?? "—"}/10
+                      {t('Pain')}: {(fb as any).Pain ?? "—"}/10
                     </Text>
                   </View>
                   <View style={styles.feedbackMetric}>
                     <Ionicons name="battery-half-outline" size={16} color={colors.primary} />
                     <Text style={[styles.feedbackValue, { color: colors.text }]}>
-                      Fatigue: {(fb as any).Fatigue ?? "—"}/10
+                      {t('Fatigue')}: {(fb as any).Fatigue ?? "—"}/10
                     </Text>
                   </View>
                   <View style={styles.feedbackMetric}>
                     <Ionicons name="barbell-outline" size={16} color={colors.primary} />
                     <Text style={[styles.feedbackValue, { color: colors.text }]}>
-                      Difficulty: {(fb as any).Difficulty ?? "—"}/10
+                      {t('Difficulty')}: {(fb as any).Difficulty ?? "—"}/10
                     </Text>
                   </View>
                 </View>
@@ -162,7 +164,7 @@ const ExerciseHistoryDetailScreen = ({ route }: any) => {
         {metrics.length === 0 && feedbackList.length === 0 && (
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <Text style={[styles.noData, { color: colors.textSecondary }]}>
-              No metrics or feedback recorded for this session.
+              {t('No metrics or feedback')}
             </Text>
           </View>
         )}

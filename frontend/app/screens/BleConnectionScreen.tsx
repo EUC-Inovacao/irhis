@@ -18,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "@theme/ThemeContext";
 import { useRoute } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from 'react-i18next';
 import {
   MovellaBleService,
   MovellaSensor,
@@ -43,6 +44,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
   navigation: _navigation,
   onSensorsConnected,
 }) => {
+  const { t, i18n } = useTranslation();
   const { colors } = useTheme();
   const route = useRoute<any>();
   const { user } = useAuth();
@@ -217,7 +219,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
         }
       },
       onError: (error) => {
-        Alert.alert("BLE Error", error.message);
+        Alert.alert(t('BLE Error'), error.message);
       },
     });
 
@@ -292,13 +294,13 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
     if (!hasAllSensorsConnected(testingMode)) {
       if (testingMode) {
         Alert.alert(
-          "Sensors Required",
-          "Please connect at least 1 sensor before starting exercise."
+          t('Sensors Required'),
+          t('Please connect 1 sensor')
         );
       } else {
         Alert.alert(
-          "Sensors Required",
-          "Please connect all 5 sensors (Right thigh, Right shank, Left thigh, Left shank, Pelvis) before starting exercise."
+          t('Sensors Required'),
+          t('Please connect all sensor')
         );
       }
       return;
@@ -344,14 +346,14 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
           console.warn(`⚠️ [UI] exerciseDataRef.size: ${exerciseDataRef.current.size}`);
           console.warn(`⚠️ [UI] isExerciseActiveRef.current: ${isExerciseActiveRef.current}`);
           Alert.alert(
-            "No Data Received",
-            "No measurement data has been received from sensors. Please check sensor connections and try again."
+            t('No Data Received'),
+            t('No measurement data')
           );
           noDataWarningShownRef.current = true;
         }
       }, 5000);
       
-      Alert.alert("Exercise Started", "Recording data from all sensors...");
+      Alert.alert(t('Exercise Started'), t('Recording data from all sensors') + "...");
     } catch (error) {
       console.error("❌ [UI] Error starting exercise:", error);
       console.error("❌ [UI] Error details:", error instanceof Error ? error.stack : String(error));
@@ -379,19 +381,19 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
         }
       } catch (error) {
         console.error("Error stopping exercise:", error);
-        Alert.alert("Error", `Failed to stop exercise: ${error instanceof Error ? error.message : String(error)}`);
+        Alert.alert(t('Error'), `${t('Failed to stop exercise')}: ${error instanceof Error ? error.message : String(error)}`);
       }
       setCanAnalyze(sensorCount > 0);
       if (Platform.OS === "android") {
         try {
-          ToastAndroid.show(sensorCount > 0 ? "Exercise stopped. You can analyze." : "No data recorded.", ToastAndroid.SHORT);
+          ToastAndroid.show(sensorCount > 0 ? t('Exercise stopped and analyze') : t('No data recorded'), ToastAndroid.SHORT);
         } catch (_) { /* ignore */ }
       } else {
         Alert.alert(
-          "Exercise Stopped",
+          t('Exercise Stopped'),
           sensorCount > 0
-            ? `Recorded data from ${sensorCount} sensor${sensorCount !== 1 ? "s" : ""}. You can now analyze.`
-            : "No data was recorded."
+            ? `${t('Recorded data from')} ${sensorCount} sensor${sensorCount !== 1 ? "s" : ""}. You can now analyze.`
+            : t('No data recorded')
         );
       }
     };
@@ -416,7 +418,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
     
     if (!exerciseStartTime || exerciseDataRef.current.size === 0) {
       console.error("❌ [UI] No data to analyze - exerciseStartTime or exerciseDataRef is empty");
-      Alert.alert("No Data", "No exercise data available to analyze.");
+      Alert.alert(t('No Data'), t('No exercise data'));
       return;
     }
 
@@ -506,32 +508,32 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
                 fetchAssignedExercises(patientId),
               ]);
               Alert.alert(
-                "Analysis Complete",
-                `Results saved successfully!\n\nMissing sensors: ${result.missingSensors.length > 0 ? result.missingSensors.join(", ") : "None"}`
+                t('Analysis Complete'),
+                `${t('Results saved successfully')} ${result.missingSensors.length > 0 ? result.missingSensors.join(", ") : t('None')}`
               );
             } else {
               Alert.alert(
-                "Analysis Complete",
-                `Analysis completed but save failed. Please try again.\n\nMissing sensors: ${result.missingSensors.length > 0 ? result.missingSensors.join(", ") : "None"}`
+                t('Analysis Complete'),
+                `${t('Analysis completed but save')} ${result.missingSensors.length > 0 ? result.missingSensors.join(", ") : t('None')}`
               );
             }
           } catch (saveError) {
             console.error("Error saving BLE results to server:", saveError);
             Alert.alert(
-              "Analysis Complete",
-              `Analysis completed but could not save to server: ${saveError instanceof Error ? saveError.message : String(saveError)}\n\nYou can try analyzing again.`
+              t('Analysis Complete'),
+              `${t('Analysis completed but could not')}: ${saveError instanceof Error ? saveError.message : String(saveError)}\n\n${t('You can try analyzing again')}.`
             );
           }
         } else {
           Alert.alert(
-            "Analysis Complete",
-            `Analysis completed. Go back to Movement Analysis, select patient and exercise, then record and analyze again to save.\n\nMissing sensors: ${result.missingSensors.length > 0 ? result.missingSensors.join(", ") : "None"}`
+            t('Analysis Complete'),
+            `${t('Analysis completed Go back')}\n\n${t('Missing sensors')}: ${result.missingSensors.length > 0 ? result.missingSensors.join(", ") : t('None')}`
           );
         }
       } else {
         Alert.alert(
-          "Analysis Complete",
-          `Analysis completed successfully!\n\nMissing sensors: ${result.missingSensors.length > 0 ? result.missingSensors.join(", ") : "None"}`
+          t('Analysis Complete'),
+          `${t('Analysis completed successfully')}\n\n${t('Missing sensors')}: ${result.missingSensors.length > 0 ? result.missingSensors.join(", ") : t('None')}}`
         );
       }
     } catch (error) {
@@ -540,8 +542,8 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
       console.error("❌ [UI] Error message:", error instanceof Error ? error.message : String(error));
       console.error("❌ [UI] Error stack:", error instanceof Error ? error.stack : 'No stack');
       Alert.alert(
-        "Analysis Error",
-        `Failed to analyze exercise: ${error instanceof Error ? error.message : String(error)}`
+        t('Analysis Error'),
+        `${t('Failed to analyze exercise')}: ${error instanceof Error ? error.message : String(error)}`
       );
     } finally {
       setIsAnalyzing(false);
@@ -551,18 +553,18 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
   const handleShowCsv = useCallback((sensorId: string) => {
     const data = exerciseDataRef.current.get(sensorId);
     if (!data || data.length === 0) {
-      Alert.alert("No Data", "No recorded samples found for this sensor yet.");
+      Alert.alert(t('No Data'), t('No recorded samples'));
       return;
     }
 
     if (!exerciseStartTime) {
-      Alert.alert("No Start Time", "Exercise start time is unavailable. Please record an exercise again.");
+      Alert.alert(t('No Start Time'), t('Exercise start time'));
       return;
     }
 
     const sensor = sensors.find((s) => s.id === sensorId);
     if (!sensor) {
-      Alert.alert("Sensor Not Found", "Unable to locate sensor information.");
+      Alert.alert(t('Sensor Not Found'), t('Unable to locate'));
       return;
     }
 

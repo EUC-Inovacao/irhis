@@ -27,8 +27,10 @@ import AssignedExercisesCard from "@components/AssignedExercisesCard";
 import MovementAnalysisCard from "@components/MovementAnalysisCard";
 import PatientFeedbackSection from "@components/PatientFeedbackSection";
 import PatientProgressGraphs from "@components/PatientProgressGraphs";
+import { useTranslation } from 'react-i18next';
 
 const PatientDetailScreen = ({ route, navigation }: any) => {
+  const { t, i18n } = useTranslation();
   const { colors } = useTheme();
   const { patientId, role } = route.params;
   const { user } = useAuth();
@@ -84,7 +86,7 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
       setExercises(
         listFromContext.map((ex) => ({
           id: ex.id,
-          name: (ex as any).exerciseType?.name ?? (ex as any).name ?? "Exercise",
+          name: (ex as any).exerciseType?.name ?? (ex as any).name ?? t('Exercise'),
           completed: ex.completed === 1,
           targetRepetitions: (ex as any).targetReps ?? 10,
           targetSets: (ex as any).targetSets ?? 3,
@@ -174,11 +176,11 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
       );
       updatePatient(patientData.id, updatedPatient);
       await fetchPatients();
-      Alert.alert("Success", "Patient details updated successfully.");
+      Alert.alert(t('Success'), t('Patient details updated'));
     } catch (error: any) {
       console.error("Failed to update details:", error);
-      const msg = error?.response?.data?.error || error?.response?.data?.message || error?.message || "Could not update patient details.";
-      Alert.alert("Error", msg);
+      const msg = error?.response?.data?.error || error?.response?.data?.message || error?.message || ('Could not update patient');
+      Alert.alert(t('Error'), msg);
     }
   };
 
@@ -282,7 +284,7 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
         </Text>
         {item.assignedDate && (
           <Text style={[styles.assignedDate, { color: colors.textSecondary }]}>
-            Assigned: {new Date(item.assignedDate).toLocaleDateString()}
+            {t('Assigned')}: {new Date(item.assignedDate).toLocaleDateString()}
           </Text>
         )}
       </View>
@@ -305,7 +307,7 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
     if (session.duration) {
       summaryParts.push(session.duration);
     }
-    const summary = summaryParts.join(" • ") || "No metrics available";
+    const summary = summaryParts.join(" • ") || t('No metrics available');
 
     return (
       <TouchableOpacity
@@ -327,7 +329,7 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
             style={[styles.sessionTitle, { color: colors.text }]}
             numberOfLines={1}
           >
-            {session.exerciseType || "Session"}
+            {session.exerciseType || t('Session')}
           </Text>
           <Text
             style={[styles.sessionDate, { color: colors.textSecondary }]}
@@ -368,7 +370,7 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
       >
         <View style={styles.container}>
           <Text style={[styles.title, { color: colors.text }]}>
-            Loading patient data...
+            {t('Loading patient data')}...
           </Text>
         </View>
       </SafeAreaView>
@@ -382,7 +384,7 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
     height: 0,
     weight: 0,
     bmi: 0,
-    clinicalInfo: 'No information provided.',
+    clinicalInfo: t('No information provided'),
   };
 
   return (
@@ -410,7 +412,7 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
         <View style={[styles.section, { backgroundColor: colors.card }]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Past Sessions
+              {t('Past Sessions')}
             </Text>
             <TouchableOpacity
               onPress={() =>
@@ -422,7 +424,7 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
               <Text
                 style={[styles.viewAllText, { color: colors.primary }]}
               >
-                View all
+                {t('View all')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -437,7 +439,7 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
               <Text
                 style={[styles.emptySessionTitle, { color: colors.text }]}
               >
-                No sessions yet
+                {t('No sessions yet')}
               </Text>
               <Text
                 style={[
@@ -445,8 +447,8 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
                   { color: colors.textSecondary },
                 ]}
               >
-                Once you record or upload movement data, sessions will appear
-                here with metrics and feedback.
+                {t('sessions will appear')}
+
               </Text>
             </View>
           ) : (
@@ -462,7 +464,7 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
         {patientData.feedback && patientData.feedback.length > 0 && (
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Patient Feedback
+              {t('Patient Feedback')}
             </Text>
             {patientData.feedback
               .sort(
@@ -480,7 +482,7 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Movement Data
+                {t('Movement Data')}
               </Text>
               <TouchableOpacity onPress={handleUploadMovementData}>
                 <Ionicons
@@ -502,7 +504,7 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
               <Text
                 style={[styles.noDataText, { color: colors.textSecondary }]}
               >
-                Upload movement data to view analysis
+                {t('Upload movement data')}
               </Text>
             )}
           </View>

@@ -241,7 +241,7 @@ const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
         <View style={[styles.modalView, { backgroundColor: colors.card }]}>
           <View style={styles.header}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>
-              {patientId ? "Select Assigned Exercise" : "Select Exercise"}
+              {patientId ? t('Select Assigned Exercise') : t('Select Exercise')}
             </Text>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={colors.text} />
@@ -261,7 +261,7 @@ const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
             >
               <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
               <Text style={[styles.createButtonText, { color: colors.primary }]}>
-                Create/Assign New Exercise
+                {t('Create/Assign New Exercise')}
               </Text>
             </TouchableOpacity>
           )}
@@ -275,7 +275,7 @@ const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
                 borderColor: colors.mediumGray,
               },
             ]}
-            placeholder="Search exercises..."
+            placeholder={t('Search exercises') + "..."}
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholderTextColor={colors.textSecondary}
@@ -284,7 +284,7 @@ const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
           {loading ? (
             <View style={styles.emptyContainer}>
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                Loading exercises...
+                {t('Loading')} {t('exercises')}...
               </Text>
             </View>
           ) : (
@@ -321,8 +321,8 @@ const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
                     ]}
                   >
                     {patientId
-                      ? "No exercises assigned to this patient yet"
-                      : "No exercises found"}
+                      ? t('No exercises assigned patient')
+                      : t('No exercises found')}
                   </Text>
                   {patientId && showCreateOption && onCreateNew && (
                     <TouchableOpacity
@@ -341,7 +341,7 @@ const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
                     >
                       <Ionicons name="add-circle" size={20} color="#fff" />
                       <Text style={[styles.createButtonText, { color: "#fff" }]}>
-                        Assign Exercise
+                        {t('Assign Exercise')}
                       </Text>
                     </TouchableOpacity>
                   )}
