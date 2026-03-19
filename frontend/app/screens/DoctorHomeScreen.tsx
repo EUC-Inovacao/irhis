@@ -122,7 +122,7 @@ const DoctorHomeScreen = ({ navigation }: any) => {
                         <View key={idx} style={styles.quickViewRow}>
                             <Text style={[styles.quickViewName, { color: colors.text }]} numberOfLines={1}>{metric.patientName}</Text>
                             <Text style={[styles.quickViewMeta, { color: colors.textSecondary }]}>
-                                {metric.joint} {metric.side ? `(${metric.side})` : ''} · {formatMetricValue(metric)}
+                                {t(`joint.${metric.joint}`)} {t(`side.${metric.side}`) ? `(${t(`side.${metric.side}`)})` : ''} · {formatMetricValue(metric)}
                             </Text>
                             {metric.date ? <Text style={[styles.quickViewComment, { color: colors.textSecondary }]} numberOfLines={1}>
                                 {new Date(metric.date).toLocaleDateString()}

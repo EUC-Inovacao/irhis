@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 interface PrivacyNoticeModalProps {
   visible: boolean;
@@ -10,6 +11,7 @@ interface PrivacyNoticeModalProps {
 }
 
 const PrivacyNoticeModal: React.FC<PrivacyNoticeModalProps> = ({ visible, onClose, onAccept }) => {
+  const { t, i18n } = useTranslation();
   const { colors } = useTheme();
   const [hasConsented, setHasConsented] = useState(false);
 
@@ -32,58 +34,58 @@ const PrivacyNoticeModal: React.FC<PrivacyNoticeModalProps> = ({ visible, onClos
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Privacy Notice</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>{t('Privacy Notice')}</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          <Text style={[styles.mainTitle, { color: colors.text }]}>PRIVACY NOTICE - TwinRehabPro</Text>
+          <Text style={[styles.mainTitle, { color: colors.text }]}>{t('Privacy Notice')} - TwinRehabPro</Text>
           <Text style={[styles.metadata, { color: colors.textSecondary }]}>
-            Last updated: August 1, 2025 | Version: v1.0
+            {t('Last updated')}
           </Text>
 
           <Text style={[styles.paragraph, { color: colors.text }]}>
-            This Privacy Notice explains how EUC Inovação Portugal processes personal data when you use the TwinRehabPro App.
+            {t('This Privacy Notice')}
           </Text>
 
           <View style={[styles.infoBox, { backgroundColor: colors.border + '40' }]}>
             <Text style={[styles.paragraph, { color: colors.text, marginBottom: 4 }]}>
-              <Text style={{ fontWeight: '700' }}>Controller:</Text> EUC Inovação Portugal, Avenida da França, n.º 256, 8.º andar, Porto, Portugal.
+              <Text style={{ fontWeight: '700' }}>{t('Controller')}:</Text> EUC Inovação Portugal, Avenida da França, n.º 256, 8.º andar, Porto, Portugal.
             </Text>
             <Text style={[styles.paragraph, { color: colors.text }]}>
-              <Text style={{ fontWeight: '700' }}>Contact:</Text> privacy@eucinovacaoportugal.com
+              <Text style={{ fontWeight: '700' }}>{t('Contact')}:</Text> privacy@eucinovacaoportugal.com
             </Text>
           </View>
 
-          <Section title="1. Categories of data we process">
-            <Bullet>Account and contact data (e.g., name, email, phone);</Bullet>
-            <Bullet>TwinRehabPro usage and technical data (e.g., log data, device identifiers);</Bullet>
-            <Bullet>Rehabilitation and health-related data (special category data);</Bullet>
-            <Bullet>Support communications (messages and attachments).</Bullet>
+          <Section title={t('Categories of data')}>
+            <Bullet>{t('Account and contact')}</Bullet>
+            <Bullet>{t('TwinRehabPro usage')}</Bullet>
+            <Bullet>{t('Rehabilitation and health-related')}</Bullet>
+            <Bullet>{t('Support communications')}</Bullet>
           </Section>
 
-          <Section title="2. Purposes and legal bases">
+          <Section title={t('Purposes and legal bases')}>
             <Text style={[styles.paragraph, { color: colors.text }]}>
-              We process data to manage your account, deliver rehabilitation features, provide support, maintain security, and improve the TwinRehabPro.
+              {t('We process data to manage')}
             </Text>
             <Text style={[styles.paragraph, { color: colors.text }]}>
-              Legal bases: Performance of a contract (Art. 6(1)(b)), Legal obligations (Art. 6(1)(c)), and <Text style={{fontWeight: '700'}}>Explicit Consent (Art. 9(2)(a))</Text> for health data.
-            </Text>
-          </Section>
-
-          <Section title="3. Explicit consent for health data">
-            <Text style={[styles.paragraph, { color: colors.text }]}>
-              Where the TwinRehabPro processes your health data, you will be asked to provide explicit consent. You may withdraw it at any time, though this may limit features.
+              {t('Legal bases')}<Text style={{fontWeight: '700'}}>{t('Explicit Consent')}</Text> {t('for health data')}
             </Text>
           </Section>
 
-          <Section title="4. Sharing of data">
-            <Bullet>With service providers (hosting, support);</Bullet>
-            <Bullet>With healthcare professionals authorized by you;</Bullet>
-            <Bullet>With public authorities where required by law.</Bullet>
-            <Text style={[styles.paragraph, { color: colors.text, marginTop: 8 }]}>We do not sell personal data.</Text>
+          <Section title={t('Explicit consent for health data')}>
+            <Text style={[styles.paragraph, { color: colors.text }]}>
+              {t('Where the TwinRehabPro')}
+            </Text>
+          </Section>
+
+          <Section title={t('Sharing of data')}>
+            <Bullet>{t('With service providers')}</Bullet>
+            <Bullet>{t('With healthcare professionals')}</Bullet>
+            <Bullet>{t('With public authorities')}</Bullet>
+            <Text style={[styles.paragraph, { color: colors.text, marginTop: 8 }]}>{t('We do not sell')}</Text>
           </Section>
 
           <Section title="8. Your rights">
@@ -112,7 +114,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
   },
-  headerTitle: { fontSize: 18, fontWeight: '700' },
+  headerTitle: { fontSize: 17, fontWeight: '700' },
   closeButton: { padding: 4 },
   content: { flex: 1, paddingHorizontal: 20 },
   mainTitle: { fontSize: 20, fontWeight: 'bold', marginTop: 24, marginBottom: 4 },

@@ -106,7 +106,7 @@ const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
   // Group by category
   const groupedExercises = filteredExercises.reduce(
     (acc, exercise) => {
-      const category = exercise.category || "general";
+      const category = exercise.category || t('general');
       if (!acc[category]) {
         acc[category] = [];
       }

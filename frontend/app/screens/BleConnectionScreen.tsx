@@ -569,7 +569,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
     }
 
     if (!sensor.deviceTag) {
-      Alert.alert("Assign Device Tag", "Please assign a device tag to this sensor before exporting the CSV.");
+      Alert.alert(t('Assign Device Tag'), t('Please assign a device tag'));
       return;
     }
 
@@ -577,14 +577,14 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
       const deviceTagNum = typeof sensor.deviceTag === 'number' ? sensor.deviceTag : Number(sensor.deviceTag);
       const csv = createCSVForSensor(deviceTagNum, sensorId, data, exerciseStartTime);
       const displayName = sensor.hardwareDeviceTag
-        ? `${sensor.name} (DOT tag ${sensor.hardwareDeviceTag})`
+        ? `${sensor.name} (${t('DOT tag')} ${sensor.hardwareDeviceTag})`
         : sensor.name || sensorId;
       setCsvModalSensorName(displayName);
       setCsvModalContent(csv);
       setCsvModalVisible(true);
     } catch (error) {
       console.error("❌ [UI] Error generating CSV preview:", error);
-      Alert.alert("Error", "Failed to generate CSV preview for this sensor.");
+      Alert.alert(t('Error'), t('Failed to generate CSV'));
     }
   }, [exerciseStartTime, sensors]);
 
@@ -631,7 +631,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
       const errorMessage = error instanceof Error ? error.message : "Failed to start scanning";
       console.log("🔍 [UI] Showing alert with message:", errorMessage);
       Alert.alert(
-        "Scan Error",
+        t('Scan Error'),
         errorMessage
       );
     }
@@ -673,8 +673,8 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
     } catch (error) {
       console.error("❌ [UI] Error during rescan:", error);
       Alert.alert(
-        "Rescan Error",
-        error instanceof Error ? error.message : "Failed to rescan sensors."
+        t('Rescan Error'),
+        error instanceof Error ? error.message : t('Failed to rescan sensors')
       );
     }
   };
@@ -690,8 +690,8 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
         return next;
       });
       Alert.alert(
-        "Connection Error",
-        error instanceof Error ? error.message : "Failed to connect"
+        t('Connection Error'),
+        error instanceof Error ? error.message : t('Failed to connect')
       );
     }
   };
@@ -706,8 +706,8 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
             setTimeout(updateSensorList, 100);
           } catch (error) {
             Alert.alert(
-              "Disconnect Error",
-              error instanceof Error ? error.message : "Failed to disconnect"
+              t('Disconnect Error'),
+              error instanceof Error ? error.message : t('Failed to disconnect')
             );
           }
         }, 100);
@@ -718,8 +718,8 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
         updateSensorList();
       } catch (error) {
         Alert.alert(
-          "Disconnect Error",
-          error instanceof Error ? error.message : "Failed to disconnect"
+          t('Disconnect Error'),
+          error instanceof Error ? error.message : t('Failed to disconnect')
         );
       }
     }
@@ -800,7 +800,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
                     { color: colors.primary },
                   ]}
                 >
-                  Device Tag: {item.deviceTag}
+                  {t('Device Tag')}: {item.deviceTag}
                 </Text>
               )}
               <Text
@@ -809,7 +809,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
                   { color: colors.textSecondary },
                 ]}
               >
-                DOT tag: {item.hardwareDeviceTag ?? "—"}
+                {t('DOT tag')}: {item.hardwareDeviceTag ?? "—"}
               </Text>
             </View>
           </View>
@@ -822,7 +822,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
                 ]}
               />
               <Text style={[styles.statusText, { color: colors.success }]}>
-                Connected
+                {t('Connected')}
               </Text>
             </View>
           )}
@@ -862,7 +862,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
                 <>
                   <Ionicons name="link" size={16} color={colors.white} />
                   <Text style={[styles.actionButtonText, { color: colors.white }]}>
-                    Connect
+                    {t('Connect')}
                   </Text>
                 </>
               )}
@@ -888,7 +888,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
                     { color: colors.textSecondary },
                   ]}
                 >
-                  {item.deviceTag ? 'Edit Tag:' : 'Assign Tag:'}
+                  {item.deviceTag ? t('Edit Tag') + ':' : t('Assign Tag') + ':'}
                 </Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   {[
@@ -939,7 +939,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
             >
               <Ionicons name="document-text-outline" size={16} color={colors.primary} />
               <Text style={[styles.csvButtonText, { color: colors.primary }]}>
-                Show CSV
+                {t('Show CSV')}
               </Text>
             </TouchableOpacity>
           )}
@@ -962,11 +962,11 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
       >
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>
-          Movella DOT Sensors
+          {t('Movella DOT Sensors')}
         </Text>
         {connectedCount > 0 && (
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            {connectedCount} sensor{connectedCount > 1 ? "s" : ""} connected
+            {connectedCount} {t('sensor')}{connectedCount > 1 ? "s" : ""} {t('connected')}
           </Text>
         )}
       </View>
@@ -979,7 +979,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
           >
             <Ionicons name="search" size={20} color={colors.white} />
             <Text style={[styles.scanButtonText, { color: colors.white }]}>
-              Start Scanning
+              {t('Start Scanning')}
             </Text>
           </TouchableOpacity>
         ) : (
@@ -1017,7 +1017,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
               { color: scanning ? colors.mediumGray : colors.primary },
             ]}
           >
-            Rescan Sensors
+            {t('Rescan Sensors')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -1026,7 +1026,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
         <View style={styles.warningBox}>
           <Ionicons name="warning-outline" size={20} color={colors.warning || "#FF9500"} />
           <Text style={[styles.warningText, { color: colors.text }]}>
-            BLE not available. Please install react-native-ble-plx or enable Bluetooth.
+            {t('BLE not available')}
           </Text>
         </View>
       )}
@@ -1039,7 +1039,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
             onPress={() => setExerciseSectionCollapsed(!exerciseSectionCollapsed)}
           >
             <Text style={[styles.collapseHeaderText, { color: colors.text }]}>
-              Exercise Control
+              {t('Exercise Control')}
             </Text>
             <Ionicons
               name={exerciseSectionCollapsed ? "chevron-down" : "chevron-up"}
@@ -1053,7 +1053,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
           <View style={styles.testingModeContainer}>
             <View style={styles.testingModeRow}>
               <Text style={[styles.testingModeLabel, { color: colors.text }]}>
-                Testing Mode
+                {t('Testing Mode')}
               </Text>
               <Switch
                 value={testingMode}
@@ -1064,8 +1064,8 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
             </View>
             <Text style={[styles.testingModeHint, { color: colors.textSecondary }]}>
               {testingMode 
-                ? "Exercise can start with 1+ sensors" 
-                : "Requires all 5 sensors"}
+                ? t('Exercise can start with 1+ sensors')
+                : t('Requires all 5 sensors')}
             </Text>
           </View>
           
@@ -1082,7 +1082,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
             >
               <Ionicons name="play" size={20} color={colors.white} />
               <Text style={[styles.exerciseButtonText, { color: colors.white }]}>
-                Start Exercise
+                {t('Start Exercise')}
               </Text>
             </TouchableOpacity>
           ) : (
@@ -1095,7 +1095,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
             >
               <Ionicons name="stop" size={20} color={colors.white} />
               <Text style={[styles.exerciseButtonText, { color: colors.white }]}>
-                Stop Exercise
+                {t('Stop Exercise')}
               </Text>
             </TouchableOpacity>
           )}
@@ -1105,7 +1105,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
               <View style={styles.exerciseIndicator}>
                 <ActivityIndicator size="small" color={colors.primary} />
                 <Text style={[styles.exerciseIndicatorText, { color: colors.text }]}>
-                  Recording exercise data...
+                  {t('Recording exercise data')}...
                 </Text>
               </View>
               
@@ -1113,14 +1113,14 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
               {Array.from(packetCounters.entries()).length > 0 && (
                 <View style={styles.packetCountersContainer}>
                   <Text style={[styles.packetCountersTitle, { color: colors.text }]}>
-                    Packets received:
+                    {t('Packets received')}:
                   </Text>
                         {sensors
                           .filter(s => s.connected && packetCounters.has(s.id))
                           .map((sensor) => (
                             <View key={sensor.id} style={styles.packetCounterRow}>
                               <Text style={[styles.packetCounterLabel, { color: colors.textSecondary }]}>
-                                {sensor.name || `Sensor ${sensor.id.substring(0, 8)}`} (Tag {sensor.deviceTag}):
+                                {sensor.name || `${t('Sensor')} ${sensor.id.substring(0, 8)}`} ({t('Tag')} {sensor.deviceTag}):
                               </Text>
                               <Text style={[styles.packetCounterValue, { color: colors.primary }]}>
                                 {packetCounters.get(sensor.id) || 0}
@@ -1134,14 +1134,14 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
               <View style={styles.logsContainer}>
                 <View style={styles.logsHeader}>
                   <Text style={[styles.logsTitle, { color: colors.text }]}>
-                    Real-time Data Logs
+                    {t('Real-time Data Logs')}
                   </Text>
                   <TouchableOpacity
                     onPress={handleClearLogs}
                     style={styles.clearLogsButton}
                   >
                     <Text style={[styles.clearLogsButtonText, { color: colors.primary }]}>
-                      Clear Logs
+                      {t('Clear Logs')}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1153,7 +1153,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
                 >
                   {realTimeLogs.length === 0 ? (
                     <Text style={[styles.noLogsText, { color: colors.textSecondary }]}>
-                      Waiting for data...
+                      {t('Waiting for data')}...
                     </Text>
                   ) : (
                     realTimeLogs.map((log, index) => (
@@ -1204,7 +1204,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
                 <Ionicons name="analytics" size={20} color={colors.white} />
               )}
               <Text style={[styles.analyzeButtonText, { color: colors.white }]}>
-                {isAnalyzing ? "Analyzing..." : "Analyze Exercise"}
+                {isAnalyzing ? t('Analyzing') + '...' : t('Analyze Exercise')}
               </Text>
             </TouchableOpacity>
           )}
@@ -1212,8 +1212,8 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
           {!hasAllSensorsConnected(testingMode) && connectedCount > 0 && !testingMode && (
             <Text style={[styles.sensorWarning, { color: colors.warning || "#FF9500" }]}>
               {connectedCount >= 5
-                ? "Assign tags to all sensors to start exercise"
-                : `${5 - connectedCount} more sensor${5 - connectedCount > 1 ? "s" : ""} needed to start exercise`}
+                ? t('Assign tags to all')
+                : `${5 - connectedCount} ${t('more sensor')}${5 - connectedCount > 1 ? t('Plural') : ""} ${t('needed to start exercise')}`}
             </Text>
           )}
             </View>
@@ -1251,7 +1251,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
                   color={colors.textSecondary}
                 />
                 <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                  No sensors found
+                  {t('No sensors found')}
                 </Text>
                 <Text
                   style={[
@@ -1259,7 +1259,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
                     { color: colors.textSecondary },
                   ]}
                 >
-                  Tap "Start Scanning" to search for Movella DOT sensors
+                  {t('Tap Start Scanning')}
                 </Text>
               </View>
             }
@@ -1275,7 +1275,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
             onPress={() => setAnalysisSectionCollapsed(!analysisSectionCollapsed)}
           >
             <Text style={[styles.collapseHeaderText, { color: colors.text }]}>
-              Analysis Results
+              {t('Analysis Results')}
             </Text>
             <Ionicons
               name={analysisSectionCollapsed ? "chevron-down" : "chevron-up"}
@@ -1302,7 +1302,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
         >
           <View style={styles.modalHeader}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>
-              {csvModalSensorName || "CSV Preview"}
+              {csvModalSensorName || t('CSV Preview')}
             </Text>
             <TouchableOpacity
               onPress={handleCloseCsvModal}

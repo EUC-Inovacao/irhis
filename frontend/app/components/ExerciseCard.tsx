@@ -77,7 +77,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   };
 
   const exerciseType = exercise.exerciseType;
-  const category = exerciseType?.category || "general";
+  const category = exerciseType?.category || t('general');
   const isCompleted = exercise.completed === 1;
 
   if (loading && showProgress) {

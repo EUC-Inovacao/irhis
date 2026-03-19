@@ -55,6 +55,7 @@ const MetricsDisplayCard: React.FC<MetricsDisplayCardProps> = ({ title, sideLabe
   return (
     <View style={[styles.metricCard, { backgroundColor: colors.card }]}>
       <Text style={[styles.cardTitle, { color: colors.text }]}>
+      {/*sideLabel onde precisa de traduzir*/}
         {sideLabel} {title}
       </Text>
       <View style={styles.metricsGrid}>

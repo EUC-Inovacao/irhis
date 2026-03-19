@@ -11,6 +11,7 @@ import {
 import { useTheme } from "@theme/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { usePatients } from "@context/PatientContext";
+import { useTranslation } from 'react-i18next';
 
 interface PatientPickerModalProps {
   visible: boolean;
@@ -25,6 +26,7 @@ const PatientPickerModal: React.FC<PatientPickerModalProps> = ({
   onSelect,
   selectedPatientId,
 }) => {
+  const { t, i18n } = useTranslation();
   const { colors } = useTheme();
   const { patients } = usePatients();
   const [searchQuery, setSearchQuery] = useState("");
@@ -49,7 +51,7 @@ const PatientPickerModal: React.FC<PatientPickerModalProps> = ({
         <View style={[styles.modalView, { backgroundColor: colors.card }]}>
           <View style={styles.header}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>
-              Select Patient
+              {t('Select Patient')}
             </Text>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={colors.text} />
@@ -65,7 +67,7 @@ const PatientPickerModal: React.FC<PatientPickerModalProps> = ({
                 borderColor: colors.mediumGray,
               },
             ]}
-            placeholder="Search patients..."
+            placeholder={t('Search patients') + "..."}
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholderTextColor={colors.textSecondary}
@@ -143,7 +145,7 @@ const PatientPickerModal: React.FC<PatientPickerModalProps> = ({
                 <Text
                   style={[styles.emptyText, { color: colors.textSecondary }]}
                 >
-                  No patients found
+                  {t('No patients found')}
                 </Text>
               </View>
             }

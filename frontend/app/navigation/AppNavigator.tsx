@@ -88,7 +88,7 @@ const CustomHeader: React.FC<StackHeaderProps> = ({ navigation, route, options }
 };
 
 const PatientTabNavigator = () => {
-    const { t, i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { colors } = useTheme();
   return (
     <Tab.Navigator
