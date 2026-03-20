@@ -52,11 +52,23 @@ const MetricsDisplayCard: React.FC<MetricsDisplayCardProps> = ({ title, sideLabe
       </View>
     ) : null;
 
+    const formatSideLabel = (label?: string) => {
+        if (!label) return "";
+
+        const [jointRaw, sideRaw] = label.split(" · ");
+
+        const joint = jointRaw?.toLowerCase();
+        const side = sideRaw?.toLowerCase();
+
+        const  tJoint = t(`joint.${joint}`, jointRaw);
+        const tSide = t(`side.${side}`, sideRaw);
+
+        return `${tJoint} ${tSide}`;
+    };
   return (
     <View style={[styles.metricCard, { backgroundColor: colors.card }]}>
       <Text style={[styles.cardTitle, { color: colors.text }]}>
-      {/*sideLabel onde precisa de traduzir*/}
-        {sideLabel} {title}
+        {formatSideLabel(sideLabel)} {title}
       </Text>
       <View style={styles.metricsGrid}>
         <Row label={t('ROM') + "(°)"} value={rom} />

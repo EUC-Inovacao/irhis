@@ -464,7 +464,20 @@ const resources = {
        "Changes to these Terms":"11. Changes to these Terms",
        "We may update these Terms":"We may update these Terms from time to time. Where required, we will notify you in the TwinRehabPro and request re-acceptance. Continued use after the effective date means you accept the updated Terms.",
        "Governing law and contact":"12. Governing law and contact",
-       "Governing law: Portugal":"Governing law: Portugal."
+       "Governing law: Portugal":"Governing law: Portugal.",
+       "For questions about":"For questions about these Terms, contact",
+       "International transfers":"5. International transfers",
+       "If personal data":"If personal data is transferred outside the EEA, we will use appropriate safeguards such as adequacy decisions or Standard Contractual Clauses, as required.",
+       "Retention":"6. Retention",
+       "We keep personal data":"We keep personal data only for as long as necessary for the purposes described above and to comply with legal obligations. Indicative retention periods: [insert specific periods, e.g., while account is active + X years; logs for Y months].",
+       "Security":"7. Security",
+       "We implement appropriate technical":"We implement appropriate technical and organisational measures to protect personal data (e.g., access controls, encryption where appropriate, backups, incident response procedures).",
+       "Your rights":"8. Your rights",
+       "You may request access":"Subject to applicable law, you may request access, rectification, erasure, restriction, objection, and data portability.You may also withdraw consent at any time (without affecting processing that occurred before withdrawal).To exercise rights, contact: [PRIVACY EMAIL]. You also have the right to lodge a complaint with the Portuguese data protection authority (CNPD) or with your local supervisory authority in the EEA.",
+       "Children":"9. Children",
+       "If the App is used":"If the App is used by minors, additional parental/legal guardian consent and age-verification steps may apply, in accordance with applicable law.",
+       "Updates to this Notice":"10. Updates to this Notice",
+       "We may update this":`We may update this Privacy Notice from time to time. We will show the updated "Last updated" date and version. Where required, we will notify you in the App and request renewed acceptance/consent.`
     }
   },
   pt: {
@@ -931,7 +944,20 @@ const resources = {
        "Changes to these Terms":"11. Alterações aos Termos",
        "We may update these Terms":'Poderemos atualizar estes Termos periodicamente. A data e a versão da "Última atualização" serão alteradas em conformidade. Quando necessário, iremos notificá-lo na Aplicação e solicitaremos a sua aceitação novamente. A utilização contínua após a data de entrada em vigor significa que aceita os Termos atualizados.',
        "Governing law and contact":"12. Lei aplicável e contacto",
-       "Governing law: Portugal":"Lei aplicável: Portugal."
+       "Governing law: Portugal":"Lei aplicável: Portugal.",
+       "For questions about":"Questões sobre estes Termos, contacte",
+       "International transfers":"5. Transferências internacionais",
+       "If personal data":"Caso os dados pessoais sejam transferidos para fora do Espaço Económico Europeu (EEE), utilizaremos as salvaguardas adequadas, tais como decisões de adequação ou Cláusulas Contratuais Padrão, conforme necessário.",
+       "Retention":"6. Conservação",
+       "We keep personal data":"Conservamos os dados pessoais apenas durante o tempo necessário para os fins acima descritos e para cumprir as obrigações legais. Períodos de retenção indicativos: [indicar períodos específicos, por exemplo, enquanto a conta estiver ativa + X anos; registos durante Y meses]",
+       "Security":"7. Segurança",
+       "We implement appropriate technical":"Implementámos medidas técnicas e organizacionais adequadas para proteger os dados pessoais (por exemplo, controlos de acesso, encriptação quando apropriado, cópias de segurança, procedimentos de resposta a incidentes).",
+       "Your rights":"8. Os seus direitos",
+       "You may request access":"Sujeito à legislação aplicável, pode solicitar o acesso, a retificação, a eliminação, a restrição, a oposição e a portabilidade dos dados.Também pode revogar o consentimento a qualquer momento (sem afetar o processamento realizado antes da revogação). Para exercer os seus direitos, contacte: [PRIVACY EMAIL].   Tem também o direito de apresentar uma reclamação à Autoridade Nacional de Proteção de Dados (CNPD) portuguesa ou à sua autoridade de supervisão local no Espaço Económico Europeu (EEE).",
+       "Children":"9. Crianças",
+       "If the App is used":"Caso a aplicação seja utilizada por menores, poderão ser necessárias medidas adicionais de consentimento dos pais/encarregados de educação legais e de verificação da idade, de acordo com a legislação aplicável.",
+       "Updates to this Notice":"10. Atualizações",
+       "We may update this":`Podemos atualizar este Aviso de Privacidade periodicamente. Iremos apresentar a data e a versão da "Última atualização". Quando necessário, iremos notificá-lo na aplicação e solicitaremos a sua aceitação/consentimento novamente.`
     }
   }
 };

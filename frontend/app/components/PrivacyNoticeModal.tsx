@@ -88,9 +88,39 @@ const PrivacyNoticeModal: React.FC<PrivacyNoticeModalProps> = ({ visible, onClos
             <Text style={[styles.paragraph, { color: colors.text, marginTop: 8 }]}>{t('We do not sell')}</Text>
           </Section>
 
-          <Section title="8. Your rights">
+          <Section title={t('International transfers')}>
             <Text style={[styles.paragraph, { color: colors.text }]}>
-              You may request access, rectification, erasure, and portability of your data. You also have the right to lodge a complaint with the CNPD (Portugal).
+                {t('If personal data')}
+            </Text>
+          </Section>
+
+          <Section title={t('Retention')}>
+            <Text style={[styles.paragraph, { color: colors.text }]}>
+                {t('We keep personal data')}
+            </Text>
+          </Section>
+
+          <Section title={t('Security')}>
+            <Text style={[styles.paragraph, { color: colors.text }]}>
+                {t('We implement appropriate technical')}
+            </Text>
+          </Section>
+
+          <Section title={t('Your rights')}>
+            <Text style={[styles.paragraph, { color: colors.text }]}>
+              {t('You may request access')}
+            </Text>
+          </Section>
+
+          <Section title={t('Children')}>
+            <Text style={[styles.paragraph, { color: colors.text }]}>
+                {t('If the App is used')}
+            </Text>
+          </Section>
+
+          <Section title={t('Updates to this Notice')}>
+            <Text style={[styles.paragraph, { color: colors.text }]}>
+                {t('We may update this')}
             </Text>
           </Section>
 

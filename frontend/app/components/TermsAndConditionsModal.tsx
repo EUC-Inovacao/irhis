@@ -131,7 +131,7 @@ const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = ({ visib
           <Section title={t('Governing law and contact')}>
             <Text style={[styles.paragraph, { color: colors.text }]}>
               {t('Governing law: Portugal')}
-              {"\n"}For questions about these Terms, contact: support@eucinovacaoportugal.com
+              {"\n"}{t('For questions about')}: support@eucinovacaoportugal.com
             </Text>
           </Section>
           
