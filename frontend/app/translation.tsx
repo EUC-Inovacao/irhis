@@ -242,7 +242,9 @@ const resources = {
       "Fatigue":"Fatigue",
       "Difficulty":"Difficulty",
       "No patients assigned yet":"No patients assigned yet",
-      "Patients will appear":"Patients will appear here once they are assigned to you."
+      "Patients will appear":"Patients will appear here once they are assigned to you.",
+      "Portuguese":"Portuguese",
+      "English":"English"
     }
   },
   pt: {
@@ -488,7 +490,9 @@ const resources = {
        "Fatigue":"Fadiga",
        "Difficulty":"Dificuldade",
        "No patients assigned yet":"Ainda não foram atribuídos utentes",
-       "Patients will appear":"Os utentes aparecerão aqui assim que lhe forem atribuídos."
+       "Patients will appear":"Os utentes aparecerão aqui assim que lhe forem atribuídos.",
+       "Portuguese":"Portugues",
+       "English":"Inglês"
     }
   }
 };

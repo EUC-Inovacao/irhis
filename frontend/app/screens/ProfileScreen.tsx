@@ -8,6 +8,8 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../types';
 import { useTranslation } from 'react-i18next';
+import { Picker } from '@react-native-picker/picker';
+import Fontisto from 'react-native-vector-icons/Fontisto';
 
 type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Profile'>;
 type ProfileScreenRouteProp = RouteProp<RootStackParamList, 'Profile'>;
@@ -18,6 +20,7 @@ const ProfileScreen = () => {
     const { user, logout } = useAuth();
     const navigation = useNavigation<ProfileScreenNavigationProp>();
     const route = useRoute<ProfileScreenRouteProp>();
+    const [selectedValue, setSelectedValue] = useState("JavaScript");
 
     const [isTwoFactorEnabled, setIsTwoFactorEnabled] = useState(false);
     const [isDarkModeLocal, setIsDarkModeLocal] = useState(false);
@@ -160,9 +163,29 @@ const ProfileScreen = () => {
                 <MenuItem 
                     label={t('About')}
                     icon="information-circle-outline" 
-                    valueElement={<Text style={{ color: colors.textSecondary, marginRight: 8 }}>v1.0.0</Text>} 
+                    valueElement={<Text style={{ color: colors.textSecondary, marginRight: 8 }}>v1.0.0</Text>}
                     onPress={() => navigation.navigate('About')} 
                 />
+                <View style = { styles.languageView }>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Fontisto name="language" size={20} color={colors.info} />
+                        <Text style = {{ marginLeft: 8, color: colors.text}}>
+                        {t('Lang')}
+                        </Text>
+                    </View>
+                      <Picker
+
+                        selectedValue={selectedValue}
+                        onValueChange={(itemValue) =>{
+                            setSelectedValue(itemValue);
+                            i18n.changeLanguage(itemValue);}}
+                        style={{ width: 150, color: colors.text }}
+                        itemStyle={{ color: colors.text }}
+                      >
+                        <Picker.Item label={t("Portuguese")} value="pt"/>
+                        <Picker.Item label={t("English")} value="en" />
+                      </Picker>
+                    </View>
             </View>
 
             {/* 4. SECÇÃO: DARK MODE */}
@@ -253,6 +276,12 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         marginBottom: 24,
         overflow: 'hidden',
+    },
+    languageView: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginLeft: 22,
+        justifyContent:'space-between',
     },
     menuItem: {
         flexDirection: 'row',
