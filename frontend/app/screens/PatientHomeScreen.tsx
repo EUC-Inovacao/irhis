@@ -11,6 +11,7 @@ import ChartCard from '@components/ChartCard';
 import WeeklyFeedbackCard from '@components/WeeklyFeedbackCard';
 import ExerciseCard from '@components/ExerciseCard';
 import { useTranslation } from 'react-i18next';
+import * as NavigationBar from 'expo-navigation-bar';
 
 const PatientHomeScreen = ({ navigation }: any) => {
     const { t, i18n } = useTranslation();
@@ -20,6 +21,9 @@ const PatientHomeScreen = ({ navigation }: any) => {
     const { healthData, dailyData, isConnected, isLoading, connectDevice, refreshHealthData } = useHealth();
     const patient = user ? patients[user.id] : null;
     const exercises = user ? (assignedExercises[user.id] || []) : [];
+    useEffect(() => {
+        NavigationBar.setVisibilityAsync('hidden');
+      }, []);
 
     const [refreshing, setRefreshing] = useState(false);
 
