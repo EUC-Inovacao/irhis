@@ -310,6 +310,19 @@ def get_user_by_id(user_id: str) -> Optional[dict[str, Any]]:
         {"id": user_id},
     )
 
+
+def update_user_password(user_id: str, password_hash: str) -> None:
+    execute(
+        """
+        UPDATE users
+        SET Password = :password
+        WHERE ID = :id
+          AND Active = 1
+          AND COALESCE(Deleted, 0) = 0
+        """,
+        {"id": user_id, "password": password_hash},
+    )
+
 def get_patient_by_id(patient_id: str) -> Optional[dict[str, Any]]:
     """Get patient data by joining users and patient tables."""
     return fetch_one(

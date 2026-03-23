@@ -119,7 +119,9 @@
     "reqUpper": "Uma letra maiúscula",
     "reqNumber": "Um número",
     "reqMatch": "As palavras-passe coincidem",
-    "updatedSuccess": "Palavra-passe atualizada com sucesso."
+    "updatedSuccess": "Palavra-passe atualizada com sucesso.",
+    "updating": "A atualizar...",
+    "updateFailed": "Não foi possível atualizar a palavra-passe."
   },
   "manageInvites": {
     "title": "Gerir convites",
