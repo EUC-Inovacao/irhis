@@ -244,7 +244,9 @@ const resources = {
       "No patients assigned yet":"No patients assigned yet",
       "Patients will appear":"Patients will appear here once they are assigned to you.",
       "Portuguese":"Portuguese",
-      "English":"English"
+      "English":"English",
+      "Important":"Important",
+      "This is a work-in-progress":"This is a work-in-progress version. It may contain technical errors and is subject to change."
     }
   },
   pt: {
@@ -492,7 +494,9 @@ const resources = {
        "No patients assigned yet":"Ainda não foram atribuídos utentes",
        "Patients will appear":"Os utentes aparecerão aqui assim que lhe forem atribuídos.",
        "Portuguese":"Portugues",
-       "English":"Inglês"
+       "English":"Inglês",
+       "Important":"Importante",
+       "This is a work-in-progress":"Esta é uma versão em desenvolvimento. Pode apresentar erros técnicos e estar sujeita a alterações."
     }
   }
 };

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useTranslation } from 'react-i18next';
 import {
   View,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Button,
   StyleSheet,
+  Modal,
   Image,
   Alert,
   KeyboardAvoidingView,
@@ -28,6 +29,10 @@ const LoginScreen = ({ navigation }: any) => {
   // REMOVIDO: const [role, setRole] = useState("Patient");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  useEffect(() => {
+      setModalVisible(true);
+      },[]);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -178,6 +183,21 @@ const LoginScreen = ({ navigation }: any) => {
                 style={styles.footerImage}
             />
             </View>
+            <View style={styles.modalView}>
+                    <Modal style={styles.modalView}
+                        visible = {modalVisible}
+                        transparent = { true }
+                        animationType = "slide"
+                        onRequestClose = {() => setModalVisible(false)}
+                    >
+                    <View style={styles.modalView}>
+                        <Text style={{textAlign:"center", justifyContent:"center",marginBottom: 100}}>
+                            <Text style={{ fontWeight: "bold" }}>{t('Important')}:</Text> {t('This is a work-in-progress')}
+                        </Text>
+                        <Button title="Fechar" onPress={() => setModalVisible(false)} />
+                    </View>
+                </Modal>
+                </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -210,6 +230,12 @@ const styles = StyleSheet.create({
        justifyContent:"center",
        flexDirection:"row"
   },
+  modalView:{
+      backgroundColor: "white",
+      height: "100%",
+      justifyContent:"center",
+      alignItems:"center"
+      },
   TextButton:{
       color:"white",
       textAlign:"center",
