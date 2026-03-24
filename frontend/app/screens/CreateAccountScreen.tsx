@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
@@ -29,6 +29,10 @@ const CreateAccountScreen = () => {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [hasMinLength, setHasMinLength] = useState(false);
+  const [hasUpperCase, setHasUpperCase] = useState(false);
+  const [hasNumber, setHasNumber] = useState(false);
+  const [passwordsMatch, setPasswordsMatch] = useState(false);
 
   const formatBirthDate = (text: string) => {
     const numbers = text.replace(/\D/g, '');
@@ -66,6 +70,13 @@ const CreateAccountScreen = () => {
     }
     return dateStr;
   };
+  useEffect(() => {
+    setHasMinLength(password.length >= 8);
+    setHasUpperCase(/[A-Z]/.test(password));
+    setHasNumber(/[0-9]/.test(password));
+  }, [password]);
+
+  const isValid = hasMinLength && hasUpperCase && hasNumber && (password === confirmPassword) && password.length > 0;
 
   const handleSubmit = async () => {
     const nameTrim = name.trim();
@@ -90,9 +101,24 @@ const CreateAccountScreen = () => {
         return;
       }
 
-    if (password.length < 6) {
+    if (password.length < 8) {
       setError(t('PasswordLength'));
       return;
+    }
+
+    if (!/[A-Z]/.test(password)) {
+        setError("Password must have an Uppercase Letter");
+        return;
+      }
+
+    if (!/[0-9]/.test(password)) {
+        setError("Password must have a number");
+        return;
+    }
+
+    if(!password === confirmPassword){
+        setError("Passwords dont match");
+        return;
     }
     
     if (!acceptedTerms) {
