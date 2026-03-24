@@ -43,6 +43,7 @@ import { usePatients } from "@context/PatientContext";
 import { getCurrentExercise } from "@services/exerciseAssignmentService";
 import { createSessionFromAnalysisResult } from "@services/sessionService";
 import { useTranslation } from 'react-i18next';
+import * as NavigationBar from 'expo-navigation-bar';
 
 interface SensorData {
   Quat_W?: number;
@@ -74,6 +75,9 @@ const MovellaScreen = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentOrientations, setCurrentOrientations] =
     useState<BodyOrientations>({});
+    useEffect(() => {
+        NavigationBar.setVisibilityAsync('hidden');
+    }, []);
   const [sensorData, setSensorData] = useState<Record<string, SensorData[]>>(
     {}
   );

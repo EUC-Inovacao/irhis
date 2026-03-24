@@ -15,11 +15,16 @@ import { usePatients } from "@context/PatientContext";
 import { useFocusEffect } from "@react-navigation/native";
 import type { Session } from "../types";
 import { useTranslation } from 'react-i18next';
+import * as NavigationBar from 'expo-navigation-bar';
+
 
 const ExerciseHistoryScreen = ({ navigation }: any) => {
   const { t, i18n } = useTranslation();
   const { colors } = useTheme();
   const { user } = useAuth();
+  useEffect(() => {
+    NavigationBar.setVisibilityAsync('hidden');
+  }, []);
   const {
     sessionsByPatient,
     fetchPatientSessions,

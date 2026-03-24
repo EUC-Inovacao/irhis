@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +9,7 @@ import PatientCard from '@components/PatientCard';
 import PendingInviteCard from '@components/PendingInviteCard';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
+import * as NavigationBar from 'expo-navigation-bar';
 
 
 interface StatCardProps {
@@ -30,6 +31,9 @@ function formatMetricValue(metric: { avgROM?: number | null; avgVelocity?: numbe
 
 const StatCard: React.FC<StatCardProps> = ({ icon, value, label, color }) => {
     const { colors } = useTheme();
+    useEffect(() => {
+        NavigationBar.setVisibilityAsync('hidden');
+    }, []);
     return (
         <View style={[styles.statCard, { backgroundColor: colors.card }]}>
             <View style={[styles.iconContainer, { backgroundColor: color + '15' }]}>
