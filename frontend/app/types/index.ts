@@ -248,7 +248,6 @@ export interface AnalysisResult {
 export type RootStackParamList = {
   Home: undefined;
   Login: undefined;
-  Signup: undefined;
 
   PatientDetail: { patientId: string; role: string };
   SessionDetail: { sessionId: string; patientId: string };

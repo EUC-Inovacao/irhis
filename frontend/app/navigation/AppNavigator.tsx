@@ -12,7 +12,6 @@ import { useTheme } from '@theme/ThemeContext';
 import { useAuth } from '@context/AuthContext';
 
 import LoginScreen from '@screens/LoginScreen';
-import SignupScreen from '@screens/SignupScreen';
 import PatientHomeScreen from '@screens/PatientHomeScreen';
 import DoctorHomeScreen from '@screens/DoctorHomeScreen';
 import PatientDetailScreen from '@screens/PatientDetailScreen';
@@ -345,11 +344,6 @@ const AppNavigator = () => {
             <Stack.Screen
               name="Login"
               component={LoginScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="Signup"
-              component={SignupScreen}
               options={{ headerShown: false }}
             />
             <Stack.Screen

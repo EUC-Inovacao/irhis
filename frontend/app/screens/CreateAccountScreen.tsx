@@ -4,9 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import PasswordRequirementsCard from '../components/PasswordRequirementsCard';
 import TermsAndConditionsModal from "../components/TermsAndConditionsModal";
 import PrivacyNoticeModal from '@components/PrivacyNoticeModal';
 import { useTranslation } from 'react-i18next';
+import { getPasswordValidationState } from '../utils/passwordValidation';
 
 const CreateAccountScreen = () => {
   const { colors } = useTheme();
@@ -27,6 +29,8 @@ const CreateAccountScreen = () => {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+
+  const passwordValidation = getPasswordValidationState(password, confirmPassword);
 
   const formatBirthDate = (text: string) => {
     const numbers = text.replace(/\D/g, '');
@@ -88,10 +92,10 @@ const CreateAccountScreen = () => {
         return;
       }
 
-    if (password.length < 6) {
-      setError(t('createAccount.passwordMinLength'));
-                return;
-      }
+    if (!passwordValidation.isValid) {
+      setError(t('createAccount.errorInvalidPassword'));
+      return;
+    }
     
     if (!acceptedTerms) {
         setError(t('createAccount.termsRequired'));
@@ -101,11 +105,6 @@ const CreateAccountScreen = () => {
         if (!acceptedPrivacy) {
         setError(t('createAccount.privacyRequired'));
         return;
-    }
-    
-    if (password !== confirmPassword) {
-      setError(t('createAccount.passwordMismatch'));
-      return;
     }
     
     // Validate birth date format for patients
@@ -258,6 +257,8 @@ const CreateAccountScreen = () => {
             </TouchableOpacity>
           </View>
 
+          <PasswordRequirementsCard validation={passwordValidation} />
+
           {/* Birth Date Input - Only for Patients */}
           {role === 'patient' && (
             <>
@@ -315,9 +316,15 @@ const CreateAccountScreen = () => {
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.primary, opacity: (!acceptedTerms || !acceptedPrivacy) ? 0.6 : 1 }]}
+            style={[
+              styles.button,
+              {
+                backgroundColor: colors.primary,
+                opacity: (!acceptedTerms || !acceptedPrivacy || !passwordValidation.isValid || loading) ? 0.6 : 1,
+              },
+            ]}
             onPress={handleSubmit}
-            disabled={loading}
+            disabled={loading || !passwordValidation.isValid}
           >
             <Text style={styles.buttonText}>{loading ? t('createAccount.buttonLoading') : t('common.createAccount')}</Text>
           </TouchableOpacity>
