@@ -418,6 +418,7 @@ const styles = StyleSheet.create({
         gap: 8,
         paddingVertical: 12,
         marginTop: 12,
+        marginBottom: 68-16,
         borderRadius: 8,
         borderWidth: 1,
     },
