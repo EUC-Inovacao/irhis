@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,6 +6,8 @@ import { useTheme } from '../../theme/ThemeContext';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../types';
+import PasswordRequirementsCard from '../../components/PasswordRequirementsCard';
+import { getPasswordValidationState } from '../../utils/passwordValidation';
 
 type NavProp = StackNavigationProp<RootStackParamList, 'CreatePasswordDoctor'>;
 type RouteProps = RouteProp<RootStackParamList, 'CreatePasswordDoctor'>;
@@ -20,17 +22,7 @@ const CreatePasswordDoctorScreen = () => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    const [hasMinLength, setHasMinLength] = useState(false);
-    const [hasUpperCase, setHasUpperCase] = useState(false);
-    const [hasNumber, setHasNumber] = useState(false);
-
-    useEffect(() => {
-        setHasMinLength(password.length >= 8);
-        setHasUpperCase(/[A-Z]/.test(password));
-        setHasNumber(/[0-9]/.test(password));
-    }, [password]);
-
-    const isValid = hasMinLength && hasUpperCase && hasNumber && (password === confirmPassword) && password.length > 0;
+    const validation = getPasswordValidationState(password, confirmPassword);
 
     const handleFinish = () => {
         // Fluxo do Doutor termina aqui e vai para o Login
@@ -79,16 +71,11 @@ const CreatePasswordDoctorScreen = () => {
                     </TouchableOpacity>
                 </View>
 
-                <View style={styles.requirementsBox}>
-                    <Text style={styles.reqTitle}>Password requirements:</Text>
-                    <View style={styles.reqItem}><Ionicons name="checkmark" size={14} color={hasMinLength ? '#16A34A' : '#6B7280'} /><Text style={[styles.reqText, { color: hasMinLength ? '#16A34A' : '#6B7280' }]}>At least 8 characters</Text></View>
-                    <View style={styles.reqItem}><Ionicons name="checkmark" size={14} color={hasUpperCase ? '#16A34A' : '#6B7280'} /><Text style={[styles.reqText, { color: hasUpperCase ? '#16A34A' : '#6B7280' }]}>One uppercase letter</Text></View>
-                    <View style={styles.reqItem}><Ionicons name="checkmark" size={14} color={hasNumber ? '#16A34A' : '#6B7280'} /><Text style={[styles.reqText, { color: hasNumber ? '#16A34A' : '#6B7280' }]}>One number</Text></View>
-                </View>
+                <PasswordRequirementsCard validation={validation} />
             </ScrollView>
 
             <View style={[styles.footer, { borderTopColor: colors.border }]}>
-                <TouchableOpacity style={[styles.button, { backgroundColor: isValid ? colors.primary : '#93C5FD' }]} onPress={isValid ? handleFinish : undefined} disabled={!isValid}>
+                <TouchableOpacity style={[styles.button, { backgroundColor: validation.isValid ? colors.primary : '#93C5FD' }]} onPress={validation.isValid ? handleFinish : undefined} disabled={!validation.isValid}>
                     <Text style={styles.buttonText}>Activate Account</Text>
                 </TouchableOpacity>
             </View>
@@ -110,10 +97,6 @@ const styles = StyleSheet.create({
     inputContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 8, height: 50, paddingHorizontal: 16, marginBottom: 16 },
     input: { flex: 1, fontSize: 16, height: '100%' },
     eyeIcon: { padding: 4 },
-    requirementsBox: { backgroundColor: '#BFDBFE', padding: 16, borderRadius: 8, marginTop: 8 },
-    reqTitle: { color: '#1E3A8A', marginBottom: 8, fontWeight: 'bold', fontSize: 14 },
-    reqItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-    reqText: { marginLeft: 8, fontSize: 13 },
     footer: { padding: 24, borderTopWidth: 1 },
     button: { height: 50, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
     buttonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },

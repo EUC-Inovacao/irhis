@@ -148,6 +148,9 @@ def signup():
         if not all([email, password, role, name]):
             return jsonify({"error": "Missing required fields"}), 400
 
+        if password != password.strip():
+            return jsonify({"error": "Password cannot start or end with spaces"}), 400
+
         if not is_db_enabled():
             return jsonify({"error": "Database not configured"}), 500
 
@@ -237,6 +240,9 @@ def update_current_user_password(current_user):
 
     if not any(character.isdigit() for character in new_password):
         return jsonify({"error": "Password must include at least one number"}), 400
+
+    if new_password != new_password.strip():
+        return jsonify({"error": "Password cannot start or end with spaces"}), 400
 
     try:
         hashed_password = generate_password_hash(new_password)

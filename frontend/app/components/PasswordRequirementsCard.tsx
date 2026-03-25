@@ -70,6 +70,10 @@ const PasswordRequirementsCard: React.FC<PasswordRequirementsCardProps> = ({
         label={t('changePassword.reqNumber')}
         met={validation.hasNumber}
       />
+      <RequirementItem
+        label={t('changePassword.reqNoEdgeSpaces')}
+        met={validation.hasNoEdgeSpaces}
+      />
       {showMatchRequirement && (
         <RequirementItem
           label={t('changePassword.reqMatch')}
