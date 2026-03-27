@@ -8,7 +8,7 @@ import { useHealth } from '@context/HealthContext';
 import { Ionicons } from '@expo/vector-icons';
 import ActivityRings from '@components/ActivityRings';
 import ChartCard from '@components/ChartCard';
-import WeeklyFeedbackCard from '@components/WeeklyFeedbackCard';
+//import WeeklyFeedbackCard from '@components/WeeklyFeedbackCard';
 import ExerciseCard from '@components/ExerciseCard';
 import { useTranslation } from 'react-i18next';
 import * as NavigationBar from 'expo-navigation-bar';
@@ -231,7 +231,7 @@ const PatientHomeScreen = ({ navigation }: any) => {
                 */}
 
 
-                <WeeklyFeedbackCard onSubmit={handleWeeklyFeedbackSubmit} />
+                {/*<WeeklyFeedbackCard onSubmit={handleWeeklyFeedbackSubmit} />*/}
 
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('Your Exercises')}</Text>
                 {assignedList.length > 0 ? (
