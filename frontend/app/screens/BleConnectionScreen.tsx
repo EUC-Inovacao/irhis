@@ -392,7 +392,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
         Alert.alert(
           t('Exercise Stopped'),
           sensorCount > 0
-            ? `${t('Recorded data from')} ${sensorCount} sensor${sensorCount !== 1 ? "s" : ""}. You can now analyze.`
+            ? `${t('Recorded data from')} ${sensorCount} sensor${sensorCount !== 1 ? "s" : ""}. ${t('You can now analyze')}.`
             : t('No data recorded')
         );
       }
@@ -438,7 +438,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
 
       if (deviceTagMap.size === 0) {
         console.error("❌ [UI] No sensors with device tags found");
-        Alert.alert("Error", "No sensors with device tags found. Please assign device tags to sensors.");
+        Alert.alert(t('Error'), t('No sensors with device tags found. Please assign device tags to sensors.'));
         return;
       }
 

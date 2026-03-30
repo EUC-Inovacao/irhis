@@ -116,7 +116,7 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
 
         <View style={styles.asymmetrySection}>
           <Text style={[styles.asymmetrySectionTitle, { color: colors.text }]}>
-            Hip
+            {t('Hip')}
           </Text>
           <View style={styles.metricRow}>
             <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
@@ -153,7 +153,7 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
   const renderCoMCard = () => (
     <View style={[styles.comCard, { backgroundColor: colors.card }]}>
       <Text style={[styles.cardTitle, { color: colors.text }]}>
-        {t('Center of Mass')} (CoM)
+        {t('Center of Mass')} (CM)
       </Text>
       <View style={styles.metricsGrid}>
         <View style={styles.metricRow}>
@@ -239,7 +239,7 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
                 key={index}
                 style={[styles.missingSensor, { color: colors.textSecondary }]}
               >
-                • {sensor}
+                • {t(`sensor.${sensor}`)}
               </Text>
             )
           )}
@@ -278,7 +278,7 @@ const LocalAnalysisResults: React.FC<LocalAnalysisResultsProps> = ({
       {/* Hip Analysis */}
       <View style={styles.jointSection}>
         <Text style={[styles.jointSectionTitle, { color: colors.text }]}>
-          Hip Analysis
+          {t('Hip Analysis')}
         </Text>
         <View style={styles.jointGrid}>
           {renderMetricCard(t('Hip'), result.hip.left, t('Left'))}

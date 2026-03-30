@@ -477,7 +477,35 @@ const resources = {
        "Children":"9. Children",
        "If the App is used":"If the App is used by minors, additional parental/legal guardian consent and age-verification steps may apply, in accordance with applicable law.",
        "Updates to this Notice":"10. Updates to this Notice",
-       "We may update this":`We may update this Privacy Notice from time to time. We will show the updated "Last updated" date and version. Where required, we will notify you in the App and request renewed acceptance/consent.`
+       "We may update this":`We may update this Privacy Notice from time to time. We will show the updated "Last updated" date and version. Where required, we will notify you in the App and request renewed acceptance/consent.`,
+       "You can now analyze":"You can now analyze",
+       "No sensors with device tags found":"No sensors with device tags found. Please assign device tags to sensors.",
+       "Failed to submit feedback":"Failed to submit feedback. Please try again.",
+       "Session Feedback":"Session Feedback",
+       "Please rate":"Please rate your experience during this exercise session.",
+       "No Pain":"No Pain",
+       "Severe Pain":"Severe Pain",
+       "Not Tired":"Not Tired",
+       "Very Tired":"Very Tired",
+       "Very Easy":"Very Easy",
+       "Very Hard":"Very Hard",
+       "Additional Comments":"Additional Comments (Optional)",
+       "Share any additional":"Share any additional thoughts about this session",
+       "Skip":"Skip",
+       "Submitting":"Submitting",
+       "Submit Feedback":"Submit Feedback",
+       "Knee":"Knee",
+       "Hip Analysis":"Hip Analysis",
+       "Hip":"Hip",
+       "Fatigue Level":"Fatigue Level",
+       "Difficulty Level":"Difficulty Level",
+       "sensor":{
+            "right thigh":"right thigh",
+            "right shank":"right shank",
+            "left thigh":"left thigh",
+            "left shank":"left shank",
+            "pelvis":"pelvis"
+       }
     }
   },
   pt: {
@@ -957,7 +985,36 @@ const resources = {
        "Children":"9. Crianças",
        "If the App is used":"Caso a aplicação seja utilizada por menores, poderão ser necessárias medidas adicionais de consentimento dos pais/encarregados de educação legais e de verificação da idade, de acordo com a legislação aplicável.",
        "Updates to this Notice":"10. Atualizações",
-       "We may update this":`Podemos atualizar este Aviso de Privacidade periodicamente. Iremos apresentar a data e a versão da "Última atualização". Quando necessário, iremos notificá-lo na aplicação e solicitaremos a sua aceitação/consentimento novamente.`
+       "We may update this":`Podemos atualizar este Aviso de Privacidade periodicamente. Iremos apresentar a data e a versão da "Última atualização". Quando necessário, iremos notificá-lo na aplicação e solicitaremos a sua aceitação/consentimento novamente.`,
+       "You can now analyze":"Agora pode analisar",
+       "No sensors with device tags found":"“Não foram encontrados sensores com etiquetas de dispositivo. Por favor, atribua etiquetas de dispositivo aos sensores.",
+       "Failed to submit feedback":"Falha ao enviar o feedback. Por favor, tente novamente.",
+       "Session Feedback":"Feedback da sessão",
+       "Please rate":"Avalie a sua experiência durante esta sessão de exercício.",
+       "No Pain":"Sem Dor",
+       "Severe Pain":"Dor intensa",
+       "Not Tired":"Sem cansaço",
+       "Very Tired":"Muito cansado",
+       "Very Easy":"Muito Fácil",
+       "Very Hard":"Muito Difícil",
+       "Additional Comments":"Comentários Adicionais (opcional)",
+       "Share any additional":"Partilhe quaisquer comentários adicionais sobre esta sessão",
+       "Skip":"Ignorar",
+       "Submitting":"A Enviar",
+       "Submit Feedback":"Enviar Feedback",
+       "Knee":"Joelho",
+       "Hip Analysis":"Analise da Anca",
+       "Hip":"Anca",
+       "Fatigue Level":"Nivel Fadiga",
+       "Difficulty Level":"Nivel de Dificuldade",
+       "sensor":{
+            "right thigh":"coxa direita",
+            "right shank":"canela direita",
+            "left thigh":"coxa esquerda",
+            "left shank":"canela esquerda",
+            "pelvis":"pelvis"
+       }
+
     }
   }
 };
