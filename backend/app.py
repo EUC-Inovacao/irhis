@@ -50,7 +50,7 @@ hashed_password_doctor = generate_password_hash('password')
 
 default_patient_details = {
     "age": 0, "sex": "N/A", "height": 0, "weight": 0, "bmi": 0,
-    "clinicalInfo": "No information provided."
+    "clinicalInfo": None
 }
 
 
@@ -257,7 +257,7 @@ def get_patient(current_user, patient_id):
                     "height": 0,
                     "weight": 0,
                     "bmi": 0,
-                    "clinicalInfo": "No information provided.",
+                    "clinicalInfo": None,
                     "medicalHistory": None,
                 },
                 "recovery_process": [],
@@ -322,7 +322,7 @@ def get_patient(current_user, patient_id):
                 "height": height or 0,
                 "weight": patient_data.get('Weight') or 0,
                 "bmi": patient_data.get('BMI') or 0,
-                "clinicalInfo": patient_data.get('MedicalHistory') or 'No information provided.',
+                "clinicalInfo": patient_data.get('MedicalHistory') or None,
                 "medicalHistory": patient_data.get('MedicalHistory'),
             },
             "recovery_process": [],
@@ -514,7 +514,7 @@ def update_patient_details(current_user, patient_id):
                 "height": height or 0,
                 "weight": _get(patient_data, 'Weight', 'weight') or 0,
                 "bmi": _get(patient_data, 'BMI', 'bmi') or 0,
-                "clinicalInfo": _get(patient_data, 'MedicalHistory', 'medicalhistory') or 'No information provided.',
+                "clinicalInfo": _get(patient_data, 'MedicalHistory', 'medicalhistory') or None,
                 "medicalHistory": _get(patient_data, 'MedicalHistory', 'medicalhistory'),
             },
             "recovery_process": [],

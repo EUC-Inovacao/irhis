@@ -31,6 +31,7 @@ import {
 
 import { assignPatientToDoctor, getPatientById } from "@services/patientService";
 import { useAuth } from "./AuthContext";
+import { useTranslation } from 'react-i18next';
 
 export type SessionAsExercise = {
   id: string;
@@ -119,7 +120,6 @@ function sessionToExercise(session: Session, completed: boolean): SessionAsExerc
     (session as any).targetSets ??
     (session as any).target_sets ??
     null;
-
   return {
     id: session.id,
     patientId: (session as any).patientId ?? "",
@@ -200,6 +200,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
   const [patientDashboardError, setPatientDashboardError] = useState<string | null>(
     null
   );
+  const { t, i18n } = useTranslation();
   const fetchPatientsInProgress = useRef(false);
   const fetchSessionsInFlight = useRef<Set<string>>(new Set());
 
@@ -327,7 +328,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
                     height: 0,
                     weight: 0,
                     bmi: 0,
-                    clinicalInfo: 'No information provided.',
+                    clinicalInfo: t('No information provided'),
                   },
                   recovery_process: [],
                 },
@@ -346,7 +347,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
                   height: 0,
                   weight: 0,
                   bmi: 0,
-                  clinicalInfo: 'No information provided.',
+                  clinicalInfo: t('No information provided'),
                 },
                 recovery_process: [],
               },
@@ -379,7 +380,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
               height: 0,
               weight: 0,
               bmi: 0,
-              clinicalInfo: "No information provided.",
+              clinicalInfo: t('No information provided'),
             },
             recovery_process: [],
           };

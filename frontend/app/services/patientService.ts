@@ -56,14 +56,14 @@ function toPatientDetails(details: unknown): PatientDetails {
   const rawAge = parseNumber(d.age);
   const ageFromBirth = computeAgeFromBirthDate(d.birthDate);
   const age = rawAge > 0 ? rawAge : ageFromBirth;
-  
+
   const result = {
     age,
     sex: (d.sex as PatientDetails["sex"]) ?? "Other",
     height: parseNumber(d.height),
     weight: parseNumber(d.weight),
     bmi: parseNumber(d.bmi),
-    clinicalInfo: typeof d.clinicalInfo === "string" ? d.clinicalInfo : "No information provided.",
+    clinicalInfo: typeof d.clinicalInfo === "string" ? d.clinicalInfo : null,
     medicalHistory: (d as any).medicalHistory,
   };
   // #region agent log

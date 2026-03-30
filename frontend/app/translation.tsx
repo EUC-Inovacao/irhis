@@ -505,7 +505,12 @@ const resources = {
             "left thigh":"left thigh",
             "left shank":"left shank",
             "pelvis":"pelvis"
-       }
+       },
+        "Right Thigh":"Right Thigh",
+        "Right Shank":"Right Shank",
+        "Left Thigh":"Left Thigh",
+        "Left Shank":"Left Shank",
+        "Pelvis":"Pelvis"
     }
   },
   pt: {
@@ -1013,8 +1018,12 @@ const resources = {
             "left thigh":"coxa esquerda",
             "left shank":"canela esquerda",
             "pelvis":"pelvis"
-       }
-
+       },
+        "Right Thigh":"Coxa Direita",
+        "Right Shank":"Canela Direita",
+        "Left Thigh":"Coxa Esquerda",
+        "Left Shank":"Canela Esquerda",
+        "Pelvis":"Pelvis"
     }
   }
 };

@@ -733,15 +733,15 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
   const getDeviceTagName = (tag?: DeviceTag): string => {
     switch (tag) {
       case DeviceTag.RIGHT_THIGH:
-        return "Right Thigh";
+        return t('Right Thigh');
       case DeviceTag.RIGHT_SHANK:
-        return "Right Shank";
+        return t('Right Shank');
       case DeviceTag.LEFT_THIGH:
-        return "Left Thigh";
+        return t('Left Thigh');
       case DeviceTag.LEFT_SHANK:
-        return "Left Shank";
+        return t('Left Shank');
       case DeviceTag.PELVIS:
-        return "Pelvis";
+        return t('Pelvis');
       default:
         return "Not assigned";
     }

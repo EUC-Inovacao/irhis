@@ -108,7 +108,7 @@ const CreatePatientScreen = ({ navigation }: any) => {
             setUnassignedPatients(data);
         } catch (error) {
             console.error('Failed to fetch unassigned patients:', error);
-            Alert.alert(t('Error'), t('Failed to fetch unassigned patients.'));
+            Alert.alert(t('Error'), t('Failed fetch'));
         } finally {
             setLoading(false);
         }
@@ -121,7 +121,7 @@ const CreatePatientScreen = ({ navigation }: any) => {
     const handleAssignPatient = async (patientId: string) => {
         try {
             await assignPatient(patientId);
-            Alert.alert(t('Success'), t('Patient assigned successfully.'));
+            Alert.alert(t('Success'), t('Patient assigned successfully'));
             fetchUnassignedPatients(); // Refresh the list
             fetchPatients(); // Refresh doctor's patient list
         } catch (error) {
@@ -192,7 +192,7 @@ const CreatePatientScreen = ({ navigation }: any) => {
                 coMorbiditiesSystemic,
             });
             
-            Alert.alert(('Success'), t('Patient created and assigned successfully.'));
+            Alert.alert(('Success'), t('Patient created and assigned successfully'));
             setShowCreateModal(false);
             // Reset all fields
             setName('');
