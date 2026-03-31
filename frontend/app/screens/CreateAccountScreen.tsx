@@ -76,6 +76,12 @@ const CreateAccountScreen = () => {
     setHasNumber(/[0-9]/.test(password));
   }, [password]);
 
+   const [hasNoEdgeSpaces, setHasNoEdgeSpaces] = useState(true);
+
+   useEffect(() => {
+     setHasNoEdgeSpaces(password.trim() === password);
+   }, [password]);
+
   const isValid = hasMinLength && hasUpperCase && hasNumber && (password === confirmPassword) && password.length > 0;
 
   const handleSubmit = async () => {
@@ -119,6 +125,10 @@ const CreateAccountScreen = () => {
     if(!password === confirmPassword){
         setError("Passwords dont match");
         return;
+    }
+    if (password.trim() !== password) {
+      setError("Password cannot start or end with spaces");
+      return;
     }
     
     if (!acceptedTerms) {
