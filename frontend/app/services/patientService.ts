@@ -25,16 +25,17 @@ export type CreatePatientPayload = {
 };
 
 function computeAgeFromBirthDate(birthDate: string | null | undefined): number {
-  if (!birthDate || typeof birthDate !== "string") return 0;
-  const match = birthDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!match) return 0;
-  const [, y, m, d] = match;
-  const birth = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
-  const today = new Date();
-  let age = today.getFullYear() - birth.getFullYear();
-  const mDiff = today.getMonth() - birth.getMonth();
-  if (mDiff < 0 || (mDiff === 0 && today.getDate() < birth.getDate())) age--;
-  return age >= 0 ? age : 0;
+  if (!birthDate) return 0;
+
+    const birth = new Date(birthDate); // cria Date a partir da string
+    if (isNaN(birth.getTime())) return 0; // data inválida
+
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const mDiff = today.getMonth() - birth.getMonth();
+    if (mDiff < 0 || (mDiff === 0 && today.getDate() < birth.getDate())) age--;
+
+    return age >= 0 ? age : 0;
 }
 
 function toPatientDetails(details: unknown): PatientDetails {
@@ -56,7 +57,7 @@ function toPatientDetails(details: unknown): PatientDetails {
   const rawAge = parseNumber(d.age);
   const ageFromBirth = computeAgeFromBirthDate(d.birthDate);
   const age = rawAge > 0 ? rawAge : ageFromBirth;
-  
+
   const result = {
     age,
     sex: (d.sex as PatientDetails["sex"]) ?? "Other",
