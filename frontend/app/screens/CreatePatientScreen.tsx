@@ -63,6 +63,24 @@ const CreatePatientScreen = ({ navigation }: any) => {
         const formatted = formatBirthDate(text);
         setBirthDate(formatted);
     };
+    const isInvalidBirthDate = (dateStr: string) => {
+        if (dateStr === '00/00/0000') return true;
+
+        const parts = dateStr.split('/');
+        if (parts.length !== 3) return true;
+
+        const [day, month, year] = parts.map(Number);
+
+        if (!day || !month || !year) return true;
+
+        const date = new Date(year, month - 1, day);
+
+        return (
+            date.getFullYear() !== year ||
+            date.getMonth() !== month - 1 ||
+            date.getDate() !== day
+        );
+    };
     
     // Convert DD/MM/YYYY to YYYY-MM-DD format for database
     const convertToDatabaseFormat = (dateStr: string): string => {
@@ -132,7 +150,7 @@ const CreatePatientScreen = ({ navigation }: any) => {
     const handleCreatePatient = async () => {
         const nameTrim = name.trim();
         const birthDateTrim = birthDate.trim();
-        
+
         // Validate required fields
         if (!nameTrim) {
             Alert.alert(t('Required'), t('Patient name is required'));
@@ -141,6 +159,10 @@ const CreatePatientScreen = ({ navigation }: any) => {
         
         if (!birthDateTrim) {
             Alert.alert(t('Required'), t('Birth date is required'));
+            return;
+        }
+        if(isInvalidBirthDate(birthDate)){
+            Alert.alert(("Required"),"Date of birth invalid")
             return;
         }
         
