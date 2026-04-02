@@ -81,6 +81,16 @@ const CreatePatientScreen = ({ navigation }: any) => {
             date.getDate() !== day
         );
     };
+    const isFutureDate = (dateStr: string): boolean => {
+        const parts = dateStr.split('/');
+        if (parts.length !== 3) return true;
+
+        const [day, month, year] = parts.map(Number);
+        const inputDate = new Date(year, month - 1, day);
+        const today = new Date();
+
+        return inputDate > today;
+    };
     
     // Convert DD/MM/YYYY to YYYY-MM-DD format for database
     const convertToDatabaseFormat = (dateStr: string): string => {
@@ -163,6 +173,10 @@ const CreatePatientScreen = ({ navigation }: any) => {
         }
         if(isInvalidBirthDate(birthDate)){
             Alert.alert(("Required"),"Date of birth invalid")
+            return;
+        }
+        if(isFutureDate(birthDate)){
+            Alert.alert("Required", "Date of birth cant be superior of today's date")
             return;
         }
         
