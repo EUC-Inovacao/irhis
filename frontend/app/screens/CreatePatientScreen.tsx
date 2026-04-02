@@ -63,6 +63,34 @@ const CreatePatientScreen = ({ navigation }: any) => {
         const formatted = formatBirthDate(text);
         setBirthDate(formatted);
     };
+    const isInvalidBirthDate = (dateStr: string) => {
+        if (dateStr === '00/00/0000') return true;
+
+        const parts = dateStr.split('/');
+        if (parts.length !== 3) return true;
+
+        const [day, month, year] = parts.map(Number);
+
+        if (!day || !month || !year) return true;
+
+        const date = new Date(year, month - 1, day);
+
+        return (
+            date.getFullYear() !== year ||
+            date.getMonth() !== month - 1 ||
+            date.getDate() !== day
+        );
+    };
+    const isFutureDate = (dateStr: string): boolean => {
+        const parts = dateStr.split('/');
+        if (parts.length !== 3) return true;
+
+        const [day, month, year] = parts.map(Number);
+        const inputDate = new Date(year, month - 1, day);
+        const today = new Date();
+
+        return inputDate > today;
+    };
     
     // Convert DD/MM/YYYY to YYYY-MM-DD format for database
     const convertToDatabaseFormat = (dateStr: string): string => {
@@ -141,6 +169,10 @@ const CreatePatientScreen = ({ navigation }: any) => {
         
         if (!birthDateTrim) {
             Alert.alert(t('common.required'), t('createPatient.birthDateRequired'));
+            return;
+        }
+        if(isFutureDate(birthDate)){
+            Alert.alert("Required", "Date of birth cant be superior of today's date")
             return;
         }
         
