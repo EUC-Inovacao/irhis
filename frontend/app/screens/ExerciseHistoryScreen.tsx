@@ -16,17 +16,19 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
 import type { Session } from "../types";
 
-const ExerciseHistoryScreen = ({ navigation }: any) => {
-  const { colors } = useTheme();
+const ExerciseHistoryScreen = ({ navigation , route }: any) => {
   const { t } = useTranslation();
+  const { colors } = useTheme();
   const { user } = useAuth();
-  const { sessionsByPatient, fetchPatientSessions, loading } = usePatients();
-  const patientId = user?.id ?? "";
-  const { completed = [] } = sessionsByPatient[patientId] ?? {
-    completed: [] as Session[],
-  };
+  const {
+    sessionsByPatient,
+    fetchPatientSessions,
+    loading,
+  } = usePatients();
+  const patientId = route.params?.patientId ?? user?.id;
+  const { completed = [] } = sessionsByPatient[patientId] ?? { completed: [] as Session[] };
 
-  useFocusEffect(
+useFocusEffect(
     useCallback(() => {
       if (patientId) {
         fetchPatientSessions(patientId);

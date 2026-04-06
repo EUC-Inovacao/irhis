@@ -429,9 +429,9 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
             </Text>
             <TouchableOpacity
               onPress={() =>
-                navigation.navigate("ExerciseHistory", {
-                  patientId,
-                })
+                navigation.navigate("PatientHistory", {
+                    patientId: patientId,
+                  })
               }
             >
               <Text

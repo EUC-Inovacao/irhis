@@ -312,6 +312,11 @@ const AppNavigator = () => {
                 headerBackTitle: t('common.back'),
               }}
             />
+            <Stack.Screen
+              name="PatientHistory"
+              component={ExerciseHistoryScreen}
+              options={{ headerTitle: t('Exercise History') }}
+            />
             {/* Novas Rotas da Task IRHIS-25 */}
             <Stack.Screen 
               name="ChangePassword" 
