@@ -16,7 +16,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import type { Session } from "../types";
 import { useTranslation } from 'react-i18next';
 
-const ExerciseHistoryScreen = ({ navigation }: any) => {
+const ExerciseHistoryScreen = ({ navigation , route }: any) => {
   const { t, i18n } = useTranslation();
   const { colors } = useTheme();
   const { user } = useAuth();
@@ -25,13 +25,13 @@ const ExerciseHistoryScreen = ({ navigation }: any) => {
     fetchPatientSessions,
     loading,
   } = usePatients();
-  const patientId = user?.id ?? "";
+  const patientId = route.params?.patientId ?? user?.id;
   const { completed = [] } = sessionsByPatient[patientId] ?? { completed: [] as Session[] };
 
-  // Refresh data when screen comes into focus
-  useFocusEffect(
+useFocusEffect(
     useCallback(() => {
       if (patientId) {
+        console.log("Fetching sessions for:", patientId);
         fetchPatientSessions(patientId);
       }
     }, [patientId, fetchPatientSessions])
