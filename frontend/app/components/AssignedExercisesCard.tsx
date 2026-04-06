@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { Patient } from '../types';
 import { usePatients, SessionAsExercise } from '@context/PatientContext';
-import { assignExerciseToPatient, getAvailableExercises } from '@services/exerciseAssignmentService';
+import { assignExerciseToPatient, getAvailableExercises, updateAssignedExercise } from '@services/exerciseAssignmentService';
 import { ExerciseTypesRepository } from '@storage/repositories';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -70,8 +70,26 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
         // #region agent log
         fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AssignedExercisesCard.tsx:48',message:'handleSave called',data:{patientId:patient.id, exercisesCount:exercises.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
         // #endregion
-        try {
-            const newOnes = exercises.filter(e => e.id.startsWith('new_') || (e as any).isNew);
+        console.log("handleSave called, exercises:", exercises);
+
+            try {
+                const newOnes = exercises.filter(e => e.id.startsWith('new_') || e.isNew);
+                const existingOnes = exercises.filter(e => !e.id.startsWith('new_') && !e.isNew);
+
+                console.log("New exercises:", newOnes);
+                console.log("Existing exercises:", existingOnes);
+
+        for (const ex of existingOnes) {
+            if (!ex) continue; // previne undefined
+
+            await assignExerciseToPatient(
+                    patient.id,
+                    ex.id,                // ← aqui usa id, não exerciseId
+                    ex.targetRepetitions,
+                    undefined,
+                    ex.name
+                );
+        }
             // #region agent log
             fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AssignedExercisesCard.tsx:51',message:'Found new exercises to save',data:{newOnesCount:newOnes.length, newOnes:newOnes.map(e=>({id:e.id,name:e.name}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
             // #endregion
@@ -117,7 +135,6 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
                     patient.id,
                     exerciseType.id,
                     ex.targetRepetitions,
-                    ex.targetSets,
                     ex.name
                 );
                 // #region agent log

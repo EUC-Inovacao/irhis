@@ -80,3 +80,17 @@ export async function getCurrentExercise(patientId: string): Promise<AssignedExe
     return null;
   }
 }
+
+
+export async function updateAssignedExercise(
+  patientId: string,
+    exerciseTypeId: string,
+    targetReps?: number,
+    exerciseTypeName?: string
+): Promise<void> {
+  await api.put(`/patients/${patientId}/exercises/${exerciseId}`, {
+        exercise_type_id: exerciseTypeId,
+        exercise_type_name: exerciseTypeName,
+        target_reps: targetReps,
+      });
+  }
