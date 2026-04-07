@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -163,6 +163,15 @@ const CreateAccountScreen = () => {
       // No manual navigation needed - the navigator re-renders based on user state
     } catch (err: any) {
       const msg = err.message || t('createAccount.createFailed');
+         // Se for erro de email já existente
+          if (err.message.includes(t('common.emailAlreadyExists'))) {
+            Alert.alert(
+              t('common.emailAlreadyExists'),
+                t('common.emailAlreadyRegistered'),
+              [{ text: "OK" }]
+            );
+            return; 
+          }
       setError(msg);
       setLoading(false);
     }
