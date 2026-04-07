@@ -203,6 +203,15 @@ const CreateAccountScreen = () => {
       // AppNavigator will automatically switch to authenticated stack when user state changes
       // No manual navigation needed - the navigator re-renders based on user state
     } catch (err: any) {
+         // Se for erro de email já existente
+          if (err.message.includes("already exists")) {
+            Alert.alert(
+              "Email already exists",
+              "Email already registed.",
+              [{ text: "OK" }]
+            );
+            return; // sai do catch
+          }
       const msg = err.message || f('AccountFail');
       setError(msg);
       setLoading(false);
