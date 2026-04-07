@@ -188,7 +188,6 @@ const CreatePatientScreen = ({ navigation }: any) => {
             Alert.alert(t('Invalid Date'), t('DateFormat'));
             return;
         }
-        
         // Validate at least one joint is affected
         if (!affectedRightKnee && !affectedLeftKnee && !affectedRightHip && !affectedLeftHip) {
             Alert.alert(t('Required'), t('select at least one'));
@@ -603,7 +602,6 @@ const CreatePatientScreen = ({ navigation }: any) => {
                             <TouchableOpacity
                                 style={[styles.submitButton, { backgroundColor: colors.primary }]}
                                 onPress={handleCreatePatient}
-                                disabled={creating || !name.trim() || !birthDate.trim() || (!affectedRightKnee && !affectedLeftKnee && !affectedRightHip && !affectedLeftHip)}
                             >
                                 {creating ? (
                                     <ActivityIndicator color="#fff" />
