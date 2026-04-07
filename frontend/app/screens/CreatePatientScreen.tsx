@@ -167,7 +167,6 @@ const CreatePatientScreen = ({ navigation }: any) => {
             Alert.alert(t('createPatient.invalidDateTitle'), t('common.invalidBirthDateError'));
             return;
         }
-        
         // Validate at least one joint is affected
         if (!affectedRightKnee && !affectedLeftKnee && !affectedRightHip && !affectedLeftHip) {
             Alert.alert(t('common.required'), t('createPatient.selectAffectedJoint'));
@@ -582,7 +581,6 @@ const CreatePatientScreen = ({ navigation }: any) => {
                             <TouchableOpacity
                                 style={[styles.submitButton, { backgroundColor: colors.primary }]}
                                 onPress={handleCreatePatient}
-                                disabled={creating || !name.trim() || !birthDate.trim() || (!affectedRightKnee && !affectedLeftKnee && !affectedRightHip && !affectedLeftHip)}
                             >
                                 {creating ? (
                                     <ActivityIndicator color="#fff" />
