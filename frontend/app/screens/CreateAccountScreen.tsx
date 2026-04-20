@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
-import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import TermsAndConditionsModal from "../components/TermsAndConditionsModal";
 import PrivacyNoticeModal from '@components/PrivacyNoticeModal';
+import { useTranslation } from 'react-i18next';
 
 const CreateAccountScreen = () => {
   const { colors } = useTheme();
-  const navigation = useNavigation();
+  const { t } = useTranslation();
   const { signup } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -72,39 +72,39 @@ const CreateAccountScreen = () => {
     
     // Validation
     if (!nameTrim || !emailTrim || !password || !confirmPassword) {
-      setError('All fields are required.');
+      setError(t('createAccount.allFieldsRequired'));
       return;
     }
     
     // For patients, birth date is required
     if (role === 'patient' && !birthDateTrim) {
-        setError('Birth date is required for patient accounts.');
+        setError(t('createAccount.birthDateRequired'));
         return;
       }
     
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(emailTrim)) {
-        setError('Please enter a valid email.');
+        setError(t('createAccount.invalidEmail'));
         return;
       }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+      setError(t('createAccount.passwordMinLength'));
                 return;
       }
     
     if (!acceptedTerms) {
-        setError('You must accept the terms and conditions to continue.');
+        setError(t('createAccount.termsRequired'));
         return;
     }
 
         if (!acceptedPrivacy) {
-        setError('You must accept the privacy notice to continue.');
+        setError(t('createAccount.privacyRequired'));
         return;
     }
     
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError(t('createAccount.passwordMismatch'));
       return;
     }
     
@@ -112,7 +112,7 @@ const CreateAccountScreen = () => {
     if (role === 'patient') {
       const birthDateForDB = convertToDatabaseFormat(birthDateTrim);
       if (!birthDateForDB.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        setError('Please enter a valid date in DD/MM/YYYY format.');
+        setError(t('createAccount.invalidDate'));
         return;
       }
     }
@@ -121,16 +121,13 @@ const CreateAccountScreen = () => {
     setLoading(true);
     
     try {
-      // Convert birth date to database format if patient
-      const birthDateForDB = role === 'patient' ? convertToDatabaseFormat(birthDateTrim) : undefined;
-
       // Create account using remote signup (AuthContext handles user/token + storage)
       await signup(nameTrim, emailTrim, password, role);
       
       // AppNavigator will automatically switch to authenticated stack when user state changes
       // No manual navigation needed - the navigator re-renders based on user state
     } catch (err: any) {
-      const msg = err.message || 'Failed to create account. Please try again.';
+      const msg = err.message || t('createAccount.createFailed');
       setError(msg);
       setLoading(false);
     }
@@ -140,13 +137,13 @@ const CreateAccountScreen = () => {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Text style={[styles.title, { color: colors.text }]}>Create Account</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{t('createAccount.title')}</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Create a new account. Choose whether you're a doctor or patient.
+            {t('createAccount.subtitle')}
           </Text>
 
           {/* Role Selection */}
-          <Text style={[styles.label, { color: colors.text }]}>Account Type</Text>
+          <Text style={[styles.label, { color: colors.text }]}>{t('createAccount.accountType')}</Text>
           <View style={styles.roleContainer}>
             <TouchableOpacity
               style={[
@@ -162,7 +159,7 @@ const CreateAccountScreen = () => {
                 color={role === 'patient' ? '#fff' : colors.text}
               />
               <Text style={[styles.roleButtonText, { color: role === 'patient' ? '#fff' : colors.text }]}>
-                Patient
+                {t('common.patient')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -182,16 +179,16 @@ const CreateAccountScreen = () => {
                 color={role === 'doctor' ? '#fff' : colors.text}
               />
               <Text style={[styles.roleButtonText, { color: role === 'doctor' ? '#fff' : colors.text }]}>
-                Doctor
+                {t('common.doctor')}
               </Text>
             </TouchableOpacity>
           </View>
 
           {/* Name Input */}
-          <Text style={[styles.label, { color: colors.text }]}>Full Name</Text>
+          <Text style={[styles.label, { color: colors.text }]}>{t('common.fullName')}</Text>
           <TextInput
             style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-            placeholder="Enter full name"
+            placeholder={t('createAccount.namePlaceholder')}
             placeholderTextColor={colors.textSecondary}
             value={name}
             onChangeText={setName}
@@ -199,10 +196,10 @@ const CreateAccountScreen = () => {
           />
 
           {/* Email Input */}
-          <Text style={[styles.label, { color: colors.text }]}>Email</Text>
+          <Text style={[styles.label, { color: colors.text }]}>{t('common.email')}</Text>
           <TextInput
             style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-            placeholder="email@example.com"
+            placeholder={t('createAccount.emailPlaceholder')}
             placeholderTextColor={colors.textSecondary}
             value={email}
             onChangeText={setEmail}
@@ -212,11 +209,11 @@ const CreateAccountScreen = () => {
           />
 
           {/* Password Input */}
-          <Text style={[styles.label, { color: colors.text }]}>Password</Text>
+          <Text style={[styles.label, { color: colors.text }]}>{t('common.password')}</Text>
           <View style={styles.passwordContainer}>
             <TextInput
               style={[styles.passwordInput, { borderColor: colors.border, color: colors.text }]}
-              placeholder="Enter password (min. 6 characters)"
+              placeholder={t('createAccount.passwordPlaceholder')}
               placeholderTextColor={colors.textSecondary}
               value={password}
               onChangeText={setPassword}
@@ -237,11 +234,11 @@ const CreateAccountScreen = () => {
           </View>
 
           {/* Confirm Password Input */}
-          <Text style={[styles.label, { color: colors.text }]}>Confirm Password</Text>
+          <Text style={[styles.label, { color: colors.text }]}>{t('common.confirmPassword')}</Text>
           <View style={styles.passwordContainer}>
             <TextInput
               style={[styles.passwordInput, { borderColor: colors.border, color: colors.text }]}
-              placeholder="Confirm password"
+              placeholder={t('createAccount.confirmPasswordPlaceholder')}
               placeholderTextColor={colors.textSecondary}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
@@ -264,18 +261,16 @@ const CreateAccountScreen = () => {
           {/* Birth Date Input - Only for Patients */}
           {role === 'patient' && (
             <>
-              <Text style={[styles.label, { color: colors.text }]}>Date of Birth *</Text>
+              <Text style={[styles.label, { color: colors.text }]}>{t('createAccount.birthDateLabel')}</Text>
               <TextInput
                 style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-                placeholder="DD/MM/YYYY"
+                placeholder={t('createAccount.birthDatePlaceholder')}
                 placeholderTextColor={colors.textSecondary}
                 value={birthDate}
                 onChangeText={handleBirthDateChange}
                 keyboardType="number-pad"
                 maxLength={10}
               />
-
-              
             </>
           )}
 
@@ -291,9 +286,9 @@ const CreateAccountScreen = () => {
                     {acceptedTerms && <Ionicons name="checkmark" size={16} color="#fff" />}
                   </View>
                   <Text style={[styles.termsText, { color: colors.textSecondary }]}>
-                    I accept the{' '}
+                    {t('createAccount.acceptPrefix')}{' '}
                     <Text style={{ color: colors.primary, fontWeight: 'bold', textDecorationLine: 'underline' }} onPress={() => setShowTermsModal(true)}>
-                      Terms and Conditions
+                      {t('common.termsAndConditions')}
                     </Text>
                   </Text>
                 </TouchableOpacity>
@@ -308,10 +303,10 @@ const CreateAccountScreen = () => {
                     {acceptedPrivacy && <Ionicons name="checkmark" size={16} color="#fff" />}
                   </View>
                   <Text style={[styles.termsText, { color: colors.textSecondary }]}>
-                    I accept the{' '}
+                    {t('createAccount.acceptPrefix')}{' '}
                     <Text style={{ color: colors.primary, fontWeight: 'bold', textDecorationLine: 'underline' }} 
                           onPress={() => setShowPrivacyModal(true)}>
-                      Privacy Notice & Consent
+                      {t('common.privacyNoticeConsent')}
                     </Text>
                   </Text>
                 </TouchableOpacity>
@@ -324,7 +319,7 @@ const CreateAccountScreen = () => {
             onPress={handleSubmit}
             disabled={loading}
           >
-            <Text style={styles.buttonText}>{loading ? 'Creating Account...' : 'Create Account'}</Text>
+            <Text style={styles.buttonText}>{loading ? t('createAccount.buttonLoading') : t('common.createAccount')}</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>

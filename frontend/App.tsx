@@ -1,4 +1,4 @@
-import './i18n';
+import './app/i18n';
 import React, { useEffect } from "react";
 import AppNavigator from "./app/navigation/AppNavigator";
 import { SafeAreaProvider } from "react-native-safe-area-context";

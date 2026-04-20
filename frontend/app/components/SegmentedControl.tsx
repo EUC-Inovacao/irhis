@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTheme } from '@theme/ThemeContext';
 
 interface SegmentedControlProps {
-  options: string[];
+  options: Array<string | { value: string; label: string }>;
   selectedValue: string;
   onValueChange: (value: string) => void;
 }
@@ -13,18 +13,22 @@ const SegmentedControl: React.FC<SegmentedControlProps> = ({ options, selectedVa
 
   return (
     <View style={[styles.container, { backgroundColor: colors.mediumGray, borderColor: colors.darkGray }]}>
-      {options.map((option) => (
+      {options.map((option) => {
+        const optionValue = typeof option === 'string' ? option : option.value;
+        const optionLabel = typeof option === 'string' ? option : option.label;
+        return (
         <TouchableOpacity
-          key={option}
+          key={optionValue}
           style={[
             styles.segment,
-            selectedValue === option ? { backgroundColor: colors.card, shadowColor: colors.black } : {},
+            selectedValue === optionValue ? { backgroundColor: colors.card, shadowColor: colors.black } : {},
           ]}
-          onPress={() => onValueChange(option)}
+          onPress={() => onValueChange(optionValue)}
         >
-          <Text style={[styles.text, { color: selectedValue === option ? colors.text : colors.textSecondary }]}>{option}</Text>
+          <Text style={[styles.text, { color: selectedValue === optionValue ? colors.text : colors.textSecondary }]}>{optionLabel}</Text>
         </TouchableOpacity>
-      ))}
+        );
+      })}
     </View>
   );
 };
