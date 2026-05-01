@@ -17,7 +17,9 @@
     "ok": "OK",
     "continue": "Continue",
     "skip": "Skip",
-    "na": "N/A"
+    "na": "N/A",
+    "futureBirthDateError": "Date of birth can't be superior to current date.",
+    "invalidBirthDateError": "Date of birth is invalid."
   },
   "navigation": {
     "myExercises": "My Exercises",

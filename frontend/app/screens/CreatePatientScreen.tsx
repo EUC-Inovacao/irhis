@@ -172,7 +172,7 @@ const CreatePatientScreen = ({ navigation }: any) => {
             return;
         }
         if(isFutureDate(birthDate)){
-            Alert.alert("Required", "Date of birth cant be superior of today's date")
+            Alert.alert(t('common.required'), t('common.futureBirthDateError'));
             return;
         }
         
@@ -181,7 +181,7 @@ const CreatePatientScreen = ({ navigation }: any) => {
         
         // Validate date format
         if (!birthDateForDB.match(/^\d{4}-\d{2}-\d{2}$/)) {
-            Alert.alert(t('createPatient.invalidDateTitle'), t('createPatient.invalidDateMessage'));
+            Alert.alert(t('createPatient.invalidDateTitle'), t('common.invalidBirthDateError'));
             return;
         }
         

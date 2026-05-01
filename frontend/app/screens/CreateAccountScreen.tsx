@@ -136,11 +136,11 @@ const CreateAccountScreen = () => {
     }
     
     if(isInvalidBirthDate(birthDateTrim)){
-        setError("Date of birth invalid")
+        setError(t('common.invalidBirthDateError'));
         return;
     }
     if(isFutureDate(birthDateTrim)){
-        setError("Date of birth cant be superior of today's date")
+        setError(t('common.futureBirthDateError'));
         return;
     }
     // Validate birth date format for patients

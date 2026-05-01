@@ -17,7 +17,9 @@
     "ok": "OK",
     "continue": "Continuar",
     "skip": "Ignorar",
-    "na": "N/D"
+    "na": "N/D",
+    "futureBirthDateError": "A data de nascimento não pode ser superior à data atual.",
+    "invalidBirthDateError": "A data de nascimento é inválida."
   },
   "navigation": {
     "myExercises": "Os meus exercícios",
