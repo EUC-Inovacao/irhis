@@ -94,3 +94,21 @@ export async function signup(name: string, email: string, password: string, role
     throw new Error("Unexpected signup error.");
   }
 }; 
+
+export async function changePassword(password: string): Promise<void> {
+  try {
+    await api.put("/me/password", { password });
+  } catch (error: unknown) {
+    if (isAxiosError(error)) {
+      const status = error.response?.status;
+      if (status === 503 || error.code === "ECONNREFUSED" || String(error.message).includes("Network Error")) {
+        throw new Error(networkMessage(api.defaults.baseURL));
+      }
+
+      const msg = (error.response?.data as { error?: string } | undefined)?.error || error.message || "Failed to update password.";
+      throw new Error(msg);
+    }
+
+    throw new Error("Unexpected password update error.");
+  }
+}

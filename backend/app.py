@@ -35,6 +35,7 @@ from db import (
     create_patient_record,
     user_exists,
     create_user,
+    update_user_password,
     update_patient_details as db_update_patient_details,
     insert_feedback,
     get_feedback_by_patient,
@@ -214,6 +215,35 @@ def signup():
 @token_required
 def get_current_user(current_user):
     return jsonify(current_user)
+
+
+@app.route('/me/password', methods=['PUT'])
+@token_required
+def update_current_user_password(current_user):
+    if not is_db_enabled():
+        return jsonify({"error": "Database not configured"}), 500
+
+    data = request.get_json() or {}
+    new_password = data.get('password')
+
+    if not new_password:
+        return jsonify({"error": "Password is required"}), 400
+
+    if len(new_password) < 8:
+        return jsonify({"error": "Password must be at least 8 characters"}), 400
+
+    if not any(character.isupper() for character in new_password):
+        return jsonify({"error": "Password must include at least one uppercase letter"}), 400
+
+    if not any(character.isdigit() for character in new_password):
+        return jsonify({"error": "Password must include at least one number"}), 400
+
+    try:
+        hashed_password = generate_password_hash(new_password)
+        update_user_password(current_user['id'], hashed_password)
+        return jsonify({"message": "Password updated successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": f"Failed to update password: {str(e)}"}), 500
 
 @app.route('/patients/<patient_id>', methods=['GET'])
 @token_required

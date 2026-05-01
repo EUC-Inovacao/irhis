@@ -119,7 +119,9 @@
     "reqUpper": "One uppercase letter",
     "reqNumber": "One number",
     "reqMatch": "Passwords match",
-    "updatedSuccess": "Password updated successfully."
+    "updatedSuccess": "Password updated successfully.",
+    "updating": "Updating...",
+    "updateFailed": "Failed to update password."
   },
   "manageInvites": {
     "title": "Manage Invites",

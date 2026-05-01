@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
+import { changePassword } from '../services/auth';
 
 const ChangePasswordScreen = () => {
     const { colors } = useTheme();
@@ -16,6 +17,7 @@ const ChangePasswordScreen = () => {
     
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
+    const [saving, setSaving] = useState(false);
 
     const [hasMinLength, setHasMinLength] = useState(false);
     const [hasUpperCase, setHasUpperCase] = useState(false);
@@ -31,9 +33,24 @@ const ChangePasswordScreen = () => {
 
     const isValid = hasMinLength && hasUpperCase && hasNumber && passwordsMatch;
 
-    const handleSave = () => {
-        if (isValid) {
-            Alert.alert(t("common.success"), t("changePassword.updatedSuccess"), [{ text: "OK", onPress: () => navigation.goBack() }]);
+    const handleSave = async () => {
+        if (!isValid || saving) {
+            return;
+        }
+
+        try {
+            setSaving(true);
+            await changePassword(password);
+            Alert.alert(
+                t("common.success"),
+                t("changePassword.updatedSuccess"),
+                [{ text: "OK", onPress: () => navigation.goBack() }],
+            );
+        } catch (error) {
+            const message = error instanceof Error ? error.message : t("changePassword.updateFailed");
+            Alert.alert(t("common.error"), message);
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -108,11 +125,13 @@ const ChangePasswordScreen = () => {
 
             <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
                 <TouchableOpacity 
-                    style={[styles.button, { backgroundColor: isValid ? colors.primary : colors.border }]} 
+                    style={[styles.button, { backgroundColor: isValid && !saving ? colors.primary : colors.border }]} 
                     onPress={handleSave} 
-                    disabled={!isValid}
+                    disabled={!isValid || saving}
                 >
-                    <Text style={styles.buttonText}>{t("common.continue")}</Text>
+                    <Text style={styles.buttonText}>
+                        {saving ? t("changePassword.updating") : t("common.continue")}
+                    </Text>
                 </TouchableOpacity>
             </View>
         </SafeAreaView>
