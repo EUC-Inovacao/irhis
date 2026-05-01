@@ -76,6 +76,7 @@ export interface Medication {
 
 export interface PatientDetails {
   age: number;
+  birthDate?: string;
   sex: "Male" | "Female" | "Other";
   height: number; // in meters
   weight: number; // in kg
