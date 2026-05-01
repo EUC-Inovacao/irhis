@@ -1,28 +1,35 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import * as Localization from 'expo-localization';
 import React from 'react';
 
 import en from './locales/en.json';
 import ptPT from './locales/pt-PT.json';
-
-const getLanguage = () => {
-  const locale = Localization.getLocales?.()[0]?.languageTag || 'en';
-  return locale.toLowerCase().startsWith('pt') ? 'pt-PT' : 'en';
-};
+import { getDeviceLanguage } from './languages';
+import { getStoredLanguage } from './storage';
 
 i18n.use(initReactI18next).init({
   resources: {
     en: { translation: en },
     'pt-PT': { translation: ptPT },
   },
-  lng: getLanguage(),
+  lng: getDeviceLanguage(),
   fallbackLng: 'en',
   interpolation: {
     escapeValue: false,
   },
   compatibilityJSON: 'v4',
 });
+
+const hydrateLanguagePreference = async () => {
+  const storedLanguage = await getStoredLanguage();
+  const nextLanguage = storedLanguage || getDeviceLanguage();
+
+  if (i18n.resolvedLanguage !== nextLanguage) {
+    await i18n.changeLanguage(nextLanguage);
+  }
+};
+
+void hydrateLanguagePreference();
 
 const translatableProps = new Set([
   'title',

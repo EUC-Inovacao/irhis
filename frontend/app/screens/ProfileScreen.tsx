@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context'; 
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -8,19 +7,33 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../types';
 import { useTranslation } from 'react-i18next';
+import LanguageSelectorModal from '../components/LanguageSelectorModal';
+import { changeAppLanguage } from '../i18n/service';
+import { AppLanguageCode, getLanguageOption } from '../i18n/languages';
 
 type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Profile'>;
 type ProfileScreenRouteProp = RouteProp<RootStackParamList, 'Profile'>;
+type MenuItemProps = {
+    icon?: React.ComponentProps<typeof Ionicons>['name'];
+    label: string;
+    onPress?: () => void;
+    isDestructive?: boolean;
+    showChevron?: boolean;
+    valueElement?: React.ReactNode;
+};
 
 const ProfileScreen = () => {
     const { colors, isDark, toggleTheme } = useTheme(); 
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { user, logout } = useAuth();
     const navigation = useNavigation<ProfileScreenNavigationProp>();
     const route = useRoute<ProfileScreenRouteProp>();
 
     const [isTwoFactorEnabled, setIsTwoFactorEnabled] = useState(false);
     const [isDarkModeLocal, setIsDarkModeLocal] = useState(false);
+    const [isLanguageModalVisible, setIsLanguageModalVisible] = useState(false);
+
+    const selectedLanguage = getLanguageOption(i18n.resolvedLanguage || i18n.language);
 
     // CORREÇÃO: Verifica se voltámos do ecrã de setup com sucesso
     useEffect(() => {
@@ -70,7 +83,12 @@ const ProfileScreen = () => {
         }
     };
 
-    const MenuItem = ({ icon, label, onPress, isDestructive = false, showChevron = true, valueElement }: any) => (
+    const handleLanguageChange = async (language: AppLanguageCode) => {
+        await changeAppLanguage(language);
+        setIsLanguageModalVisible(false);
+    };
+
+    const MenuItem = ({ icon, label, onPress, isDestructive = false, showChevron = true, valueElement }: MenuItemProps) => (
         <TouchableOpacity 
             style={[styles.menuItem, { borderBottomColor: colors.border }]} 
             onPress={onPress} 
@@ -166,7 +184,18 @@ const ProfileScreen = () => {
             </View>
 
             {/* 4. SECÇÃO: DARK MODE */}
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{t('profile.preferences')}</Text>
             <View style={[styles.sectionContainer, { backgroundColor: colors.card, marginTop: 8 }]}>
+                <MenuItem 
+                    label={t("profile.language")} 
+                    icon="language-outline" 
+                    onPress={() => setIsLanguageModalVisible(true)}
+                    valueElement={
+                        <Text style={{ color: colors.textSecondary, marginRight: 8 }}>
+                            {`${selectedLanguage.flag} ${selectedLanguage.label}`}
+                        </Text>
+                    }
+                />
                 <MenuItem 
                     label={t("profile.darkMode")} 
                     icon="moon-outline" 
@@ -188,6 +217,14 @@ const ProfileScreen = () => {
             >
                 <Text style={[styles.logoutText, { color: colors.error }]}>{t('profile.signOut')}</Text>
             </TouchableOpacity>
+
+            <LanguageSelectorModal
+                visible={isLanguageModalVisible}
+                selectedLanguage={selectedLanguage.code}
+                title={t('profile.selectLanguage')}
+                onClose={() => setIsLanguageModalVisible(false)}
+                onSelectLanguage={handleLanguageChange}
+            />
 
             <View style={{ height: 40 }} /> 
         </ScrollView>
