@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@theme/ThemeContext';
 import Slider from '@react-native-community/slider';
 import type { PatientFeedback } from '../types';
+import { useTranslation } from 'react-i18next';
 
 interface WeeklyFeedbackCardProps {
     onSubmit: (feedback: Omit<PatientFeedback, 'sessionId' | 'timestamp'>) => void;
@@ -11,6 +12,7 @@ interface WeeklyFeedbackCardProps {
 
 const WeeklyFeedbackCard: React.FC<WeeklyFeedbackCardProps> = ({ onSubmit }) => {
     const { colors } = useTheme();
+    const { t } = useTranslation();
     const [pain, setPain] = useState(0);
     const [fatigue, setFatigue] = useState(0);
     const [difficulty, setDifficulty] = useState(0);
@@ -19,7 +21,7 @@ const WeeklyFeedbackCard: React.FC<WeeklyFeedbackCardProps> = ({ onSubmit }) => 
 
     const handleSubmit = () => {
         if (comments.trim() === '') {
-            Alert.alert('Feedback Required', 'Please provide some feedback before submitting.');
+            Alert.alert(t('weeklyFeedback.requiredTitle'), t('weeklyFeedback.requiredMessage'));
             return;
         }
 
@@ -70,7 +72,7 @@ const WeeklyFeedbackCard: React.FC<WeeklyFeedbackCardProps> = ({ onSubmit }) => 
             >
                 <View style={styles.headerContent}>
                     <Ionicons name="clipboard-outline" size={24} color={colors.primary} />
-                    <Text style={[styles.title, { color: colors.text }]}>Weekly Feedback</Text>
+                    <Text style={[styles.title, { color: colors.text }]}>{t('weeklyFeedback.title')}</Text>
                 </View>
                 <Ionicons 
                     name={isExpanded ? "chevron-up" : "chevron-down"} 
@@ -81,12 +83,12 @@ const WeeklyFeedbackCard: React.FC<WeeklyFeedbackCardProps> = ({ onSubmit }) => 
 
             {isExpanded && (
                 <View style={styles.content}>
-                    {renderSlider(pain, setPain, 'Pain Level', 'bandage-outline')}
-                    {renderSlider(fatigue, setFatigue, 'Fatigue Level', 'battery-half-outline')}
-                    {renderSlider(difficulty, setDifficulty, 'Difficulty Level', 'barbell-outline')}
+                    {renderSlider(pain, setPain, t('weeklyFeedback.painLevel'), 'bandage-outline')}
+                    {renderSlider(fatigue, setFatigue, t('weeklyFeedback.fatigueLevel'), 'battery-half-outline')}
+                    {renderSlider(difficulty, setDifficulty, t('weeklyFeedback.difficultyLevel'), 'barbell-outline')}
 
                     <View style={styles.inputContainer}>
-                        <Text style={[styles.inputLabel, { color: colors.text }]}>Personal Feedback</Text>
+                        <Text style={[styles.inputLabel, { color: colors.text }]}>{t('weeklyFeedback.personalFeedback')}</Text>
                         <TextInput
                             style={[styles.input, { 
                                 color: colors.text,
@@ -95,7 +97,7 @@ const WeeklyFeedbackCard: React.FC<WeeklyFeedbackCardProps> = ({ onSubmit }) => 
                             }]}
                             value={comments}
                             onChangeText={setComments}
-                            placeholder="Share your experience this week..."
+                            placeholder={t('weeklyFeedback.placeholder')}
                             placeholderTextColor={colors.textSecondary}
                             multiline
                             numberOfLines={4}
@@ -106,7 +108,7 @@ const WeeklyFeedbackCard: React.FC<WeeklyFeedbackCardProps> = ({ onSubmit }) => 
                         style={[styles.submitButton, { backgroundColor: colors.primary }]} 
                         onPress={handleSubmit}
                     >
-                        <Text style={[styles.submitButtonText, { color: colors.white }]}>Submit Weekly Feedback</Text>
+                        <Text style={[styles.submitButtonText, { color: colors.white }]}>{t('weeklyFeedback.submit')}</Text>
                     </TouchableOpacity>
                 </View>
             )}

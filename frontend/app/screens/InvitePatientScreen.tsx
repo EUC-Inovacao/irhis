@@ -8,12 +8,14 @@ import * as Clipboard from 'expo-clipboard';
 import { createInvite } from '../services/doctorService';
 import { usePatients } from '../context/PatientContext';
 import api from '../services/api';
+import { useTranslation } from 'react-i18next';
 
 // Invite link uses same backend as API
 const INVITE_LINK_BASE = api.defaults.baseURL || 'https://irhis-api.azurewebsites.net';
 
 const InvitePatientScreen = () => {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const navigation = useNavigation();
   const { fetchPatients } = usePatients();
   const [inviteeName, setInviteeName] = useState('');
@@ -26,12 +28,12 @@ const InvitePatientScreen = () => {
     const name = inviteeName.trim();
     const emailTrim = email.trim();
     if (!name || !emailTrim) {
-      setError('Name and email are required.');
+      setError(t('invitePatient.nameEmailRequired'));
       return;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(emailTrim)) {
-      setError('Please enter a valid email.');
+      setError(t('invitePatient.invalidEmail'));
       return;
     }
     setError(null);
@@ -58,9 +60,9 @@ const InvitePatientScreen = () => {
     if (!createdInvite?.token) return;
     try {
       await Clipboard.setStringAsync(createdInvite.token);
-      Alert.alert('Copied', 'Token copied to clipboard. You can paste it in a message or email to the patient.');
+      Alert.alert(t('invitePatient.copiedTitle'), t('invitePatient.tokenCopied'));
     } catch {
-      Alert.alert('Error', 'Failed to copy token.');
+      Alert.alert(t('common.error'), t('invitePatient.copyTokenFailed'));
     }
   };
 
@@ -69,9 +71,9 @@ const InvitePatientScreen = () => {
     const link = `${INVITE_LINK_BASE}/signup?token=${encodeURIComponent(createdInvite.token)}`;
     try {
       await Clipboard.setStringAsync(link);
-      Alert.alert('Copied', 'Invite link copied. You can paste it in a message or email to the patient.');
+      Alert.alert(t('invitePatient.copiedTitle'), t('invitePatient.linkCopied'));
     } catch {
-      Alert.alert('Error', 'Failed to copy link.');
+      Alert.alert(t('common.error'), t('invitePatient.copyLinkFailed'));
     }
   };
 
@@ -87,24 +89,24 @@ const InvitePatientScreen = () => {
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={[styles.successBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Ionicons name="checkmark-circle" size={48} color="#16A34A" style={styles.successIcon} />
-            <Text style={[styles.successTitle, { color: colors.text }]}>Invite created successfully</Text>
+            <Text style={[styles.successTitle, { color: colors.text }]}>{t('invitePatient.createdSuccess')}</Text>
             <Text style={[styles.successSubtitle, { color: colors.textSecondary }]}>
-              Share the token or link with the patient so they can register in the app. The token is valid for 24 hours.
+              {t('invitePatient.createdSubtitle')}
             </Text>
-            <Text style={[styles.tokenLabel, { color: colors.textSecondary }]}>Token</Text>
+            <Text style={[styles.tokenLabel, { color: colors.textSecondary }]}>{t('invitePatient.token')}</Text>
             <Text selectable style={[styles.tokenValue, { color: colors.text }]}>{createdInvite.token}</Text>
             <TouchableOpacity style={[styles.copyButton, { backgroundColor: colors.primary }]} onPress={handleCopyToken}>
               <Ionicons name="copy-outline" size={20} color="#fff" />
-              <Text style={styles.copyButtonText}>Copy token</Text>
+              <Text style={styles.copyButtonText}>{t('invitePatient.copyToken')}</Text>
             </TouchableOpacity>
-            <Text style={[styles.tokenLabel, { color: colors.textSecondary }]}>Invite link</Text>
+            <Text style={[styles.tokenLabel, { color: colors.textSecondary }]}>{t('invitePatient.inviteLink')}</Text>
             <Text selectable numberOfLines={2} style={[styles.linkValue, { color: colors.text }]}>{inviteLink}</Text>
             <TouchableOpacity style={[styles.copyButton, { backgroundColor: colors.primary }]} onPress={handleCopyLink}>
               <Ionicons name="link-outline" size={20} color="#fff" />
-              <Text style={styles.copyButtonText}>Copy link</Text>
+              <Text style={styles.copyButtonText}>{t('invitePatient.copyLink')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.doneButton, { borderColor: colors.border }]} onPress={handleDone}>
-              <Text style={[styles.doneButtonText, { color: colors.text }]}>Close</Text>
+              <Text style={[styles.doneButtonText, { color: colors.text }]}>{t('invitePatient.close')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -116,23 +118,23 @@ const InvitePatientScreen = () => {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
         <View style={styles.content}>
-          <Text style={[styles.title, { color: colors.text }]}>Invite Patient</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{t('invitePatient.title')}</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Enter the patient's name and email. An invite will be created with a token valid for 24 hours.
+            {t('invitePatient.subtitle')}
           </Text>
-          <Text style={[styles.label, { color: colors.text }]}>Name</Text>
+          <Text style={[styles.label, { color: colors.text }]}>{t('invitePatient.name')}</Text>
           <TextInput
             style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-            placeholder="Patient name"
+            placeholder={t('invitePatient.patientNamePlaceholder')}
             placeholderTextColor={colors.textSecondary}
             value={inviteeName}
             onChangeText={setInviteeName}
             autoCapitalize="words"
           />
-          <Text style={[styles.label, { color: colors.text }]}>Email</Text>
+          <Text style={[styles.label, { color: colors.text }]}>{t('common.email')}</Text>
           <TextInput
             style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-            placeholder="email@exemplo.com"
+            placeholder={t('invitePatient.emailPlaceholder')}
             placeholderTextColor={colors.textSecondary}
             value={email}
             onChangeText={setEmail}
@@ -145,7 +147,7 @@ const InvitePatientScreen = () => {
             onPress={handleSubmit}
             disabled={loading}
           >
-            <Text style={styles.buttonText}>{loading ? 'Sending...' : 'Send Invite'}</Text>
+            <Text style={styles.buttonText}>{loading ? t('invitePatient.sending') : t('invitePatient.sendInvite')}</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

@@ -16,14 +16,16 @@ import SegmentedControl from "../components/SegmentedControl";
 import TermsAndConditionsModal from "../components/TermsAndConditionsModal";
 import { useAuth } from "@context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 const SignupScreen = ({ navigation }: any) => {
   const { colors } = useTheme();
   const { signup } = useAuth();
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("Patient");
+  const [role, setRole] = useState<"patient" | "doctor">("patient");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -31,14 +33,14 @@ const SignupScreen = ({ navigation }: any) => {
 
   const handleSignup = async () => {
     if (!name || !email || !password) {
-      Alert.alert("Error", "Please fill in all fields.");
+      Alert.alert(t("common.error"), t("signup.errorFillFields"));
       return;
     }
 
     if (!acceptedTerms) {
       Alert.alert(
         "Error",
-        "Please accept the Terms and Conditions to continue."
+        t("signup.errorAcceptTerms")
       );
       return;
     }
@@ -49,12 +51,12 @@ const SignupScreen = ({ navigation }: any) => {
         name,
         email,
         password,
-        role.toLowerCase() as "patient" | "doctor"
+        role
       );
     } catch (error: any) {
       Alert.alert(
-        "Signup Failed",
-        error?.message || "Could not create account."
+        t("signup.failedTitle"),
+        error?.message || t("signup.failedMessage")
       );
     } finally {
       setLoading(false);
@@ -75,11 +77,11 @@ const SignupScreen = ({ navigation }: any) => {
             style={styles.logo}
           />
           <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>
-            Welcome to
+            {t("signup.welcomeTo")}
           </Text>
           <Text style={[styles.title, { color: colors.text }]}>TwinRehab</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Create an account to start your rehabilitation journey
+            {t("signup.subtitle")}
           </Text>
         </View>
 
@@ -96,7 +98,7 @@ const SignupScreen = ({ navigation }: any) => {
                 styles.input,
                 { backgroundColor: colors.card, color: colors.text },
               ]}
-              placeholder="Full Name"
+              placeholder={t("signup.fullNamePlaceholder")}
               value={name}
               onChangeText={setName}
               placeholderTextColor={colors.textSecondary}
@@ -115,7 +117,7 @@ const SignupScreen = ({ navigation }: any) => {
                 styles.input,
                 { backgroundColor: colors.card, color: colors.text },
               ]}
-              placeholder="Email"
+              placeholder={t("signup.emailPlaceholder")}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -136,7 +138,7 @@ const SignupScreen = ({ navigation }: any) => {
                 styles.input,
                 { backgroundColor: colors.card, color: colors.text },
               ]}
-              placeholder="Password"
+              placeholder={t("signup.passwordPlaceholder")}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
@@ -155,9 +157,12 @@ const SignupScreen = ({ navigation }: any) => {
           </View>
 
           <SegmentedControl
-            options={["Patient", "Doctor"]}
+            options={[
+              { value: "patient", label: t("common.patient") },
+              { value: "doctor", label: t("common.doctor") },
+            ]}
             selectedValue={role}
-            onValueChange={setRole}
+            onValueChange={(value) => setRole(value as "patient" | "doctor")}
           />
 
           <View style={styles.termsContainer}>
@@ -181,12 +186,12 @@ const SignupScreen = ({ navigation }: any) => {
                 )}
               </View>
               <Text style={[styles.termsText, { color: colors.textSecondary }]}>
-                I accept the{" "}
+                {t("signup.acceptPrefix")}{" "}
                 <TouchableOpacity onPress={() => setShowTermsModal(true)}>
                   <Text
                     style={[styles.termsLink, { color: colors.purple[600] }]}
                   >
-                    Terms and Conditions
+                    {t("common.termsAndConditions")}
                   </Text>
                 </TouchableOpacity>
               </Text>
@@ -199,14 +204,14 @@ const SignupScreen = ({ navigation }: any) => {
             disabled={loading}
           >
             <Text style={[styles.buttonText, { color: colors.white }]}>
-              {loading ? "Creating Account..." : "Create Account"}
+              {loading ? t("signup.createAccountLoading") : t("common.createAccount")}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => navigation.navigate("Login")}>
             <Text style={[styles.linkText, { color: colors.purple[600] }]}>
-              Already have an account?{" "}
-              <Text style={{ fontWeight: "600" }}>Sign In</Text>
+              {t("signup.alreadyHaveAccount")}{" "}
+              <Text style={{ fontWeight: "600" }}>{t("signup.signIn")}</Text>
             </Text>
           </TouchableOpacity>
         </View>
