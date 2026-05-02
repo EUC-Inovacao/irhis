@@ -4,9 +4,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { Patient } from '../types';
 import { usePatients, SessionAsExercise } from '@context/PatientContext';
-import { assignExerciseToPatient, getAvailableExercises } from '@services/exerciseAssignmentService';
+import { assignExerciseToPatient, getAvailableExercises, updateAssignedExercise } from '@services/exerciseAssignmentService';
 import { ExerciseTypesRepository } from '@storage/repositories';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 
 interface AssignedExercisesCardProps {
     patient: Patient;
@@ -25,12 +26,13 @@ type ExerciseItem = {
 
 const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, isEditable, navigation }) => {
     const { colors } = useTheme();
-    const { assignedExercises, sessionsByPatient, fetchPatientSessions, createSession, fetchAssignedExercises } = usePatients();
+    const { t } = useTranslation();
+    const { assignedExercises, fetchAssignedExercises } = usePatients();
     const [isEditing, setIsEditing] = useState(false);
     const listFromContext = assignedExercises[patient.id] ?? [];
     const toItem = (ex: SessionAsExercise): ExerciseItem => ({
         id: ex.id,
-        name: ex.exerciseType?.name ?? (ex as any).name ?? 'Exercise',
+        name: ex.exerciseType?.name ?? (ex as any).name ?? t('assignedExercises.exerciseFallback'),
         targetRepetitions: ex.targetReps ?? ex.exerciseType?.targetReps ?? 10,
         targetSets: ex.targetSets ?? ex.exerciseType?.targetSets ?? 3,
         instructions: '',
@@ -41,6 +43,10 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
         [listFromContext]
     );
     const [exercises, setExercises] = useState<ExerciseItem[]>(() => listFromContext.map(toItem));
+    const originalItemsById = useMemo(
+        () => new Map(listFromContext.map((exercise) => [exercise.id, toItem(exercise)])),
+        [listFromContext, t]
+    );
 
     // Refresh exercises when screen comes into focus
     useFocusEffect(
@@ -70,12 +76,33 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
         // #endregion
         try {
             const newOnes = exercises.filter(e => e.id.startsWith('new_') || (e as any).isNew);
+            const updatedOnes = exercises.filter((exercise) => {
+                if (exercise.id.startsWith('new_') || exercise.isNew) {
+                    return false;
+                }
+
+                const original = originalItemsById.get(exercise.id);
+                if (!original) {
+                    return false;
+                }
+
+                return original.name !== exercise.name || original.targetRepetitions !== exercise.targetRepetitions;
+            });
             // #region agent log
             fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AssignedExercisesCard.tsx:51',message:'Found new exercises to save',data:{newOnesCount:newOnes.length, newOnes:newOnes.map(e=>({id:e.id,name:e.name}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
             // #endregion
             
             // Get all available exercise types to find or create
-            const allExerciseTypes = await getAvailableExercises();
+            const allExerciseTypes = newOnes.length > 0 ? await getAvailableExercises() : [];
+
+            for (const exercise of updatedOnes) {
+                await updateAssignedExercise(
+                    patient.id,
+                    exercise.id,
+                    exercise.targetRepetitions,
+                    exercise.name.trim()
+                );
+            }
             
             for (const ex of newOnes) {
                 // #region agent log
@@ -125,13 +152,19 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
             
             setIsEditing(false);
             await fetchAssignedExercises(patient.id);
-            Alert.alert('Success', 'Exercise plan updated.');
+            Alert.alert(
+                t('common.success'),
+                t('assignedExercises.updatedSuccess')
+            );
         } catch (error) {
             // #region agent log
             fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AssignedExercisesCard.tsx:95',message:'Error saving exercises',data:{error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
             // #endregion
             console.error('Error saving exercises:', error);
-            Alert.alert('Error', `Failed to update exercise plan: ${error instanceof Error ? error.message : String(error)}`);
+            Alert.alert(
+                t('common.error'),
+                `${t('assignedExercises.updateFailed')}: ${error instanceof Error ? error.message : String(error)}`
+            );
         }
     };
 
@@ -144,7 +177,7 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
     const handleAddNewExercise = () => {
         setExercises(current => [...current, {
             id: `new_${Date.now()}`,
-            name: 'New Exercise',
+            name: t('assignedExercises.newExercise'),
             targetRepetitions: 10,
             targetSets: 3,
             instructions: '',
@@ -166,7 +199,7 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
                         style={[styles.input, { color: colors.text }]}
                         value={item.name}
                         onChangeText={text => handleExerciseChange(item.id, 'name', text)}
-                        placeholder="Exercise Name"
+                        placeholder={t('assignedExercises.namePlaceholder')}
                     />
                     <View style={styles.repsSetsContainer}>
                         <TextInput
@@ -175,20 +208,20 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
                             onChangeText={text => handleExerciseChange(item.id, 'targetRepetitions', Number(text) || 0)}
                             keyboardType="number-pad"
                         />
-                        <Text style={{ color: colors.text }}>reps</Text>
+                        <Text style={{ color: colors.text }}>{t('assignedExercises.reps')}</Text>
                         <TextInput
                             style={[styles.input, styles.setsInput, { color: colors.text }]}
                             value={String(item.targetSets)}
                             onChangeText={text => handleExerciseChange(item.id, 'targetSets', Number(text) || 0)}
                             keyboardType="number-pad"
                         />
-                        <Text style={{ color: colors.text }}>sets</Text>
+                        <Text style={{ color: colors.text }}>{t('assignedExercises.sets')}</Text>
                     </View>
                     <TextInput
                         style={[styles.input, styles.instructionsInput, { color: colors.text }]}
                         value={item.instructions}
                         onChangeText={text => handleExerciseChange(item.id, 'instructions', text)}
-                        placeholder="Instructions"
+                        placeholder={t('assignedExercises.instructionsPlaceholder')}
                     />
                 </View>
             );
@@ -204,7 +237,10 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
                     <View>
                         <Text style={[styles.exerciseName, { color: colors.text }]}>{item.name}</Text>
                         <Text style={[styles.exerciseDetails, { color: colors.textSecondary }]}>
-                            {item.targetRepetitions} reps, {item.targetSets} sets
+                            {t('assignedExercises.details', {
+                                reps: item.targetRepetitions,
+                                sets: item.targetSets,
+                            })}
                         </Text>
                     </View>
                     {!isEditable && (
@@ -218,7 +254,7 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
     return (
         <View style={[styles.card, { backgroundColor: colors.card }]}>
             <View style={styles.header}>
-                <Text style={[styles.title, { color: colors.text }]}>Assigned Exercises</Text>
+                <Text style={[styles.title, { color: colors.text }]}>{t('assignedExercises.title')}</Text>
                 {isEditable && (
                     <TouchableOpacity onPress={() => setIsEditing(!isEditing)}>
                         <Ionicons name={isEditing ? "close" : "pencil"} size={24} color={colors.primary} />
@@ -235,10 +271,10 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
                 <View style={styles.buttonRow}>
                     <TouchableOpacity style={[styles.button, styles.addButton]} onPress={handleAddNewExercise}>
                         <Ionicons name="add" size={20} color={colors.primary} />
-                        <Text style={[styles.buttonText, { color: colors.primary }]}>Add Exercise</Text>
+                        <Text style={[styles.buttonText, { color: colors.primary }]}>{t('assignedExercises.addExercise')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleSave}>
-                        <Text style={[styles.buttonText, { color: colors.white }]}>Save Changes</Text>
+                        <Text style={[styles.buttonText, { color: colors.white }]}>{t('assignedExercises.saveChanges')}</Text>
                     </TouchableOpacity>
                 </View>
             )}

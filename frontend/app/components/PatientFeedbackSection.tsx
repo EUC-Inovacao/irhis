@@ -1,43 +1,38 @@
 import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Dimensions,
-} from "react-native";
+import { View, Text, StyleSheet, Dimensions } from "react-native";
 import { useTheme } from "@theme/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { LineChart } from "react-native-chart-kit";
 import { FeedbackRecord } from "@storage/repositories";
 import { getPatientFeedback } from "@services/feedbackService";
+import { useTranslation } from "react-i18next";
 
 interface PatientFeedbackSectionProps {
   patientId: string;
 }
 
-// Default fallback colors
 const DEFAULT_COLORS = {
-  card: '#FFFFFF',
-  background: '#F9FAFB',
-  text: '#111827',
-  textSecondary: '#6B7280',
-  primary: '#7C3AED',
-  success: '#10B981',
-  warning: '#F59E0B',
-  info: '#3B82F6',
+  card: "#FFFFFF",
+  background: "#F9FAFB",
+  text: "#111827",
+  textSecondary: "#6B7280",
+  primary: "#7C3AED",
+  success: "#10B981",
+  warning: "#F59E0B",
+  info: "#3B82F6",
 };
 
 const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
   patientId,
 }) => {
   const theme = useTheme();
-  
-  // Safely get colors with fallback - ensure it's always an object
-  const colors = (theme?.colors && typeof theme.colors === 'object') 
-    ? theme.colors 
-    : DEFAULT_COLORS;
-  
+  const { t } = useTranslation();
+
+  const colors =
+    theme?.colors && typeof theme.colors === "object"
+      ? theme.colors
+      : DEFAULT_COLORS;
+
   const [feedback, setFeedback] = useState<FeedbackRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -49,7 +44,6 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
     try {
       setLoading(true);
       const feedbackData = await getPatientFeedback(patientId);
-      // Sort by timestamp (oldest first for charts)
       feedbackData.sort(
         (a, b) =>
           new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
@@ -66,10 +60,10 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
     return (
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Patient Feedback & Progression
+          {t("patientFeedback.sectionTitle")}
         </Text>
         <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Loading feedback...
+          {t("patientFeedback.loading")}
         </Text>
       </View>
     );
@@ -79,7 +73,7 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
     return (
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Patient Feedback & Progression
+          {t("patientFeedback.sectionTitle")}
         </Text>
         <View style={styles.emptyState}>
           <Ionicons
@@ -88,7 +82,7 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
             color={colors.textSecondary}
           />
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            No feedback available yet
+            {t("patientFeedback.empty")}
           </Text>
         </View>
       </View>
@@ -98,45 +92,39 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
   const screenWidth = Dimensions.get("window").width;
   const chartWidth = screenWidth - 64;
 
-  // Format dates for labels
   const labels = feedback.map((f) => {
     const date = new Date(f.timestamp);
     return `${date.getDate()}/${date.getMonth() + 1}`;
   });
 
-  // Pain progression chart (lower is better)
   const painData = {
     labels,
     datasets: [
       {
         data: feedback.map((f) => f.pain),
-        color: (opacity = 1) => "#FF6B6B", // Red for pain
+        color: () => "#FF6B6B",
         strokeWidth: 2,
       },
     ],
   };
 
-  // Fatigue progression chart
-  const fatigueWarningColor = colors.warning || "#FF9800";
   const fatigueData = {
     labels,
     datasets: [
       {
         data: feedback.map((f) => f.fatigue),
-        color: (opacity = 1) => fatigueWarningColor,
+        color: () => colors.warning || "#FF9800",
         strokeWidth: 2,
       },
     ],
   };
 
-  // Difficulty progression chart
-  const difficultyInfoColor = colors.info || "#2196F3";
   const difficultyData = {
     labels,
     datasets: [
       {
         data: feedback.map((f) => f.difficulty),
-        color: (opacity = 1) => difficultyInfoColor,
+        color: () => colors.info || "#2196F3",
         strokeWidth: 2,
       },
     ],
@@ -147,8 +135,8 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
     backgroundGradientFrom: colors.card,
     backgroundGradientTo: colors.card,
     decimalPlaces: 0,
-    color: (opacity = 1) => colors.primary,
-    labelColor: (opacity = 1) => colors.textSecondary,
+    color: () => colors.primary,
+    labelColor: () => colors.textSecondary,
     style: {
       borderRadius: 16,
     },
@@ -158,7 +146,6 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
     },
   };
 
-  // Calculate trends
   const latestFeedback = feedback[feedback.length - 1];
   const earliestFeedback = feedback[0];
   const painTrend = latestFeedback.pain - earliestFeedback.pain;
@@ -167,21 +154,21 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
     latestFeedback.difficulty - earliestFeedback.difficulty;
 
   const getTrendIcon = (trend: number) => {
-    if (trend < -1) return "trending-down"; // Improving
-    if (trend > 1) return "trending-up"; // Worsening
-    return "remove"; // Stable
+    if (trend < -1) return "trending-down";
+    if (trend > 1) return "trending-up";
+    return "remove";
   };
 
   const getTrendColor = (trend: number) => {
-    if (trend < -1) return colors.success; // Improving (lower is better for these metrics)
-    if (trend > 1) return "#FF6B6B"; // Worsening
-    return colors.textSecondary; // Stable
+    if (trend < -1) return colors.success;
+    if (trend > 1) return "#FF6B6B";
+    return colors.textSecondary;
   };
 
   return (
     <View style={[styles.section, { backgroundColor: colors.card }]}>
       <Text style={[styles.sectionTitle, { color: colors.text }]}>
-        Patient Feedback & Progression
+        {t("patientFeedback.sectionTitle")}
       </Text>
       <Text
         style={[
@@ -189,10 +176,9 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
           { color: colors.textSecondary, marginBottom: 16 },
         ]}
       >
-        {feedback.length} feedback entries over time
+        {t("patientFeedback.entriesCount", { count: feedback.length })}
       </Text>
 
-      {/* Summary Cards */}
       <View style={styles.summaryGrid}>
         <View style={[styles.summaryCard, { backgroundColor: colors.background }]}>
           <View style={styles.summaryHeader}>
@@ -207,16 +193,10 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
             {latestFeedback.pain}/10
           </Text>
           <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-            Pain Level
+            {t("patientFeedback.painLevel")}
           </Text>
-          <Text
-            style={[
-              styles.summaryTrend,
-              { color: getTrendColor(painTrend) },
-            ]}
-          >
-            {painTrend < 0 ? "↓" : painTrend > 0 ? "↑" : "→"}{" "}
-            {Math.abs(painTrend)} from start
+          <Text style={[styles.summaryTrend, { color: getTrendColor(painTrend) }]}>
+            {t("patientFeedback.fromStart", { value: Math.abs(painTrend) })}
           </Text>
         </View>
 
@@ -237,22 +217,22 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
             {latestFeedback.fatigue}/10
           </Text>
           <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-            Fatigue
+            {t("patientFeedback.fatigue")}
           </Text>
           <Text
-            style={[
-              styles.summaryTrend,
-              { color: getTrendColor(fatigueTrend) },
-            ]}
+            style={[styles.summaryTrend, { color: getTrendColor(fatigueTrend) }]}
           >
-            {fatigueTrend < 0 ? "↓" : fatigueTrend > 0 ? "↑" : "→"}{" "}
-            {Math.abs(fatigueTrend)} from start
+            {t("patientFeedback.fromStart", { value: Math.abs(fatigueTrend) })}
           </Text>
         </View>
 
         <View style={[styles.summaryCard, { backgroundColor: colors.background }]}>
           <View style={styles.summaryHeader}>
-            <Ionicons name="barbell-outline" size={20} color={colors.info || "#2196F3"} />
+            <Ionicons
+              name="barbell-outline"
+              size={20}
+              color={colors.info || "#2196F3"}
+            />
             <Ionicons
               name={getTrendIcon(difficultyTrend) as any}
               size={16}
@@ -263,7 +243,7 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
             {latestFeedback.difficulty}/10
           </Text>
           <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-            Difficulty
+            {t("patientFeedback.difficulty")}
           </Text>
           <Text
             style={[
@@ -271,19 +251,19 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
               { color: getTrendColor(difficultyTrend) },
             ]}
           >
-            {difficultyTrend < 0 ? "↓" : difficultyTrend > 0 ? "↑" : "→"}{" "}
-            {Math.abs(difficultyTrend)} from start
+            {t("patientFeedback.fromStart", {
+              value: Math.abs(difficultyTrend),
+            })}
           </Text>
         </View>
       </View>
 
-      {/* Pain Progression Chart */}
       <View style={styles.chartContainer}>
         <View style={styles.chartHeader}>
           <View style={styles.chartHeaderLeft}>
             <Ionicons name="bandage-outline" size={20} color="#FF6B6B" />
             <Text style={[styles.chartTitle, { color: colors.text }]}>
-              Pain Level Over Time
+              {t("patientFeedback.painOverTime")}
             </Text>
           </View>
           <Text style={[styles.chartValue, { color: colors.text }]}>
@@ -300,9 +280,9 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
           }}
           bezier
           style={styles.chart}
-          withVerticalLabels={true}
-          withHorizontalLabels={true}
-          withInnerLines={true}
+          withVerticalLabels
+          withHorizontalLabels
+          withInnerLines
           withOuterLines={false}
           withShadow={false}
           yAxisLabel=""
@@ -311,7 +291,6 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
         />
       </View>
 
-      {/* Fatigue Progression Chart */}
       <View style={styles.chartContainer}>
         <View style={styles.chartHeader}>
           <View style={styles.chartHeaderLeft}>
@@ -321,7 +300,7 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
               color={colors.warning || "#FF9800"}
             />
             <Text style={[styles.chartTitle, { color: colors.text }]}>
-              Fatigue Over Time
+              {t("patientFeedback.fatigueOverTime")}
             </Text>
           </View>
           <Text style={[styles.chartValue, { color: colors.text }]}>
@@ -334,14 +313,13 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
           height={160}
           chartConfig={{
             ...chartConfig,
-            color: (opacity = 1) =>
-              `rgba(255, 152, 0, ${opacity})`,
+            color: (opacity = 1) => `rgba(255, 152, 0, ${opacity})`,
           }}
           bezier
           style={styles.chart}
-          withVerticalLabels={true}
-          withHorizontalLabels={true}
-          withInnerLines={true}
+          withVerticalLabels
+          withHorizontalLabels
+          withInnerLines
           withOuterLines={false}
           withShadow={false}
           yAxisLabel=""
@@ -350,13 +328,16 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
         />
       </View>
 
-      {/* Difficulty Progression Chart */}
       <View style={styles.chartContainer}>
         <View style={styles.chartHeader}>
           <View style={styles.chartHeaderLeft}>
-            <Ionicons name="barbell-outline" size={20} color={colors.info || "#2196F3"} />
+            <Ionicons
+              name="barbell-outline"
+              size={20}
+              color={colors.info || "#2196F3"}
+            />
             <Text style={[styles.chartTitle, { color: colors.text }]}>
-              Exercise Difficulty Over Time
+              {t("patientFeedback.exerciseDifficultyOverTime")}
             </Text>
           </View>
           <Text style={[styles.chartValue, { color: colors.text }]}>
@@ -373,9 +354,9 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
           }}
           bezier
           style={styles.chart}
-          withVerticalLabels={true}
-          withHorizontalLabels={true}
-          withInnerLines={true}
+          withVerticalLabels
+          withHorizontalLabels
+          withInnerLines
           withOuterLines={false}
           withShadow={false}
           yAxisLabel=""
@@ -384,28 +365,24 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
         />
       </View>
 
-      {/* Recent Feedback List */}
       <View style={styles.feedbackListContainer}>
         <Text style={[styles.feedbackListTitle, { color: colors.text }]}>
-          Recent Feedback Entries
+          {t("patientFeedback.recentEntries")}
         </Text>
         {feedback
           .slice()
           .reverse()
           .slice(0, 5)
-          .map((item, index) => (
+          .map((item) => (
             <View
               key={item.id}
-              style={[
-                styles.feedbackItem,
-                { backgroundColor: colors.background },
-              ]}
+              style={[styles.feedbackItem, { backgroundColor: colors.background }]}
             >
               <View style={styles.feedbackItemHeader}>
                 <Text
                   style={[styles.feedbackDate, { color: colors.textSecondary }]}
                 >
-                  {new Date(item.timestamp).toLocaleDateString("en-US", {
+                  {new Date(item.timestamp).toLocaleDateString(undefined, {
                     month: "short",
                     day: "numeric",
                     year: "numeric",
@@ -442,10 +419,7 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
               </View>
               {item.comments && (
                 <Text
-                  style={[
-                    styles.feedbackComment,
-                    { color: colors.textSecondary },
-                  ]}
+                  style={[styles.feedbackComment, { color: colors.textSecondary }]}
                 >
                   {item.comments}
                 </Text>
@@ -584,4 +558,3 @@ const styles = StyleSheet.create({
 });
 
 export default PatientFeedbackSection;
-

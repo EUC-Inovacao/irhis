@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import PasswordRequirementsCard from '../components/PasswordRequirementsCard';
 import TermsAndConditionsModal from "../components/TermsAndConditionsModal";
 import PrivacyNoticeModal from '@components/PrivacyNoticeModal';
 import { useTranslation } from 'react-i18next';
+import { getPasswordValidationState } from '../utils/passwordValidation';
 
 const CreateAccountScreen = () => {
   const { colors } = useTheme();
@@ -27,6 +29,8 @@ const CreateAccountScreen = () => {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+
+  const passwordValidation = getPasswordValidationState(password, confirmPassword);
 
   const formatBirthDate = (text: string) => {
     const numbers = text.replace(/\D/g, '');
@@ -49,6 +53,34 @@ const CreateAccountScreen = () => {
     const formatted = formatBirthDate(text);
     setBirthDate(formatted);
   };
+    const isInvalidBirthDate = (dateStr: string) => {
+        if (dateStr === '00/00/0000') return true;
+
+        const parts = dateStr.split('/');
+        if (parts.length !== 3) return true;
+
+        const [day, month, year] = parts.map(Number);
+
+        if (!day || !month || !year) return true;
+
+        const date = new Date(year, month - 1, day);
+
+        return (
+            date.getFullYear() !== year ||
+            date.getMonth() !== month - 1 ||
+            date.getDate() !== day
+        );
+    };
+    const isFutureDate = (dateStr: string): boolean => {
+        const parts = dateStr.split('/');
+        if (parts.length !== 3) return true;
+
+        const [day, month, year] = parts.map(Number);
+        const inputDate = new Date(year, month - 1, day);
+        const today = new Date();
+
+        return inputDate > today;
+    };
 
   // Convert DD/MM/YYYY to YYYY-MM-DD format for database
   const convertToDatabaseFormat = (dateStr: string): string => {
@@ -88,10 +120,10 @@ const CreateAccountScreen = () => {
         return;
       }
 
-    if (password.length < 6) {
-      setError(t('createAccount.passwordMinLength'));
-                return;
-      }
+    if (!passwordValidation.isValid) {
+      setError(t('createAccount.errorInvalidPassword'));
+      return;
+    }
     
     if (!acceptedTerms) {
         setError(t('createAccount.termsRequired'));
@@ -103,11 +135,14 @@ const CreateAccountScreen = () => {
         return;
     }
     
-    if (password !== confirmPassword) {
-      setError(t('createAccount.passwordMismatch'));
-      return;
+    if(isInvalidBirthDate(birthDateTrim)){
+        setError(t('common.invalidBirthDateError'));
+        return;
     }
-    
+    if(isFutureDate(birthDateTrim)){
+        setError(t('common.futureBirthDateError'));
+        return;
+    }
     // Validate birth date format for patients
     if (role === 'patient') {
       const birthDateForDB = convertToDatabaseFormat(birthDateTrim);
@@ -128,6 +163,15 @@ const CreateAccountScreen = () => {
       // No manual navigation needed - the navigator re-renders based on user state
     } catch (err: any) {
       const msg = err.message || t('createAccount.createFailed');
+         // Se for erro de email já existente
+          if (err.message.includes(t('common.emailAlreadyExists'))) {
+            Alert.alert(
+              t('common.emailAlreadyExists'),
+                t('common.emailAlreadyRegistered'),
+              [{ text: "OK" }]
+            );
+            return; 
+          }
       setError(msg);
       setLoading(false);
     }
@@ -224,6 +268,7 @@ const CreateAccountScreen = () => {
             <TouchableOpacity
               style={styles.eyeButton}
               onPress={() => setShowPassword(!showPassword)}
+              hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
             >
               <Ionicons
                 name={showPassword ? 'eye-off-outline' : 'eye-outline'}
@@ -249,6 +294,7 @@ const CreateAccountScreen = () => {
             <TouchableOpacity
               style={styles.eyeButton}
               onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+              hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
             >
               <Ionicons
                 name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
@@ -257,6 +303,8 @@ const CreateAccountScreen = () => {
               />
             </TouchableOpacity>
           </View>
+
+          <PasswordRequirementsCard validation={passwordValidation} />
 
           {/* Birth Date Input - Only for Patients */}
           {role === 'patient' && (
@@ -315,9 +363,15 @@ const CreateAccountScreen = () => {
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.primary, opacity: (!acceptedTerms || !acceptedPrivacy) ? 0.6 : 1 }]}
+            style={[
+              styles.button,
+              {
+                backgroundColor: colors.primary,
+                opacity: (!acceptedTerms || !acceptedPrivacy || !passwordValidation.isValid || loading) ? 0.6 : 1,
+              },
+            ]}
             onPress={handleSubmit}
-            disabled={loading}
+            disabled={loading || !passwordValidation.isValid}
           >
             <Text style={styles.buttonText}>{loading ? t('createAccount.buttonLoading') : t('common.createAccount')}</Text>
           </TouchableOpacity>

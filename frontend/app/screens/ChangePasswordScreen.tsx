@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
+import PasswordRequirementsCard from '../components/PasswordRequirementsCard';
 import { changePassword } from '../services/auth';
+import { getPasswordValidationState } from '../utils/passwordValidation';
 
 const ChangePasswordScreen = () => {
     const { colors } = useTheme();
@@ -19,22 +21,10 @@ const ChangePasswordScreen = () => {
     const [showConfirm, setShowConfirm] = useState(false);
     const [saving, setSaving] = useState(false);
 
-    const [hasMinLength, setHasMinLength] = useState(false);
-    const [hasUpperCase, setHasUpperCase] = useState(false);
-    const [hasNumber, setHasNumber] = useState(false);
-    const [passwordsMatch, setPasswordsMatch] = useState(false);
-
-    useEffect(() => {
-        setHasMinLength(password.length >= 8);
-        setHasUpperCase(/[A-Z]/.test(password));
-        setHasNumber(/[0-9]/.test(password));
-        setPasswordsMatch(password.length > 0 && password === confirmPassword);
-    }, [password, confirmPassword]);
-
-    const isValid = hasMinLength && hasUpperCase && hasNumber && passwordsMatch;
+    const validation = getPasswordValidationState(password, confirmPassword);
 
     const handleSave = async () => {
-        if (!isValid || saving) {
+        if (!validation.isValid || saving) {
             return;
         }
 
@@ -53,13 +43,6 @@ const ChangePasswordScreen = () => {
             setSaving(false);
         }
     };
-
-    const Requirement = ({ label, met }: { label: string, met: boolean }) => (
-        <View style={styles.requirementRow}>
-            <Ionicons name={met ? "checkmark-circle" : "ellipse-outline"} size={16} color={met ? colors.success : colors.textSecondary} />
-            <Text style={[styles.requirementText, { color: met ? colors.text : colors.textSecondary }]}>{label}</Text>
-        </View>
-    );
 
     return (
         <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
@@ -113,21 +96,15 @@ const ChangePasswordScreen = () => {
                     </View>
                 </View>
 
-                <View style={[styles.rulesContainer, { backgroundColor: colors.info + '15', borderColor: colors.info + '30' }]}>
-                    <Text style={[styles.rulesTitle, { color: colors.info }]}>{t("changePassword.requirementsTitle")}</Text>
-                    <Requirement label={t("changePassword.reqMin8")} met={hasMinLength} />
-                    <Requirement label={t("changePassword.reqUpper")} met={hasUpperCase} />
-                    <Requirement label={t("changePassword.reqNumber")} met={hasNumber} />
-                    <Requirement label={t("changePassword.reqMatch")} met={passwordsMatch} />
-                </View>
+                <PasswordRequirementsCard validation={validation} />
 
             </ScrollView>
 
             <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
                 <TouchableOpacity 
-                    style={[styles.button, { backgroundColor: isValid && !saving ? colors.primary : colors.border }]} 
+                    style={[styles.button, { backgroundColor: validation.isValid && !saving ? colors.primary : colors.border }]} 
                     onPress={handleSave} 
-                    disabled={!isValid || saving}
+                    disabled={!validation.isValid || saving}
                 >
                     <Text style={styles.buttonText}>
                         {saving ? t("changePassword.updating") : t("common.continue")}
@@ -193,26 +170,6 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: 16,
         marginRight: 10,
-    },
-    rulesContainer: {
-        marginTop: 8,
-        padding: 16,
-        borderRadius: 12,
-        borderWidth: 1,
-    },
-    rulesTitle: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        marginBottom: 12,
-    },
-    requirementRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 8,
-        gap: 8,
-    },
-    requirementText: {
-        fontSize: 14,
     },
     footer: {
         padding: 24,

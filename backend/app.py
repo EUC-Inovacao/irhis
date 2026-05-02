@@ -9,7 +9,8 @@ import csv
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from functools import wraps
 from db import (
     is_db_enabled,
@@ -24,6 +25,7 @@ from db import (
     get_patient_doctor_relation,
     get_session_by_id,
     update_session_details,
+    update_session_exercise_details,
     delete_patient_session,
     create_manual_patient,
     insert_session_metrics,
@@ -51,8 +53,81 @@ hashed_password_doctor = generate_password_hash('password')
 
 default_patient_details = {
     "age": 0, "sex": "N/A", "height": 0, "weight": 0, "bmi": 0,
-    "clinicalInfo": "No information provided."
+    "clinicalInfo": ""
 }
+
+
+def normalize_birth_date_value(value):
+    if value in (None, ""):
+        return None
+
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d")
+
+    if isinstance(value, date):
+        return value.strftime("%Y-%m-%d")
+
+    text = str(value).strip()
+    if not text:
+        return None
+
+    if len(text) >= 10 and text[4] == "-" and text[7] == "-":
+        return text[:10]
+
+    try:
+        return parsedate_to_datetime(text).strftime("%Y-%m-%d")
+    except Exception:
+        return None
+
+
+def calculate_age_from_birth_date(birth_date_value):
+    normalized_birth_date = normalize_birth_date_value(birth_date_value)
+    if not normalized_birth_date:
+        return 0
+
+    try:
+        birth_date = datetime.strptime(normalized_birth_date, "%Y-%m-%d")
+        today = datetime.now()
+        return today.year - birth_date.year - (
+            (today.month, today.day) < (birth_date.month, birth_date.day)
+        )
+    except Exception:
+        return 0
+
+
+def build_patient_response(patient_data, patient_id, feedback_list=None):
+    normalized_birth_date = normalize_birth_date_value(patient_data.get("BirthDate"))
+    age = calculate_age_from_birth_date(normalized_birth_date)
+
+    sex_map = {
+        "male": "Male",
+        "female": "Female",
+    }
+    sex = sex_map.get(str(patient_data.get("Sex", "")).lower(), "Other")
+
+    raw_height = patient_data.get("Height")
+    height = (raw_height / 100) if raw_height else 0
+    medical_history = patient_data.get("MedicalHistory")
+
+    return {
+        "id": patient_data.get("ID") or patient_id,
+        "name": (
+            f"{patient_data.get('FirstName', '')} {patient_data.get('LastName', '')}".strip()
+            or patient_data.get("Email", "")
+        ),
+        "details": {
+            "age": age,
+            "birthDate": normalized_birth_date,
+            "sex": sex,
+            "height": height,
+            "weight": patient_data.get("Weight") or 0,
+            "bmi": patient_data.get("BMI") or 0,
+            "clinicalInfo": medical_history or "No information provided.",
+            "medicalHistory": medical_history,
+        },
+        "recovery_process": [],
+        "feedback": feedback_list or [],
+    }
 
 
 def token_required(f):
@@ -148,6 +223,9 @@ def signup():
         if not all([email, password, role, name]):
             return jsonify({"error": "Missing required fields"}), 400
 
+        if password != password.strip():
+            return jsonify({"error": "Password cannot start or end with spaces"}), 400
+
         if not is_db_enabled():
             return jsonify({"error": "Database not configured"}), 500
 
@@ -238,6 +316,9 @@ def update_current_user_password(current_user):
     if not any(character.isdigit() for character in new_password):
         return jsonify({"error": "Password must include at least one number"}), 400
 
+    if new_password != new_password.strip():
+        return jsonify({"error": "Password cannot start or end with spaces"}), 400
+
     try:
         hashed_password = generate_password_hash(new_password)
         update_user_password(current_user['id'], hashed_password)
@@ -287,7 +368,7 @@ def get_patient(current_user, patient_id):
                     "height": 0,
                     "weight": 0,
                     "bmi": 0,
-                    "clinicalInfo": "No information provided.",
+                    "clinicalInfo": "",
                     "medicalHistory": None,
                 },
                 "recovery_process": [],
@@ -304,30 +385,6 @@ def get_patient(current_user, patient_id):
         if not patient_data:
             return jsonify({"error": "Patient not found"}), 404
 
-    # Calculate age from birth date if available
-    age = 0
-    if patient_data.get('BirthDate'):
-        try:
-            from datetime import datetime
-            birth_date = datetime.strptime(patient_data['BirthDate'], '%Y-%m-%d')
-            today = datetime.now()
-            age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
-        except:
-            pass
-
-    # Map sex enum to frontend format
-    sex_map = {
-        'male': 'Male',
-        'female': 'Female',
-    }
-    sex = sex_map.get(patient_data.get('Sex', '').lower(), 'Other')
-
-    # Convert height from cm to meters if available
-    height = patient_data.get('Height')
-    if height:
-        height = height / 100
-
-    # Build patient response
     try:
         feedback_rows = get_feedback_by_patient(patient_id, limit=50)
         feedback_list = [
@@ -342,23 +399,7 @@ def get_patient(current_user, patient_id):
             }
             for r in feedback_rows
         ]
-        patient = {
-            "id": patient_data.get('ID') or patient_id,
-            "name": f"{patient_data.get('FirstName', '')} {patient_data.get('LastName', '')}".strip() or patient_data.get('Email', ''),
-            "details": {
-                "age": age,
-                "birthDate": patient_data.get('BirthDate'),
-                "sex": sex,
-                "height": height or 0,
-                "weight": patient_data.get('Weight') or 0,
-                "bmi": patient_data.get('BMI') or 0,
-                "clinicalInfo": patient_data.get('MedicalHistory') or 'No information provided.',
-                "medicalHistory": patient_data.get('MedicalHistory'),
-            },
-            "recovery_process": [],
-            "feedback": feedback_list,
-        }
-        return jsonify(patient)
+        return jsonify(build_patient_response(patient_data, patient_id, feedback_list))
     except Exception as e:
         import traceback
         return jsonify({"error": f"Error building patient response: {str(e)}", "traceback": traceback.format_exc()}), 500
@@ -508,49 +549,7 @@ def update_patient_details(current_user, patient_id):
         patient_data = get_patient_by_id(patient_id)
         if not patient_data:
             return jsonify({"error": "Patient not found"}), 404
-
-        def _get(d, *keys):
-            for k in keys:
-                if k in d:
-                    return d[k]
-                for kk in d:
-                    if kk and str(kk).lower() == str(k).lower():
-                        return d[kk]
-            return None
-
-        age = _get(patient_data, 'Age', 'age') or 0
-        birth_date_val = _get(patient_data, 'BirthDate', 'birth_date')
-        if birth_date_val:
-            try:
-                from datetime import datetime
-                birth_date = datetime.strptime(str(birth_date_val), '%Y-%m-%d')
-                today = datetime.now()
-                age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
-            except Exception:
-                pass
-        sex_map = {'male': 'Male', 'female': 'Female'}
-        sex_raw = _get(patient_data, 'Sex', 'sex') or ''
-        sex = sex_map.get(str(sex_raw).lower(), 'Other')
-        height = _get(patient_data, 'Height', 'height')
-        if height:
-            height = height / 100
-        patient = {
-            "id": _get(patient_data, 'ID', 'id') or patient_id,
-            "name": f"{_get(patient_data, 'FirstName', 'firstname') or ''} {_get(patient_data, 'LastName', 'lastname') or ''}".strip() or _get(patient_data, 'Email', 'email') or '',
-            "details": {
-                "age": age,
-                "birthDate": birth_date_val,
-                "sex": sex,
-                "height": height or 0,
-                "weight": _get(patient_data, 'Weight', 'weight') or 0,
-                "bmi": _get(patient_data, 'BMI', 'bmi') or 0,
-                "clinicalInfo": _get(patient_data, 'MedicalHistory', 'medicalhistory') or 'No information provided.',
-                "medicalHistory": _get(patient_data, 'MedicalHistory', 'medicalhistory'),
-            },
-            "recovery_process": [],
-            "feedback": [],
-        }
-        return jsonify(patient)
+        return jsonify(build_patient_response(patient_data, patient_id))
     except Exception as e:
         import traceback
         return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
@@ -1384,6 +1383,79 @@ def assign_patient_exercise(current_user, patient_id):
     except Exception as e:
         import traceback
         return jsonify({"error": f"Error assigning exercise: {str(e)}", "traceback": traceback.format_exc()}), 500
+
+@app.route('/patients/<patient_id>/exercises/<exercise_id>', methods=['PUT'])
+@token_required
+def update_patient_exercise(current_user, patient_id, exercise_id):
+
+    try:
+        if current_user['role'].lower() != 'doctor':
+            return jsonify({"error": "Only doctors can update exercises"}), 403
+
+        if not is_db_enabled():
+            return jsonify({"error": "Database not configured"}), 500
+
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        session = get_session_by_id(exercise_id)
+        if not session or str(session.get('PatientID')) != str(patient_id):
+            return jsonify({"error": "Exercise not found"}), 404
+
+        doctor_id = current_user['id']
+        relation = get_patient_doctor_relation(patient_id, doctor_id)
+        if not relation:
+            return jsonify({"error": "Patient not associated with this doctor"}), 403
+
+        exercise_type_name = data.get('exercise_type_name')
+        if exercise_type_name is None:
+            exercise_type_name = data.get('exerciseTypeName')
+
+        target_reps = data.get('target_reps')
+        if target_reps is None:
+            target_reps = data.get('targetReps')
+
+        if exercise_type_name is None and target_reps is None:
+            return jsonify({"error": "exercise_type_name or target_reps is required"}), 400
+
+        normalized_name = None
+        if exercise_type_name is not None:
+            normalized_name = str(exercise_type_name).strip()
+            if not normalized_name:
+                return jsonify({"error": "exercise_type_name cannot be empty"}), 400
+
+        normalized_reps = None
+        if target_reps is not None:
+            try:
+                normalized_reps = int(target_reps)
+            except (TypeError, ValueError):
+                return jsonify({"error": "target_reps must be a valid integer"}), 400
+
+        update_session_exercise_details(
+            session_id=exercise_id,
+            exercise_description=normalized_name,
+            repetitions=normalized_reps,
+        )
+
+        updated_session = get_session_by_id(exercise_id)
+        return jsonify({
+            "id": updated_session.get('ID', updated_session.get('id', '')),
+            "patientId": patient_id,
+            "exerciseTypeId": updated_session.get('ExerciseType', updated_session.get('exerciseType', '')),
+            "assignedDate": updated_session.get('TimeCreated', updated_session.get('timeCreated')),
+            "completed": 0,
+            "targetReps": updated_session.get('Repetitions', updated_session.get('repetitions')),
+            "targetSets": None,
+            "exerciseType": {
+                "id": updated_session.get('ExerciseType', updated_session.get('exerciseType', '')),
+                "name": updated_session.get('ExerciseDescription', updated_session.get('exerciseDescription', 'Exercise')),
+                "category": "general",
+            }
+        }), 200
+    except Exception as e:
+        import traceback
+        return jsonify({"error": f"Error updating exercise: {str(e)}", "traceback": traceback.format_exc()}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))

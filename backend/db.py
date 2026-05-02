@@ -448,6 +448,31 @@ def update_session_details(session_id, exercise_type, exercise_description, repe
         }
     )
 
+def update_session_exercise_details(session_id, exercise_description=None, repetitions=None):
+    updates = []
+    params = {"session_id": session_id}
+
+    if exercise_description is not None:
+        updates.append("ExerciseDescription = :exercise_description")
+        params["exercise_description"] = exercise_description
+
+    if repetitions is not None:
+        updates.append("Repetitions = :repetitions")
+        params["repetitions"] = repetitions
+
+    if not updates:
+        return False
+
+    execute(
+        f"""
+        UPDATE session
+        SET {", ".join(updates)}
+        WHERE ID = :session_id
+        """,
+        params
+    )
+    return True
+
 def delete_patient_session(session_id):
     """Delete session. Azure schema: remove metrics and feedback first (FKs), then session."""
     execute("DELETE FROM metrics WHERE SessionID = :sid", {"sid": session_id})
@@ -584,9 +609,19 @@ def update_patient_details(patient_id: str, details: dict) -> None:
     if "medicalHistory" in details:
         updates.append("MedicalHistory = :medical_history")
         params["medical_history"] = str(details["medicalHistory"])[:4096]
-    # Age: convert to BirthDate (birth_date = today - age years)
+    birth_date_val = details.get("birthDate") or details.get("BirthDate")
+    if birth_date_val:
+        birth_date_str = str(birth_date_val).strip()
+        try:
+            from datetime import datetime
+            parsed_birth_date = datetime.strptime(birth_date_str, "%Y-%m-%d")
+            updates.append("BirthDate = :birth_date")
+            params["birth_date"] = parsed_birth_date.strftime("%Y-%m-%d")
+        except ValueError:
+            pass
+
     age_val = details.get("age") or details.get("Age")
-    if age_val is not None:
+    if age_val is not None and "birth_date" not in params:
         try:
             age_int = int(float(age_val))
             if 0 <= age_int <= 120:

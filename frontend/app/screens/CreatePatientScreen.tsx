@@ -64,6 +64,17 @@ const CreatePatientScreen = ({ navigation }: any) => {
         setBirthDate(formatted);
     };
     
+    const isFutureDate = (dateStr: string): boolean => {
+        const parts = dateStr.split('/');
+        if (parts.length !== 3) return true;
+
+        const [day, month, year] = parts.map(Number);
+        const inputDate = new Date(year, month - 1, day);
+        const today = new Date();
+
+        return inputDate > today;
+    };
+    
     // Convert DD/MM/YYYY to YYYY-MM-DD format for database
     const convertToDatabaseFormat = (dateStr: string): string => {
         // Remove slashes and extract parts
@@ -143,16 +154,19 @@ const CreatePatientScreen = ({ navigation }: any) => {
             Alert.alert(t('common.required'), t('createPatient.birthDateRequired'));
             return;
         }
+        if(isFutureDate(birthDate)){
+            Alert.alert(t('common.required'), t('common.futureBirthDateError'));
+            return;
+        }
         
         // Convert DD/MM/YYYY to YYYY-MM-DD format for database
         const birthDateForDB = convertToDatabaseFormat(birthDateTrim);
         
         // Validate date format
         if (!birthDateForDB.match(/^\d{4}-\d{2}-\d{2}$/)) {
-            Alert.alert(t('createPatient.invalidDateTitle'), t('createPatient.invalidDateMessage'));
+            Alert.alert(t('createPatient.invalidDateTitle'), t('common.invalidBirthDateError'));
             return;
         }
-        
         // Validate at least one joint is affected
         if (!affectedRightKnee && !affectedLeftKnee && !affectedRightHip && !affectedLeftHip) {
             Alert.alert(t('common.required'), t('createPatient.selectAffectedJoint'));
@@ -567,7 +581,6 @@ const CreatePatientScreen = ({ navigation }: any) => {
                             <TouchableOpacity
                                 style={[styles.submitButton, { backgroundColor: colors.primary }]}
                                 onPress={handleCreatePatient}
-                                disabled={creating || !name.trim() || !birthDate.trim() || (!affectedRightKnee && !affectedLeftKnee && !affectedRightHip && !affectedLeftHip)}
                             >
                                 {creating ? (
                                     <ActivityIndicator color="#fff" />
