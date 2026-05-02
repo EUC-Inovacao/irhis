@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { Patient } from '../types';
 import { usePatients, SessionAsExercise } from '@context/PatientContext';
-import { assignExerciseToPatient, getAvailableExercises } from '@services/exerciseAssignmentService';
+import { assignExerciseToPatient, getAvailableExercises, updateAssignedExercise } from '@services/exerciseAssignmentService';
 import { ExerciseTypesRepository } from '@storage/repositories';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -27,7 +27,7 @@ type ExerciseItem = {
 const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, isEditable, navigation }) => {
     const { colors } = useTheme();
     const { t } = useTranslation();
-    const { assignedExercises, sessionsByPatient, fetchPatientSessions, createSession, fetchAssignedExercises } = usePatients();
+    const { assignedExercises, fetchAssignedExercises } = usePatients();
     const [isEditing, setIsEditing] = useState(false);
     const listFromContext = assignedExercises[patient.id] ?? [];
     const toItem = (ex: SessionAsExercise): ExerciseItem => ({
@@ -43,6 +43,10 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
         [listFromContext]
     );
     const [exercises, setExercises] = useState<ExerciseItem[]>(() => listFromContext.map(toItem));
+    const originalItemsById = useMemo(
+        () => new Map(listFromContext.map((exercise) => [exercise.id, toItem(exercise)])),
+        [listFromContext, t]
+    );
 
     // Refresh exercises when screen comes into focus
     useFocusEffect(
@@ -72,12 +76,33 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
         // #endregion
         try {
             const newOnes = exercises.filter(e => e.id.startsWith('new_') || (e as any).isNew);
+            const updatedOnes = exercises.filter((exercise) => {
+                if (exercise.id.startsWith('new_') || exercise.isNew) {
+                    return false;
+                }
+
+                const original = originalItemsById.get(exercise.id);
+                if (!original) {
+                    return false;
+                }
+
+                return original.name !== exercise.name || original.targetRepetitions !== exercise.targetRepetitions;
+            });
             // #region agent log
             fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AssignedExercisesCard.tsx:51',message:'Found new exercises to save',data:{newOnesCount:newOnes.length, newOnes:newOnes.map(e=>({id:e.id,name:e.name}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
             // #endregion
             
             // Get all available exercise types to find or create
-            const allExerciseTypes = await getAvailableExercises();
+            const allExerciseTypes = newOnes.length > 0 ? await getAvailableExercises() : [];
+
+            for (const exercise of updatedOnes) {
+                await updateAssignedExercise(
+                    patient.id,
+                    exercise.id,
+                    exercise.targetRepetitions,
+                    exercise.name.trim()
+                );
+            }
             
             for (const ex of newOnes) {
                 // #region agent log

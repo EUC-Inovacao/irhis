@@ -448,6 +448,31 @@ def update_session_details(session_id, exercise_type, exercise_description, repe
         }
     )
 
+def update_session_exercise_details(session_id, exercise_description=None, repetitions=None):
+    updates = []
+    params = {"session_id": session_id}
+
+    if exercise_description is not None:
+        updates.append("ExerciseDescription = :exercise_description")
+        params["exercise_description"] = exercise_description
+
+    if repetitions is not None:
+        updates.append("Repetitions = :repetitions")
+        params["repetitions"] = repetitions
+
+    if not updates:
+        return False
+
+    execute(
+        f"""
+        UPDATE session
+        SET {", ".join(updates)}
+        WHERE ID = :session_id
+        """,
+        params
+    )
+    return True
+
 def delete_patient_session(session_id):
     """Delete session. Azure schema: remove metrics and feedback first (FKs), then session."""
     execute("DELETE FROM metrics WHERE SessionID = :sid", {"sid": session_id})

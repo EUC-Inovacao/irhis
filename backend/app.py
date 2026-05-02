@@ -25,6 +25,7 @@ from db import (
     get_patient_doctor_relation,
     get_session_by_id,
     update_session_details,
+    update_session_exercise_details,
     delete_patient_session,
     create_manual_patient,
     insert_session_metrics,
@@ -1382,6 +1383,79 @@ def assign_patient_exercise(current_user, patient_id):
     except Exception as e:
         import traceback
         return jsonify({"error": f"Error assigning exercise: {str(e)}", "traceback": traceback.format_exc()}), 500
+
+@app.route('/patients/<patient_id>/exercises/<exercise_id>', methods=['PUT'])
+@token_required
+def update_patient_exercise(current_user, patient_id, exercise_id):
+
+    try:
+        if current_user['role'].lower() != 'doctor':
+            return jsonify({"error": "Only doctors can update exercises"}), 403
+
+        if not is_db_enabled():
+            return jsonify({"error": "Database not configured"}), 500
+
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        session = get_session_by_id(exercise_id)
+        if not session or str(session.get('PatientID')) != str(patient_id):
+            return jsonify({"error": "Exercise not found"}), 404
+
+        doctor_id = current_user['id']
+        relation = get_patient_doctor_relation(patient_id, doctor_id)
+        if not relation:
+            return jsonify({"error": "Patient not associated with this doctor"}), 403
+
+        exercise_type_name = data.get('exercise_type_name')
+        if exercise_type_name is None:
+            exercise_type_name = data.get('exerciseTypeName')
+
+        target_reps = data.get('target_reps')
+        if target_reps is None:
+            target_reps = data.get('targetReps')
+
+        if exercise_type_name is None and target_reps is None:
+            return jsonify({"error": "exercise_type_name or target_reps is required"}), 400
+
+        normalized_name = None
+        if exercise_type_name is not None:
+            normalized_name = str(exercise_type_name).strip()
+            if not normalized_name:
+                return jsonify({"error": "exercise_type_name cannot be empty"}), 400
+
+        normalized_reps = None
+        if target_reps is not None:
+            try:
+                normalized_reps = int(target_reps)
+            except (TypeError, ValueError):
+                return jsonify({"error": "target_reps must be a valid integer"}), 400
+
+        update_session_exercise_details(
+            session_id=exercise_id,
+            exercise_description=normalized_name,
+            repetitions=normalized_reps,
+        )
+
+        updated_session = get_session_by_id(exercise_id)
+        return jsonify({
+            "id": updated_session.get('ID', updated_session.get('id', '')),
+            "patientId": patient_id,
+            "exerciseTypeId": updated_session.get('ExerciseType', updated_session.get('exerciseType', '')),
+            "assignedDate": updated_session.get('TimeCreated', updated_session.get('timeCreated')),
+            "completed": 0,
+            "targetReps": updated_session.get('Repetitions', updated_session.get('repetitions')),
+            "targetSets": None,
+            "exerciseType": {
+                "id": updated_session.get('ExerciseType', updated_session.get('exerciseType', '')),
+                "name": updated_session.get('ExerciseDescription', updated_session.get('exerciseDescription', 'Exercise')),
+                "category": "general",
+            }
+        }), 200
+    except Exception as e:
+        import traceback
+        return jsonify({"error": f"Error updating exercise: {str(e)}", "traceback": traceback.format_exc()}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
