@@ -19,7 +19,9 @@
     "skip": "Ignorar",
     "na": "N/D",
     "futureBirthDateError": "A data de nascimento não pode ser superior à data atual.",
-    "invalidBirthDateError": "A data de nascimento é inválida."
+    "invalidBirthDateError": "A data de nascimento é inválida.",
+    "emailAlreadyExists": "O e-mail já existe.",
+    "emailAlreadyRegistered": "O e-mail já está registado."
   },
   "navigation": {
     "myExercises": "Os meus exercícios",

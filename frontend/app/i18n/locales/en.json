@@ -19,7 +19,9 @@
     "skip": "Skip",
     "na": "N/A",
     "futureBirthDateError": "Date of birth can't be superior to current date.",
-    "invalidBirthDateError": "Date of birth is invalid."
+    "invalidBirthDateError": "Date of birth is invalid.",
+    "emailAlreadyExists": "Email already exists.",
+    "emailAlreadyRegistered": "Email already registered."
   },
   "navigation": {
     "myExercises": "My Exercises",
