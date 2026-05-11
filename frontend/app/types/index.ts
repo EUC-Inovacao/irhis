@@ -2,6 +2,8 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  accessCode?: string;
+  patientCode?: string;
   role: "patient" | "doctor";
 }
 
@@ -144,6 +146,8 @@ export interface PatientFeedback {
 export interface Patient {
   id: string;
   name: string;
+  accessCode?: string;
+  patientCode?: string;
   details?: PatientDetails;
   recovery_process: RecoveryProcess[];
   doctor?: {

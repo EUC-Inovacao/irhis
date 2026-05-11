@@ -5,6 +5,7 @@ import jwt as PyJWT
 import zipfile
 import io
 import csv
+import re
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -37,10 +38,15 @@ from db import (
     create_patient_record,
     user_exists,
     create_user,
-    update_user_password,
+    create_temporary_user,
     update_patient_details as db_update_patient_details,
     insert_feedback,
     get_feedback_by_patient,
+    build_temporary_access_email,
+    build_temporary_access_label,
+    extract_temporary_access_code,
+    get_temporary_role_from_access_code,
+    normalize_temporary_access_code,
 )
 
 
@@ -57,77 +63,82 @@ default_patient_details = {
 }
 
 
-def normalize_birth_date_value(value):
-    if value in (None, ""):
-        return None
-
-    if isinstance(value, datetime):
-        return value.strftime("%Y-%m-%d")
-
-    if isinstance(value, date):
-        return value.strftime("%Y-%m-%d")
-
-    text = str(value).strip()
-    if not text:
-        return None
-
-    if len(text) >= 10 and text[4] == "-" and text[7] == "-":
-        return text[:10]
-
-    try:
-        return parsedate_to_datetime(text).strftime("%Y-%m-%d")
-    except Exception:
-        return None
+def normalize_role(role):
+    return str(role or "").strip().lower()
 
 
-def calculate_age_from_birth_date(birth_date_value):
-    normalized_birth_date = normalize_birth_date_value(birth_date_value)
-    if not normalized_birth_date:
-        return 0
+def validate_signup_password(password):
+    # TEMPORARY: keep backend validation aligned with the current UI rules
+    # so study access creation fails with a clear message instead of a
+    # generic field error.
+    password_value = str(password or "")
+    if len(password_value) < 8:
+        return "Password must be at least 8 characters."
+    if not re.search(r"[A-Z]", password_value):
+        return "Password must contain at least one uppercase letter."
+    if not re.search(r"[0-9]", password_value):
+        return "Password must contain at least one number."
+    return None
 
-    try:
-        birth_date = datetime.strptime(normalized_birth_date, "%Y-%m-%d")
-        today = datetime.now()
-        return today.year - birth_date.year - (
-            (today.month, today.day) < (birth_date.month, birth_date.day)
-        )
-    except Exception:
-        return 0
+
+def get_public_user_name(user_data):
+    access_code = extract_temporary_access_code(
+        user_data.get("Email"),
+        user_data.get("FirstName"),
+        user_data.get("LastName"),
+    )
+    if access_code:
+        return build_temporary_access_label(user_data.get("Role"), access_code)
+
+    return (
+        f"{user_data.get('FirstName', '')} {user_data.get('LastName', '')}".strip()
+        or user_data.get("Email", "")
+    )
 
 
-def build_patient_response(patient_data, patient_id, feedback_list=None):
-    normalized_birth_date = normalize_birth_date_value(patient_data.get("BirthDate"))
-    age = calculate_age_from_birth_date(normalized_birth_date)
+def build_public_user_payload(user_data):
+    access_code = extract_temporary_access_code(
+        user_data.get("Email"),
+        user_data.get("FirstName"),
+        user_data.get("LastName"),
+    )
+    is_temporary_user = bool(access_code)
 
-    sex_map = {
-        "male": "Male",
-        "female": "Female",
+    payload = {
+        "id": str(user_data.get("ID", "")),
+        "email": "" if is_temporary_user else (user_data.get("Email") or ""),
+        "name": get_public_user_name(user_data),
+        "role": user_data.get("Role"),
     }
-    sex = sex_map.get(str(patient_data.get("Sex", "")).lower(), "Other")
+    if access_code:
+        payload["accessCode"] = access_code
+        payload["patientCode"] = access_code
+    return payload
 
-    raw_height = patient_data.get("Height")
-    height = (raw_height / 100) if raw_height else 0
-    medical_history = patient_data.get("MedicalHistory")
 
-    return {
-        "id": patient_data.get("ID") or patient_id,
-        "name": (
-            f"{patient_data.get('FirstName', '')} {patient_data.get('LastName', '')}".strip()
-            or patient_data.get("Email", "")
-        ),
-        "details": {
-            "age": age,
-            "birthDate": normalized_birth_date,
-            "sex": sex,
-            "height": height,
-            "weight": patient_data.get("Weight") or 0,
-            "bmi": patient_data.get("BMI") or 0,
-            "clinicalInfo": medical_history or "No information provided.",
-            "medicalHistory": medical_history,
-        },
-        "recovery_process": [],
-        "feedback": feedback_list or [],
-    }
+def sanitize_birth_date_for_response(patient_data):
+    # TEMPORARY: do not expose birth dates in public responses during the
+    # clinical-study login workaround. Existing age calculations can still use
+    # the stored value internally when needed.
+    return None
+
+
+def resolve_login_identifier(identifier, role):
+    normalized_identifier = str(identifier or "").strip()
+    access_code = normalize_temporary_access_code(normalized_identifier)
+    if access_code:
+        if role:
+            access_role = get_temporary_role_from_access_code(access_code)
+            if access_role and normalize_role(access_role) != normalize_role(role):
+                return normalized_identifier
+        return build_temporary_access_email(access_code)
+    return normalized_identifier
+
+
+def ensure_patient_resource_access(current_user, patient_id, message="Unauthorized"):
+    if current_user.get('role') == 'patient' and current_user.get('id') != str(patient_id):
+        return jsonify({"error": message}), 403
+    return None
 
 
 def token_required(f):
@@ -152,9 +163,20 @@ def token_required(f):
 
             current_user = {
                 'id': str(user_data.get('ID')),
-                'role': user_data.get('Role'),
-                'email': user_data.get('Email'),
-                'name': f"{user_data.get('FirstName','')} {user_data.get('LastName','')}".strip()
+                'role': normalize_role(user_data.get('Role')),
+                '_role_display': user_data.get('Role'),
+                'email': build_public_user_payload(user_data).get('email', ''),
+                'name': get_public_user_name(user_data),
+                'accessCode': extract_temporary_access_code(
+                    user_data.get('Email'),
+                    user_data.get('FirstName'),
+                    user_data.get('LastName'),
+                ),
+                'patientCode': extract_temporary_access_code(
+                    user_data.get('Email'),
+                    user_data.get('FirstName'),
+                    user_data.get('LastName'),
+                ),
             }
 
         except Exception as e:
@@ -170,24 +192,34 @@ def home():
 
 @app.route('/login', methods=['POST'])
 def login():
-    data = request.get_json()
+    data = request.get_json() or {}
 
-    email = data.get('email')
+    email = (data.get('email') or data.get('identifier') or data.get('accessCode') or '').strip()
     password = data.get('password')
     role = data.get('role')
 
-    if not email or not password or not role:
-        return jsonify({"error": "Missing email, password, or role"}), 400
+    if not email or not password:
+        return jsonify({"error": "Missing identifier or password"}), 400
 
     if not is_db_enabled():
         return jsonify({"error": "Database not configured"}), 500
 
-    user = get_user_for_login(email, role)
+    if role:
+        roles_to_try = ["Doctor" if normalize_role(role) == "doctor" else "Patient"]
+    else:
+        inferred_role = get_temporary_role_from_access_code(email)
+        roles_to_try = [inferred_role] if inferred_role else ["Patient", "Doctor"]
+
+    user = None
+    for candidate_role in roles_to_try:
+        user = get_user_for_login(resolve_login_identifier(email, candidate_role), candidate_role)
+        if not user:
+            continue
+        if check_password_hash(user["Password"], password):
+            break
+        user = None
 
     if not user:
-        return jsonify({"error": "Invalid credentials"}), 401
-
-    if not check_password_hash(user["Password"], password):
         return jsonify({"error": "Invalid credentials"}), 401
 
     token = PyJWT.encode(
@@ -202,26 +234,19 @@ def login():
 
     return jsonify({
         "token": token,
-        "user": {
-            "id": str(user["ID"]),
-            "email": user["Email"],
-            "name": f"{user.get('FirstName','')} {user.get('LastName','')}".strip(),
-            "role": user["Role"],
-        }
+        "user": build_public_user_payload(user),
     }), 200
 
 
 @app.route('/signup', methods=['POST'])
 def signup():
     try:
-        data = request.get_json()
-        email = data.get('email')
+        data = request.get_json(silent=True) or {}
+        email = (data.get('email') or '').strip()
         password = data.get('password')
         role = data.get('role')
-        name = data.get('name')
-
-        if not all([email, password, role, name]):
-            return jsonify({"error": "Missing required fields"}), 400
+        name = (data.get('name') or '').strip()
+        use_temporary_access_code = bool(data.get('useTemporaryAccessCode')) or (not email and not name)
 
         if password != password.strip():
             return jsonify({"error": "Password cannot start or end with spaces"}), 400
@@ -229,16 +254,33 @@ def signup():
         if not is_db_enabled():
             return jsonify({"error": "Database not configured"}), 500
 
+        if not role:
+            return jsonify({"error": "Role is required"}), 400
+
+        if not password:
+            return jsonify({"error": "Password is required"}), 400
+
+        password_validation_error = validate_signup_password(password)
+        if password_validation_error:
+            return jsonify({"error": password_validation_error}), 400
+
         # Normalize role to match database enum (Patient/Doctor)
         normalized_role = "Doctor" if role.lower() == "doctor" else "Patient"
 
+        # TEMPORARY clinical-study flow:
+        # when a study user is created without real identifying fields, generate
+        # a non-sensitive role-based code and store only technical compatibility values.
+        if not use_temporary_access_code and not all([email, name]):
+            return jsonify({"error": "Name and email are required for this signup flow"}), 400
+
         # Check if email already exists
-        try:
-            if user_exists(email):
-                return jsonify({"error": "Email already registered"}), 409
-        except Exception as e:
-            import traceback
-            return jsonify({"error": f"Error checking email: {str(e)}", "traceback": traceback.format_exc()}), 500
+        if email and not use_temporary_access_code:
+            try:
+                if user_exists(email):
+                    return jsonify({"error": "Email already registered"}), 409
+            except Exception as e:
+                import traceback
+                return jsonify({"error": f"Error checking email: {str(e)}", "traceback": traceback.format_exc()}), 500
 
         # Parse name into first and last name
         name_parts = name.strip().split(maxsplit=1)
@@ -249,13 +291,18 @@ def signup():
         hashed_password = generate_password_hash(password)
         
         try:
-            user_id = create_user(email, hashed_password, first_name, last_name, normalized_role)
+            temp_user = None
+            if use_temporary_access_code:
+                temp_user = create_temporary_user(normalized_role, hashed_password)
+                user_id = temp_user["user_id"]
+            else:
+                user_id = create_user(email, hashed_password, first_name, last_name, normalized_role)
             
             # If patient, create a patient record in the patient table
             if normalized_role == "Patient":
                 try:
-                    # Extract birth date from name_parts if provided (for future use)
-                    # For now, create patient record without birth date
+                    # TEMPORARY: use NULL birth date when the existing schema allows
+                    # it so study patients do not need to provide real DOB values.
                     create_patient_record(user_id, birth_date=None)
                 except Exception as e:
                     # Log but don't fail signup if patient record creation fails
@@ -278,12 +325,15 @@ def signup():
 
         return jsonify({
             "token": token,
-            "user": {
-                "id": user_id,
-                "email": email,
-                "name": name,
-                "role": normalized_role
-            }
+            "user": build_public_user_payload(
+                {
+                    "ID": user_id,
+                    "Email": temp_user["email"] if use_temporary_access_code else email,
+                    "FirstName": normalized_role if use_temporary_access_code else first_name,
+                    "LastName": temp_user["access_code"] if use_temporary_access_code else last_name,
+                    "Role": normalized_role,
+                }
+            ),
         }), 201
     except Exception as e:
         import traceback
@@ -292,7 +342,11 @@ def signup():
 @app.route('/me', methods=['GET'])
 @token_required
 def get_current_user(current_user):
-    return jsonify(current_user)
+    response_user = {k: v for k, v in current_user.items() if k != '_role_display'}
+    response_user['role'] = current_user.get('_role_display') or (
+        current_user.get('role').title() if current_user.get('role') else current_user.get('role')
+    )
+    return jsonify(response_user)
 
 
 @app.route('/me/password', methods=['PUT'])
@@ -329,9 +383,11 @@ def update_current_user_password(current_user):
 @app.route('/patients/<patient_id>', methods=['GET'])
 @token_required
 def get_patient(current_user, patient_id):
-    # Check if user has access to this patient
-    user_role_lower = current_user.get('role', '').lower() if current_user.get('role') else ''
-    is_doctor = user_role_lower == 'doctor'
+    forbidden = ensure_patient_resource_access(current_user, patient_id)
+    if forbidden:
+        return forbidden
+
+    is_doctor = current_user.get('role') == 'doctor'
     is_own_patient = current_user.get('id') == patient_id
     
     if not is_doctor and not is_own_patient:
@@ -376,7 +432,7 @@ def get_patient(current_user, patient_id):
             })
         # Doctor requesting patient: try to create patient record if user exists
         user_data = get_user_by_id(patient_id)
-        if user_data and user_data.get('Role') in ('Patient', 'patient'):
+        if user_data and normalize_role(user_data.get('Role')) == 'patient':
             try:
                 create_patient_record(patient_id, birth_date=None)
                 patient_data = get_patient_by_id(patient_id)
@@ -399,7 +455,23 @@ def get_patient(current_user, patient_id):
             }
             for r in feedback_rows
         ]
-        return jsonify(build_patient_response(patient_data, patient_id, feedback_list))
+        patient = {
+            "id": patient_data.get('ID') or patient_id,
+            "name": get_public_user_name(patient_data),
+            "details": {
+                "age": age,
+                "birthDate": sanitize_birth_date_for_response(patient_data),
+                "sex": sex,
+                "height": height or 0,
+                "weight": patient_data.get('Weight') or 0,
+                "bmi": patient_data.get('BMI') or 0,
+                "clinicalInfo": patient_data.get('MedicalHistory') or 'No information provided.',
+                "medicalHistory": patient_data.get('MedicalHistory'),
+            },
+            "recovery_process": [],
+            "feedback": feedback_list,
+        }
+        return jsonify(patient)
     except Exception as e:
         import traceback
         return jsonify({"error": f"Error building patient response: {str(e)}", "traceback": traceback.format_exc()}), 500
@@ -407,7 +479,7 @@ def get_patient(current_user, patient_id):
 @app.route('/doctors/<doctor_id>/patients', methods=['GET'])
 @token_required
 def get_doctor_patients(current_user, doctor_id):
-    if current_user['role'].lower() != 'doctor' or current_user['id'].lower() != doctor_id:
+    if current_user['role'] != 'doctor' or current_user['id'].lower() != doctor_id:
         return jsonify({"error": "Unauthorized"}), 403
 
     if not is_db_enabled():
@@ -428,7 +500,7 @@ def get_doctor_patients(current_user, doctor_id):
 @app.route('/doctors/me/patients', methods=['GET'])
 @token_required
 def get_doctors_me_patients(current_user):
-    if current_user['role'].lower() != 'doctor':
+    if current_user['role'] != 'doctor':
         return jsonify({"error": "Unauthorized"}), 403
 
     if not is_db_enabled():
@@ -451,7 +523,7 @@ def get_doctors_me_patients(current_user):
             "type": "patient",
             "id": str(r["id"]),
             "name": name,
-            "email": r.get("email") or "",
+            "email": "" if extract_temporary_access_code(r.get("email"), name, None) else (r.get("email") or ""),
             "nif": "",
             "status": "Confirmed",
 
@@ -475,7 +547,7 @@ def get_doctors_me_patients(current_user):
 @app.route('/patients/unassigned', methods=['GET'])
 @token_required
 def get_unassigned_patients(current_user):
-    if current_user['role'].lower() != 'doctor':
+    if current_user['role'] != 'doctor':
         return jsonify({"error": "Unauthorized"}), 403
 
     if not is_db_enabled():
@@ -499,7 +571,7 @@ def get_unassigned_patients(current_user):
 @app.route('/patients/<patient_id>/assign-doctor', methods=['POST'])
 @token_required
 def assign_doctor(current_user, patient_id):
-    if current_user['role'].lower() != 'doctor':
+    if current_user['role'] != 'doctor':
         return jsonify({"error": "Only doctors can assign patients"}), 403
 
     doctor_id = current_user['id']
@@ -513,7 +585,7 @@ def assign_doctor(current_user, patient_id):
 @app.route('/patients/<patient_id>/recovery-process', methods=['PUT'])
 @token_required
 def update_recovery_process(current_user, patient_id):
-    if current_user['role'].lower() != 'doctor':
+    if current_user['role'] != 'doctor':
         return jsonify({"error": "Only doctors can update exercises"}), 403
 
     if patient_id not in patients:
@@ -530,7 +602,7 @@ def update_recovery_process(current_user, patient_id):
 @app.route('/patients/<patient_id>/details', methods=['PUT'])
 @token_required
 def update_patient_details(current_user, patient_id):
-    if current_user['role'].lower() != 'doctor':
+    if current_user['role'] != 'doctor':
         return jsonify({"error": "Only doctors can update patient details"}), 403
 
     if not is_db_enabled():
@@ -549,7 +621,49 @@ def update_patient_details(current_user, patient_id):
         patient_data = get_patient_by_id(patient_id)
         if not patient_data:
             return jsonify({"error": "Patient not found"}), 404
-        return jsonify(build_patient_response(patient_data, patient_id))
+
+        def _get(d, *keys):
+            for k in keys:
+                if k in d:
+                    return d[k]
+                for kk in d:
+                    if kk and str(kk).lower() == str(k).lower():
+                        return d[kk]
+            return None
+
+        age = _get(patient_data, 'Age', 'age') or 0
+        birth_date_val = _get(patient_data, 'BirthDate', 'birth_date')
+        if birth_date_val:
+            try:
+                from datetime import datetime
+                birth_date = datetime.strptime(str(birth_date_val), '%Y-%m-%d')
+                today = datetime.now()
+                age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+            except Exception:
+                pass
+        sex_map = {'male': 'Male', 'female': 'Female'}
+        sex_raw = _get(patient_data, 'Sex', 'sex') or ''
+        sex = sex_map.get(str(sex_raw).lower(), 'Other')
+        height = _get(patient_data, 'Height', 'height')
+        if height:
+            height = height / 100
+        patient = {
+            "id": _get(patient_data, 'ID', 'id') or patient_id,
+            "name": get_public_user_name(patient_data),
+            "details": {
+                "age": age,
+                "birthDate": sanitize_birth_date_for_response(patient_data),
+                "sex": sex,
+                "height": height or 0,
+                "weight": _get(patient_data, 'Weight', 'weight') or 0,
+                "bmi": _get(patient_data, 'BMI', 'bmi') or 0,
+                "clinicalInfo": _get(patient_data, 'MedicalHistory', 'medicalhistory') or 'No information provided.',
+                "medicalHistory": _get(patient_data, 'MedicalHistory', 'medicalhistory'),
+            },
+            "recovery_process": [],
+            "feedback": [],
+        }
+        return jsonify(patient)
     except Exception as e:
         import traceback
         return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
@@ -557,8 +671,13 @@ def update_patient_details(current_user, patient_id):
 @app.route('/patients/<patient_id>/feedback', methods=['PUT'])
 @token_required
 def update_patient_feedback(current_user, patient_id):
-    if current_user['role'] == 'patient' and current_user['id'] != patient_id:
-        return jsonify({"error": "Patients can only update their own feedback"}), 403
+    forbidden = ensure_patient_resource_access(
+        current_user,
+        patient_id,
+        message="Patients can only update their own feedback",
+    )
+    if forbidden:
+        return forbidden
 
     if not is_db_enabled():
         return jsonify({"error": "Database not configured"}), 500
@@ -599,7 +718,7 @@ def update_patient_feedback(current_user, patient_id):
 @app.route('/doctors/me/metrics-summary', methods=['GET'])
 @token_required
 def get_doctors_me_metrics_summary(current_user):
-    if current_user['role'].lower() != 'doctor':
+    if current_user['role'] != 'doctor':
         return jsonify({"error": "Unauthorized"}), 403
     
     doctor_id = current_user['id']
@@ -653,7 +772,7 @@ def get_doctors_me_metrics_summary(current_user):
 @app.route('/doctors/me/recent-activity', methods=['GET'])
 @token_required
 def get_doctors_me_recent_activity(current_user):
-    if current_user['role'].lower() != 'doctor':
+    if current_user['role'] != 'doctor':
         return jsonify({"error": "Unauthorized"}), 403
     
     doctor_id = current_user['id']
@@ -738,7 +857,7 @@ def get_doctors_me_recent_activity(current_user):
 @app.route('/doctors/me/trends', methods=['GET'])
 @token_required
 def get_doctors_me_trends(current_user):
-    if current_user['role'].lower() != 'doctor':
+    if current_user['role'] != 'doctor':
         return jsonify({"error": "Unauthorized"}), 403
     
     doctor_id = current_user['id']
@@ -829,8 +948,13 @@ def analyze_movement_data(current_user):
         exercise_type = request.form.get('exercise_type', 'general')
         
         # Validate patient access
-        if current_user['role'] == 'patient' and current_user['id'] != patient_id:
-            return jsonify({"error": "Patients can only analyze their own data"}), 403
+        forbidden = ensure_patient_resource_access(
+            current_user,
+            patient_id,
+            message="Patients can only analyze their own data",
+        )
+        if forbidden:
+            return forbidden
         
         if current_user['role'] == 'doctor' and patient_id:
             # Check if doctor has access to this patient
@@ -888,9 +1012,9 @@ def analyze_movement_data(current_user):
 @token_required
 def get_patient_movement_analyses(current_user, patient_id):
     """Get movement analysis history for a patient"""
-    # Check if user has access to this patient
-    if current_user['role'] != 'doctor' and current_user['id'] != patient_id:
-        return jsonify({"error": "Unauthorized"}), 403
+    forbidden = ensure_patient_resource_access(current_user, patient_id)
+    if forbidden:
+        return forbidden
 
     patient = patients.get(patient_id)
     if not patient:
@@ -930,14 +1054,14 @@ def test_movement_integration(current_user):
 @app.route('/patients/manual-registry', methods=['POST'])
 @token_required
 def register_patient_manual(current_user):
-    if current_user['role'].lower() != 'doctor':
+    if current_user['role'] != 'doctor':
         return jsonify({"error": "Acesso negado"}), 403
 
     data = request.json
     doctor_id = current_user['id'] 
 
     required_fields = [
-        'first_name', 'birth_date', 'sex', 'weight', 'height', 'bmi',
+        'password', 'sex', 'weight', 'height', 'bmi',
         'affected_right_knee', 'affected_left_knee', 
         'affected_right_hip', 'affected_left_hip', 'leg_dominance'
     ]
@@ -947,17 +1071,28 @@ def register_patient_manual(current_user):
         return jsonify({"error": f"Campos obrigatórios ausentes: {', '.join(missing)}"}), 400
 
     try:
-        user_info = {
-            'first_name': data.get('first_name'), 
-            'last_name': data.get('last_name', '')
-        }
-        
-        user_id, email = create_manual_patient(user_info, data, doctor_id)
+        hashed_password = generate_password_hash(data.get('password'))
+        created_patient = create_manual_patient(data, doctor_id, hashed_password)
         
         return jsonify({
             "message": "Paciente registrado e vinculado com sucesso",
-            "patient_id": user_id,
-            "generated_email": email
+            "id": created_patient["user_id"],
+            "patient_id": created_patient["user_id"],
+            "accessCode": created_patient["access_code"],
+            "patientCode": created_patient["patient_code"],
+            "name": created_patient["label"],
+            "details": {
+                "age": 0,
+                "birthDate": None,
+                "sex": "Male" if str(data.get('sex', '')).lower() == 'male' else ("Female" if str(data.get('sex', '')).lower() == 'female' else "Other"),
+                "height": (data.get('height') or 0) / 100 if data.get('height') else 0,
+                "weight": data.get('weight') or 0,
+                "bmi": data.get('bmi') or 0,
+                "clinicalInfo": data.get('medical_history') or 'No information provided.',
+                "medicalHistory": data.get('medical_history'),
+            },
+            "recovery_process": [],
+            "feedback": [],
         }), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -965,13 +1100,16 @@ def register_patient_manual(current_user):
 @app.route('/patients/<patient_id>/sessions', methods=['POST'])
 @token_required
 def assign_patients_sessions(current_user, patient_id):
-    if current_user['role'].lower() == 'doctor':
+    if current_user['role'] == 'doctor':
         doctor_id = current_user['id']
         relation = get_patient_doctor_relation(patient_id, doctor_id)
         if not relation:
             return jsonify({"error": "Patient not associated with this doctor"}), 403
         relation_id = relation['ID']
-    elif current_user['role'].lower() == 'patient' and current_user['id'] == patient_id:
+    elif current_user['role'] == 'patient':
+        forbidden = ensure_patient_resource_access(current_user, patient_id)
+        if forbidden:
+            return forbidden
         relation = fetch_one(
             """
             SELECT pd.ID FROM patientdoctor pd
@@ -1011,6 +1149,10 @@ def assign_patients_sessions(current_user, patient_id):
 @app.route('/patients/<patient_id>/sessions', methods=['GET'])
 @token_required
 def get_patients_sessions(current_user, patient_id):
+    forbidden = ensure_patient_resource_access(current_user, patient_id)
+    if forbidden:
+        return forbidden
+
     try:
         sessions = get_patient_sessions(patient_id)
         
@@ -1029,8 +1171,12 @@ def get_session(current_user, session_id):
 
     if not session:
         return jsonify({"error": "Session not found"}), 404
+
+    forbidden = ensure_patient_resource_access(current_user, session.get('PatientID'))
+    if forbidden:
+        return forbidden
     
-    if current_user['role'].lower() == 'doctor':
+    if current_user['role'] == 'doctor':
         doctor_id = current_user['id']
         patient_id = session['PatientID'] 
 
@@ -1045,7 +1191,7 @@ def get_session(current_user, session_id):
 @token_required
 def update_session(current_user, session_id):
 
-    if current_user['role'].lower() != 'doctor':
+    if current_user['role'] != 'doctor':
         return jsonify({"error": "Unauthorized"}), 403
 
     data = request.json
@@ -1057,7 +1203,7 @@ def update_session(current_user, session_id):
     if not session:
         return jsonify({"error": "Session not found"}), 404
     
-    if current_user['role'].lower() == 'doctor':
+    if current_user['role'] == 'doctor':
         doctor_id = current_user['id']
         patient_id = session['PatientID'] 
 
@@ -1081,7 +1227,7 @@ def update_session(current_user, session_id):
 @app.route('/sessions/<session_id>', methods=['DELETE'])
 @token_required
 def delete_session(current_user, session_id):
-    if current_user['role'].lower() != 'doctor':
+    if current_user['role'] != 'doctor':
         return jsonify({"error": "Unauthorized"}), 403
 
     session = get_session_by_id(session_id)
@@ -1102,12 +1248,14 @@ def post_session_metrics(current_user, session_id):
         return jsonify({"error": "Session not found"}), 404
 
     patient_id = session.get('PatientID')
-    if current_user['role'].lower() == 'doctor':
+    if current_user['role'] == 'doctor':
         relation = get_patient_doctor_relation(patient_id, current_user['id'])
         if not relation:
             return jsonify({"error": "Patient not associated with this doctor"}), 403
-    elif current_user['id'] != patient_id:
-        return jsonify({"error": "Unauthorized"}), 403
+    else:
+        forbidden = ensure_patient_resource_access(current_user, patient_id)
+        if forbidden:
+            return forbidden
 
     data = request.json or {}
     if not data:
@@ -1145,6 +1293,9 @@ def post_session_metrics(current_user, session_id):
 @app.route('/patients/<patient_id>/metrics', methods=['GET'])
 @token_required
 def get_patient_metrics(current_user, patient_id):
+    forbidden = ensure_patient_resource_access(current_user, patient_id)
+    if forbidden:
+        return forbidden
 
     limit = min(request.args.get('limit', default=50, type=int), 50)
     
@@ -1161,6 +1312,10 @@ def get_specific_session_metrics(current_user, session_id):
     session = get_session_by_id(session_id)
     if not session:
         return jsonify({"error": "Session not found"}), 404
+
+    forbidden = ensure_patient_resource_access(current_user, session.get('PatientID'))
+    if forbidden:
+        return forbidden
 
     try:
         metrics = get_metrics_by_session(session_id)
@@ -1209,7 +1364,7 @@ def fix_user_role(current_user):
     # Or allow if the current user is a Doctor
     can_fix = (
         current_user['id'] == user['ID'] and user['Role'] == 'Patient'
-    ) or current_user['role'].lower() == 'doctor'
+    ) or current_user['role'] == 'doctor'
     
     if not can_fix:
         return jsonify({"error": "Unauthorized to change this user's role"}), 403
@@ -1301,8 +1456,9 @@ def get_exercise_types(current_user):
 @token_required
 def get_patient_exercises(current_user, patient_id):
     """Get assigned exercises for a patient."""
-    if current_user['role'].lower() != 'doctor' and current_user['id'] != patient_id:
-        return jsonify({"error": "Unauthorized"}), 403
+    forbidden = ensure_patient_resource_access(current_user, patient_id)
+    if forbidden:
+        return forbidden
     
     if not is_db_enabled():
         return jsonify({"error": "Database not configured"}), 500
@@ -1341,7 +1497,7 @@ def get_patient_exercises(current_user, patient_id):
 def assign_patient_exercise(current_user, patient_id):
     """Assign an exercise to a patient."""
     try:
-        if current_user['role'].lower() != 'doctor':
+        if current_user['role'] != 'doctor':
             return jsonify({"error": "Only doctors can assign exercises"}), 403
         
         if not is_db_enabled():

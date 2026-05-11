@@ -1,6 +1,7 @@
 import os
 import ssl
 import uuid
+import re
 from pathlib import Path
 from typing import Any, Optional
 from dotenv import load_dotenv
@@ -44,6 +45,28 @@ _engine: Optional[Engine] = (
     else None
 )
 
+# TEMPORARY clinical-study login compatibility layer.
+# Reuses the existing users columns without changing the schema so both
+# patients and doctors can authenticate with non-sensitive internal codes.
+TEMPORARY_ACCESS_CODE_EMAIL_DOMAIN = "irhis.local"
+TEMPORARY_ACCESS_CODE_PREFIXES = {
+    "Patient": "IRHIS-P",
+    "Doctor": "IRHIS-D",
+}
+TEMPORARY_ACCESS_CODE_PATTERNS = {
+    "Patient": re.compile(r"^IRHIS-P-(\d{6})$", re.IGNORECASE),
+    "Doctor": re.compile(r"^IRHIS-D-(\d{6})$", re.IGNORECASE),
+}
+LEGACY_TEMPORARY_PATIENT_CODE_PATTERN = re.compile(r"^IRHIS-(\d{6})$", re.IGNORECASE)
+TEMPORARY_ACCESS_CODE_EMAIL_PATTERN = re.compile(
+    r"^(irhis-(?:p|d)-\d{6}|irhis-\d{6})@irhis\.local$",
+    re.IGNORECASE,
+)
+TEMPORARY_ACCESS_CODE_LABEL_PATTERN = re.compile(
+    r"(IRHIS-(?:P|D)-\d{6}|IRHIS-\d{6})",
+    re.IGNORECASE,
+)
+
 
 def is_db_enabled() -> bool:
     return _engine is not None
@@ -78,23 +101,121 @@ def execute_and_return_id(sql: str, params: Optional[dict[str, Any]] = None) -> 
         row = connection.execute(text("SELECT LAST_INSERT_ID() AS id")).fetchone()
         return str(row[0]) if row and row[0] else None
 
-def create_manual_patient(user_data, patient_data, doctor_id):
-    user_id = str(uuid.uuid4())
-    temp_email = f"paciente_{user_id[:8]}@irhis_sistema.com"
-    
-    execute(
+def normalize_temporary_access_code(value: Optional[str]) -> Optional[str]:
+    cleaned = str(value or "").strip().upper()
+    if not cleaned:
+        return None
+
+    for role, pattern in TEMPORARY_ACCESS_CODE_PATTERNS.items():
+        code_match = pattern.match(cleaned)
+        if code_match:
+            return f"{TEMPORARY_ACCESS_CODE_PREFIXES[role]}-{code_match.group(1)}"
+
+    legacy_patient_match = LEGACY_TEMPORARY_PATIENT_CODE_PATTERN.match(cleaned)
+    if legacy_patient_match:
+        return f"IRHIS-{legacy_patient_match.group(1)}"
+
+    email_match = TEMPORARY_ACCESS_CODE_EMAIL_PATTERN.match(cleaned.lower())
+    if email_match:
+        return email_match.group(1).upper()
+
+    label_match = TEMPORARY_ACCESS_CODE_LABEL_PATTERN.search(cleaned)
+    if label_match:
+        return label_match.group(1).upper()
+
+    return None
+
+def get_temporary_role_from_access_code(access_code: Optional[str]) -> Optional[str]:
+    normalized_code = normalize_temporary_access_code(access_code)
+    if not normalized_code:
+        return None
+    if normalized_code.startswith(TEMPORARY_ACCESS_CODE_PREFIXES["Doctor"]):
+        return "Doctor"
+    return "Patient"
+
+def build_temporary_access_email(access_code: str) -> str:
+    normalized_code = normalize_temporary_access_code(access_code)
+    if not normalized_code:
+        raise ValueError("Invalid temporary access code")
+    return f"{normalized_code.lower()}@{TEMPORARY_ACCESS_CODE_EMAIL_DOMAIN}"
+
+def build_temporary_access_label(role: str, access_code: str) -> str:
+    normalized_role = "Doctor" if str(role).lower() == "doctor" else "Patient"
+    normalized_code = normalize_temporary_access_code(access_code)
+    if not normalized_code:
+        raise ValueError("Invalid temporary access code")
+    return f"{normalized_role} {normalized_code}"
+
+def extract_temporary_access_code(
+    email: Optional[str] = None,
+    first_name: Optional[str] = None,
+    last_name: Optional[str] = None,
+) -> Optional[str]:
+    for candidate in (email, f"{first_name or ''} {last_name or ''}".strip(), first_name, last_name):
+        code = normalize_temporary_access_code(candidate)
+        if code:
+            return code
+    return None
+
+def generate_next_temporary_access_code(role: str) -> str:
+    normalized_role = "Doctor" if str(role).lower() == "doctor" else "Patient"
+    rows = fetch_all(
         """
-        INSERT INTO users (ID, Email, Password, FirstName, LastName, Role, Active, Deleted)
-        VALUES (:id, :email, :password, :fname, :lname, 'Patient', 1, 0)
+        SELECT Email, FirstName, LastName
+        FROM users
+        WHERE Role = :role
+          AND COALESCE(Deleted, 0) = 0
         """,
-        {
-            "id": user_id,
-            "email": temp_email,
-            "password": "Mudar123!", 
-            "fname": user_data.get('first_name'),
-            "lname": user_data.get('last_name', '')
-        }
+        {"role": normalized_role},
     )
+
+    max_sequence = 0
+    for row in rows:
+        code = extract_temporary_access_code(
+            row.get("Email"),
+            row.get("FirstName"),
+            row.get("LastName"),
+        )
+        if not code:
+            continue
+        try:
+            max_sequence = max(max_sequence, int(code.split("-")[1]))
+        except (IndexError, ValueError):
+            try:
+                max_sequence = max(max_sequence, int(code.split("-")[2]))
+            except (IndexError, ValueError):
+                continue
+
+    next_sequence = max_sequence + 1
+    while True:
+        candidate = f"{TEMPORARY_ACCESS_CODE_PREFIXES[normalized_role]}-{next_sequence:06d}"
+        if not user_exists(build_temporary_access_email(candidate)):
+            return candidate
+        next_sequence += 1
+
+def create_temporary_user(role: str, password_hash: str) -> dict[str, str]:
+    normalized_role = "Doctor" if str(role).lower() == "doctor" else "Patient"
+    access_code = generate_next_temporary_access_code(normalized_role)
+    label = build_temporary_access_label(normalized_role, access_code)
+    user_id = create_user(
+        build_temporary_access_email(access_code),
+        password_hash,
+        normalized_role,
+        access_code,
+        normalized_role,
+    )
+    return {
+        "user_id": user_id,
+        "access_code": access_code,
+        "patient_code": access_code,
+        "label": label,
+        "email": build_temporary_access_email(access_code),
+        "role": normalized_role,
+    }
+
+def create_manual_patient(patient_data, doctor_id, password_hash):
+    temp_user = create_temporary_user("Patient", password_hash)
+    user_id = temp_user["user_id"]
 
     execute(
         """
@@ -130,7 +251,12 @@ def create_manual_patient(user_data, patient_data, doctor_id):
 
     assign_patient_to_doctor(patient_id=user_id, doctor_id=doctor_id)
 
-    return user_id, temp_email
+    return {
+        "user_id": user_id,
+        "patient_code": temp_user["patient_code"],
+        "label": temp_user["label"],
+        "email": temp_user["email"],
+    }
 
 def get_doctor_patient_ids(doctor_id: str) -> list[str]:
     rows = fetch_all(
