@@ -164,6 +164,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
+    minHeight:"50%",
     maxHeight: "80%",
     shadowColor: "#000",
     shadowOffset: {

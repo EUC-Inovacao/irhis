@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Modal, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { useTheme } from '@theme/ThemeContext';
+import { useTranslation } from 'react-i18next';
 
 interface AssignmentModalProps {
     visible: boolean;
@@ -11,6 +12,7 @@ interface AssignmentModalProps {
 
 const AssignmentModal: React.FC<AssignmentModalProps> = ({ visible, onClose, onSave, assignmentType }) => {
     const { colors } = useTheme();
+    const { t } = useTranslation();
     const [name, setName] = useState('');
     const [dosage, setDosage] = useState('');
 
@@ -23,7 +25,10 @@ const AssignmentModal: React.FC<AssignmentModalProps> = ({ visible, onClose, onS
         }
     };
 
-    const title = assignmentType === 'exercise' ? 'Assign New Exercise' : 'Assign New Medication';
+    const title =
+        assignmentType === 'exercise'
+            ? t('assignmentModal.assignExerciseTitle')
+            : t('assignmentModal.assignMedicationTitle');
 
     return (
         <Modal
@@ -40,7 +45,7 @@ const AssignmentModal: React.FC<AssignmentModalProps> = ({ visible, onClose, onS
                     <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
                     <TextInput
                         style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.mediumGray }]}
-                        placeholder="Name"
+                        placeholder={t('assignmentModal.namePlaceholder')}
                         value={name}
                         onChangeText={setName}
                         placeholderTextColor={colors.textSecondary}
@@ -48,7 +53,7 @@ const AssignmentModal: React.FC<AssignmentModalProps> = ({ visible, onClose, onS
                     {assignmentType === 'medication' && (
                         <TextInput
                             style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.mediumGray }]}
-                            placeholder="Dosage (e.g., 200mg twice a day)"
+                            placeholder={t('assignmentModal.dosagePlaceholder')}
                             value={dosage}
                             onChangeText={setDosage}
                             placeholderTextColor={colors.textSecondary}
@@ -56,10 +61,10 @@ const AssignmentModal: React.FC<AssignmentModalProps> = ({ visible, onClose, onS
                     )}
                     <View style={styles.buttonContainer}>
                         <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={onClose}>
-                            <Text style={[styles.buttonText, { color: colors.white }]}>Cancel</Text>
+                            <Text style={[styles.buttonText, { color: colors.white }]}>{t('assignmentModal.cancel')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={handleSave}>
-                            <Text style={[styles.buttonText, { color: colors.white }]}>Save</Text>
+                            <Text style={[styles.buttonText, { color: colors.white }]}>{t('assignmentModal.save')}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>

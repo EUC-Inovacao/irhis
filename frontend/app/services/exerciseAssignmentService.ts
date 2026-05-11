@@ -58,6 +58,18 @@ export async function assignExerciseToPatient(
   });
 }
 
+export async function updateAssignedExercise(
+  patientId: string,
+  assignedExerciseId: string,
+  targetReps: number,
+  exerciseTypeName: string
+): Promise<void> {
+  await api.put(`/patients/${patientId}/exercises/${assignedExerciseId}`, {
+    exercise_type_name: exerciseTypeName,
+    target_reps: targetReps,
+  });
+}
+
 export async function getAssignedExercises(patientId: string): Promise<AssignedExerciseWithDetails[]> {
   try {
     const res = await api.get<AssignedExerciseWithDetails[]>(`/patients/${patientId}/exercises`);

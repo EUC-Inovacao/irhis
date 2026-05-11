@@ -7,9 +7,11 @@ import { usePatients } from '../context/PatientContext';
 import { Ionicons } from '@expo/vector-icons';
 import { getDoctorInvites, resendInvite, revokeInvite, type InviteListItem } from '../services/doctorService';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 
 const ManageInvitesScreen = ({ navigation }: any) => {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { fetchPatients } = usePatients();
   const [invites, setInvites] = useState<InviteListItem[]>([]);
@@ -45,9 +47,9 @@ const ManageInvitesScreen = ({ navigation }: any) => {
     try {
       await resendInvite(inv.id);
       await loadInvites(true);
-      Alert.alert('Invite resent', 'A new token was generated. Share it with the patient.');
+      Alert.alert(t('manageInvites.inviteResentTitle'), t('manageInvites.inviteResentMessage'));
     } catch (err: any) {
-      Alert.alert('Error', err.response?.data?.error || err.message || 'Failed to resend.');
+      Alert.alert(t('common.error'), err.response?.data?.error || err.message || t('manageInvites.failedResend'));
     } finally {
       setActioningId(null);
     }
@@ -55,12 +57,12 @@ const ManageInvitesScreen = ({ navigation }: any) => {
 
   const handleRevoke = (inv: InviteListItem) => {
     Alert.alert(
-      'Revoke invite',
-      `Are you sure you want to revoke the invite for ${inv.inviteeName || inv.email}? The token will no longer be valid.`,
+      t('manageInvites.revokeTitle'),
+      t('manageInvites.revokeMessage', { name: inv.inviteeName || inv.email }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Revoke',
+          text: t('manageInvites.revoke'),
           style: 'destructive',
           onPress: async () => {
             if (actioningId) return;
@@ -70,7 +72,7 @@ const ManageInvitesScreen = ({ navigation }: any) => {
               await fetchPatients();
               await loadInvites(true);
             } catch (err: any) {
-              Alert.alert('Error', err.response?.data?.error || err.message || 'Failed to revoke.');
+              Alert.alert(t('common.error'), err.response?.data?.error || err.message || t('manageInvites.failedRevoke'));
             } finally {
               setActioningId(null);
             }
@@ -91,9 +93,9 @@ const ManageInvitesScreen = ({ navigation }: any) => {
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Manage Invites</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{t('manageInvites.title')}</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Pending invites. You can resend (new token) or revoke.
+          {t('manageInvites.subtitle')}
         </Text>
       </View>
       <FlatList
@@ -104,7 +106,7 @@ const ManageInvitesScreen = ({ navigation }: any) => {
         ListEmptyComponent={
           <View style={[styles.empty, { backgroundColor: colors.card }]}>
             <Ionicons name="mail-open-outline" size={48} color={colors.textSecondary} />
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No pending invites</Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{t('manageInvites.noPending')}</Text>
           </View>
         }
         renderItem={({ item }) => (
@@ -112,7 +114,7 @@ const ManageInvitesScreen = ({ navigation }: any) => {
             <View style={styles.cardMain}>
               <Text style={[styles.cardName, { color: colors.text }]}>{item.inviteeName || item.email}</Text>
               <Text style={[styles.cardEmail, { color: colors.textSecondary }]}>{item.email}</Text>
-              <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>Token expires in 24h</Text>
+              <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>{t('manageInvites.tokenExpires')}</Text>
             </View>
             <View style={styles.actions}>
               <TouchableOpacity
@@ -123,7 +125,7 @@ const ManageInvitesScreen = ({ navigation }: any) => {
                 {actioningId === item.id ? (
                   <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
-                  <Text style={[styles.actionBtnText, { color: colors.primary }]}>Resend</Text>
+                  <Text style={[styles.actionBtnText, { color: colors.primary }]}>{t('manageInvites.resend')}</Text>
                 )}
               </TouchableOpacity>
               <TouchableOpacity
@@ -131,7 +133,7 @@ const ManageInvitesScreen = ({ navigation }: any) => {
                 onPress={() => handleRevoke(item)}
                 disabled={!!actioningId}
               >
-                <Text style={[styles.actionBtnText, { color: '#DC2626' }]}>Revoke</Text>
+                <Text style={[styles.actionBtnText, { color: '#DC2626' }]}>{t('manageInvites.revoke')}</Text>
               </TouchableOpacity>
             </View>
           </View>

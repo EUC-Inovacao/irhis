@@ -1,24 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context'; 
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../types';
+import { useTranslation } from 'react-i18next';
+import LanguageSelectorModal from '../components/LanguageSelectorModal';
+import { changeAppLanguage } from '../i18n/service';
+import { AppLanguageCode, getLanguageOption } from '../i18n/languages';
 
 type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Profile'>;
 type ProfileScreenRouteProp = RouteProp<RootStackParamList, 'Profile'>;
+type MenuItemProps = {
+    icon?: React.ComponentProps<typeof Ionicons>['name'];
+    label: string;
+    onPress?: () => void;
+    isDestructive?: boolean;
+    showChevron?: boolean;
+    valueElement?: React.ReactNode;
+};
 
 const ProfileScreen = () => {
     const { colors, isDark, toggleTheme } = useTheme(); 
+    const { t, i18n } = useTranslation();
     const { user, logout } = useAuth();
     const navigation = useNavigation<ProfileScreenNavigationProp>();
     const route = useRoute<ProfileScreenRouteProp>();
 
     const [isTwoFactorEnabled, setIsTwoFactorEnabled] = useState(false);
     const [isDarkModeLocal, setIsDarkModeLocal] = useState(false);
+    const [isLanguageModalVisible, setIsLanguageModalVisible] = useState(false);
+
+    const selectedLanguage = getLanguageOption(i18n.resolvedLanguage || i18n.language);
 
     // CORREÇÃO: Verifica se voltámos do ecrã de setup com sucesso
     useEffect(() => {
@@ -31,12 +46,12 @@ const ProfileScreen = () => {
 
     const handleSignOut = () => {
         Alert.alert(
-            "Sign Out",
-            "Are you sure you want to sign out?",
+            t("profile.signOut"),
+            t("profile.signOutConfirm"),
             [
-                { text: "Cancel", style: "cancel" },
+                { text: t("common.cancel"), style: "cancel" },
                 { 
-                    text: "Sign Out", 
+                    text: t("profile.signOut"), 
                     style: "destructive", 
                     onPress: () => logout ? logout() : console.log("Logout function missing") 
                 }
@@ -58,17 +73,22 @@ const ProfileScreen = () => {
             navigation.navigate('TwoFactorSetup'); 
         } else {
             Alert.alert(
-                "Disable 2FA", 
-                "Are you sure? This will lower your account security.",
+                t("profile.disable2fa"), 
+                t("profile.disable2faConfirm"),
                 [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Disable", style: "destructive", onPress: () => setIsTwoFactorEnabled(false) }
+                    { text: t("common.cancel"), style: "cancel" },
+                    { text: t("profile.disable"), style: "destructive", onPress: () => setIsTwoFactorEnabled(false) }
                 ]
             );
         }
     };
 
-    const MenuItem = ({ icon, label, onPress, isDestructive = false, showChevron = true, valueElement }: any) => (
+    const handleLanguageChange = async (language: AppLanguageCode) => {
+        await changeAppLanguage(language);
+        setIsLanguageModalVisible(false);
+    };
+
+    const MenuItem = ({ icon, label, onPress, isDestructive = false, showChevron = true, valueElement }: MenuItemProps) => (
         <TouchableOpacity 
             style={[styles.menuItem, { borderBottomColor: colors.border }]} 
             onPress={onPress} 
@@ -108,23 +128,23 @@ const ProfileScreen = () => {
                     </Text>
                 </View>
                 <View style={styles.profileInfo}>
-                    <Text style={[styles.userName, { color: colors.text }]}>{user?.name || 'User Name'}</Text>
+                    <Text style={[styles.userName, { color: colors.text }]}>{user?.name || t('profile.userName')}</Text>
                     <Text style={[styles.userRole, { color: colors.textSecondary }]}>
-                        {user?.role?.toLowerCase() === 'doctor' ? 'Healthcare Provider' : 'Patient'}
+                        {user?.role?.toLowerCase() === 'doctor' ? t('profile.healthcareProvider') : t('common.patient')}
                     </Text>
                     <View style={styles.institutionRow}>
                          <Text style={[styles.institutionText, { color: colors.textSecondary }]}>
-                            Joined Dec 2025 • IRHIS Clinic
+                            {t('profile.joinedInfo')}
                         </Text>
                     </View>
                 </View>
             </View>
 
             {/* 2. SECÇÃO: ACCOUNT */}
-            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Account</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{t('profile.account')}</Text>
             <View style={[styles.sectionContainer, { backgroundColor: colors.card }]}>
                 <MenuItem 
-                    label="Change Password" 
+                    label={t("profile.changePassword")} 
                     icon="lock-closed-outline" 
                     onPress={() => navigation.navigate('ChangePassword')} 
                 />
@@ -143,10 +163,10 @@ const ProfileScreen = () => {
             </View>
 
             {/* 3. SECÇÃO: PRIVACY & COMPLIANCE */}
-            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Privacy & Compliance</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{t('profile.privacyCompliance')}</Text>
             <View style={[styles.sectionContainer, { backgroundColor: colors.card }]}>
                 <MenuItem 
-                    label="Privacy Notice" 
+                    label={t("profile.privacyNotice")} 
                     icon="document-text-outline" 
                     onPress={() => navigation.navigate('PrivacyNotice')} 
                 />
@@ -156,7 +176,7 @@ const ProfileScreen = () => {
                     onPress={() => navigation.navigate('HelpCenter')} 
                 /> */}
                 <MenuItem 
-                    label="About" 
+                    label={t("profile.about")} 
                     icon="information-circle-outline" 
                     valueElement={<Text style={{ color: colors.textSecondary, marginRight: 8 }}>v1.0.0</Text>} 
                     onPress={() => navigation.navigate('About')} 
@@ -164,9 +184,20 @@ const ProfileScreen = () => {
             </View>
 
             {/* 4. SECÇÃO: DARK MODE */}
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{t('profile.preferences')}</Text>
             <View style={[styles.sectionContainer, { backgroundColor: colors.card, marginTop: 8 }]}>
                 <MenuItem 
-                    label="Dark Mode" 
+                    label={t("profile.language")} 
+                    icon="language-outline" 
+                    onPress={() => setIsLanguageModalVisible(true)}
+                    valueElement={
+                        <Text style={{ color: colors.textSecondary, marginRight: 8 }}>
+                            {`${selectedLanguage.flag} ${selectedLanguage.label}`}
+                        </Text>
+                    }
+                />
+                <MenuItem 
+                    label={t("profile.darkMode")} 
                     icon="moon-outline" 
                     showChevron={false} 
                     valueElement={
@@ -184,8 +215,16 @@ const ProfileScreen = () => {
                 style={[styles.logoutButton, { borderColor: colors.error }]} 
                 onPress={handleSignOut}
             >
-                <Text style={[styles.logoutText, { color: colors.error }]}>Sign Out</Text>
+                <Text style={[styles.logoutText, { color: colors.error }]}>{t('profile.signOut')}</Text>
             </TouchableOpacity>
+
+            <LanguageSelectorModal
+                visible={isLanguageModalVisible}
+                selectedLanguage={selectedLanguage.code}
+                title={t('profile.selectLanguage')}
+                onClose={() => setIsLanguageModalVisible(false)}
+                onSelectLanguage={handleLanguageChange}
+            />
 
             <View style={{ height: 40 }} /> 
         </ScrollView>

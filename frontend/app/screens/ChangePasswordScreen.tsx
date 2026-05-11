@@ -1,12 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
+import PasswordRequirementsCard from '../components/PasswordRequirementsCard';
+import { changePassword } from '../services/auth';
+import { getPasswordValidationState } from '../utils/passwordValidation';
 
 const ChangePasswordScreen = () => {
     const { colors } = useTheme();
+    const { t } = useTranslation();
     const navigation = useNavigation();
 
     const [password, setPassword] = useState('');
@@ -14,33 +19,30 @@ const ChangePasswordScreen = () => {
     
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
+    const [saving, setSaving] = useState(false);
 
-    const [hasMinLength, setHasMinLength] = useState(false);
-    const [hasUpperCase, setHasUpperCase] = useState(false);
-    const [hasNumber, setHasNumber] = useState(false);
-    const [passwordsMatch, setPasswordsMatch] = useState(false);
+    const validation = getPasswordValidationState(password, confirmPassword);
 
-    useEffect(() => {
-        setHasMinLength(password.length >= 8);
-        setHasUpperCase(/[A-Z]/.test(password));
-        setHasNumber(/[0-9]/.test(password));
-        setPasswordsMatch(password.length > 0 && password === confirmPassword);
-    }, [password, confirmPassword]);
+    const handleSave = async () => {
+        if (!validation.isValid || saving) {
+            return;
+        }
 
-    const isValid = hasMinLength && hasUpperCase && hasNumber && passwordsMatch;
-
-    const handleSave = () => {
-        if (isValid) {
-            Alert.alert("Success", "Password updated successfully.", [{ text: "OK", onPress: () => navigation.goBack() }]);
+        try {
+            setSaving(true);
+            await changePassword(password);
+            Alert.alert(
+                t("common.success"),
+                t("changePassword.updatedSuccess"),
+                [{ text: "OK", onPress: () => navigation.goBack() }],
+            );
+        } catch (error) {
+            const message = error instanceof Error ? error.message : t("changePassword.updateFailed");
+            Alert.alert(t("common.error"), message);
+        } finally {
+            setSaving(false);
         }
     };
-
-    const Requirement = ({ label, met }: { label: string, met: boolean }) => (
-        <View style={styles.requirementRow}>
-            <Ionicons name={met ? "checkmark-circle" : "ellipse-outline"} size={16} color={met ? colors.success : colors.textSecondary} />
-            <Text style={[styles.requirementText, { color: met ? colors.text : colors.textSecondary }]}>{label}</Text>
-        </View>
-    );
 
     return (
         <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
@@ -49,25 +51,25 @@ const ChangePasswordScreen = () => {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <Ionicons name="chevron-back" size={24} color={colors.text} />
                 </TouchableOpacity>
-                <Text style={[styles.navTitle, { color: colors.text }]}>Create a New Password</Text>
+                <Text style={[styles.navTitle, { color: colors.text }]}>{t("changePassword.title")}</Text>
             </View>
 
             <ScrollView contentContainerStyle={styles.container}>
                 <View style={styles.contentHeader}>
-                    <Text style={[styles.title, { color: colors.text }]}>Create a New Password</Text>
+                    <Text style={[styles.title, { color: colors.text }]}>{t("changePassword.title")}</Text>
                     <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                        Create a secure password for your account.
+                        {t("changePassword.subtitle")}
                     </Text>
                 </View>
 
                 <View style={styles.inputGroup}>
-                    <Text style={[styles.label, { color: colors.text }]}>Password</Text>
+                    <Text style={[styles.label, { color: colors.text }]}>{t("common.password")}</Text>
                     <View style={[styles.inputContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                         <TextInput 
                             style={[styles.input, { color: colors.text }]} 
                             value={password} 
                             onChangeText={setPassword} 
-                            placeholder="Enter password" 
+                            placeholder={t("changePassword.passwordPlaceholder")} 
                             placeholderTextColor={colors.textSecondary} 
                             secureTextEntry={!showPassword} 
                         />
@@ -78,13 +80,13 @@ const ChangePasswordScreen = () => {
                 </View>
 
                 <View style={styles.inputGroup}>
-                    <Text style={[styles.label, { color: colors.text }]}>Confirm Password</Text>
+                    <Text style={[styles.label, { color: colors.text }]}>{t("common.confirmPassword")}</Text>
                     <View style={[styles.inputContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                         <TextInput 
                             style={[styles.input, { color: colors.text }]} 
                             value={confirmPassword} 
                             onChangeText={setConfirmPassword} 
-                            placeholder="Confirm password" 
+                            placeholder={t("changePassword.confirmPasswordPlaceholder")} 
                             placeholderTextColor={colors.textSecondary} 
                             secureTextEntry={!showConfirm} 
                         />
@@ -94,23 +96,19 @@ const ChangePasswordScreen = () => {
                     </View>
                 </View>
 
-                <View style={[styles.rulesContainer, { backgroundColor: colors.info + '15', borderColor: colors.info + '30' }]}>
-                    <Text style={[styles.rulesTitle, { color: colors.info }]}>Password requirements:</Text>
-                    <Requirement label="At least 8 characters" met={hasMinLength} />
-                    <Requirement label="One uppercase letter" met={hasUpperCase} />
-                    <Requirement label="One number" met={hasNumber} />
-                    <Requirement label="Passwords match" met={passwordsMatch} />
-                </View>
+                <PasswordRequirementsCard validation={validation} />
 
             </ScrollView>
 
             <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
                 <TouchableOpacity 
-                    style={[styles.button, { backgroundColor: isValid ? colors.primary : colors.border }]} 
+                    style={[styles.button, { backgroundColor: validation.isValid && !saving ? colors.primary : colors.border }]} 
                     onPress={handleSave} 
-                    disabled={!isValid}
+                    disabled={!validation.isValid || saving}
                 >
-                    <Text style={styles.buttonText}>Continue</Text>
+                    <Text style={styles.buttonText}>
+                        {saving ? t("changePassword.updating") : t("common.continue")}
+                    </Text>
                 </TouchableOpacity>
             </View>
         </SafeAreaView>
@@ -172,26 +170,6 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: 16,
         marginRight: 10,
-    },
-    rulesContainer: {
-        marginTop: 8,
-        padding: 16,
-        borderRadius: 12,
-        borderWidth: 1,
-    },
-    rulesTitle: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        marginBottom: 12,
-    },
-    requirementRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 8,
-        gap: 8,
-    },
-    requirementText: {
-        fontSize: 14,
     },
     footer: {
         padding: 24,

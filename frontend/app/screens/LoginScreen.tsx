@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../theme/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 const LoginScreen = ({ navigation }: any) => {
   const { colors } = useTheme();
@@ -34,7 +35,7 @@ const LoginScreen = ({ navigation }: any) => {
     try {
       await login(accessCode, password);
     } catch (error: any) {
-      Alert.alert("Login Failed", error?.message || "Invalid credentials.");
+      Alert.alert(t("login.failedTitle"), error?.message || t("login.invalidCredentials"));
     } finally {
       setLoading(false);
     }
@@ -100,7 +101,7 @@ const LoginScreen = ({ navigation }: any) => {
                   styles.input,
                   { backgroundColor: colors.card, color: colors.text },
                 ]}
-                placeholder="Password"
+                placeholder={t("login.passwordPlaceholder")}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}

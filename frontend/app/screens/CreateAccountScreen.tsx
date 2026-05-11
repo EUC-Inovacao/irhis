@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
-import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import TermsAndConditionsModal from "../components/TermsAndConditionsModal";
 import PrivacyNoticeModal from '@components/PrivacyNoticeModal';
@@ -76,12 +75,12 @@ const CreateAccountScreen = () => {
     }
     
     if (!acceptedTerms) {
-        setError('You must accept the terms and conditions to continue.');
+        setError(t('createAccount.termsRequired'));
         return;
     }
 
         if (!acceptedPrivacy) {
-        setError('You must accept the privacy notice to continue.');
+        setError(t('createAccount.privacyRequired'));
         return;
     }
     
@@ -137,7 +136,7 @@ const CreateAccountScreen = () => {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Text style={[styles.title, { color: colors.text }]}>Create Account</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{t('createAccount.title')}</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             {TEMPORARY_STUDY_ACCESS_FLOW
               ? 'Patients and doctors receive generated internal access codes in this temporary flow.'
@@ -145,7 +144,7 @@ const CreateAccountScreen = () => {
           </Text>
 
           {/* Role Selection */}
-          <Text style={[styles.label, { color: colors.text }]}>Account Type</Text>
+          <Text style={[styles.label, { color: colors.text }]}>{t('createAccount.accountType')}</Text>
           <View style={styles.roleContainer}>
             <TouchableOpacity
               style={[
@@ -161,7 +160,7 @@ const CreateAccountScreen = () => {
                 color={role === 'patient' ? '#fff' : colors.text}
               />
               <Text style={[styles.roleButtonText, { color: role === 'patient' ? '#fff' : colors.text }]}>
-                Patient
+                {t('common.patient')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -181,7 +180,7 @@ const CreateAccountScreen = () => {
                 color={role === 'doctor' ? '#fff' : colors.text}
               />
               <Text style={[styles.roleButtonText, { color: role === 'doctor' ? '#fff' : colors.text }]}>
-                Doctor
+                {t('common.doctor')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -198,7 +197,7 @@ const CreateAccountScreen = () => {
           )}
 
           {/* Password Input */}
-          <Text style={[styles.label, { color: colors.text }]}>Password</Text>
+          <Text style={[styles.label, { color: colors.text }]}>{t('common.password')}</Text>
           <View style={styles.passwordContainer}>
             <TextInput
               style={[styles.passwordInput, { borderColor: colors.border, color: colors.text }]}
@@ -213,6 +212,7 @@ const CreateAccountScreen = () => {
             <TouchableOpacity
               style={styles.eyeButton}
               onPress={() => setShowPassword(!showPassword)}
+              hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
             >
               <Ionicons
                 name={showPassword ? 'eye-off-outline' : 'eye-outline'}
@@ -223,11 +223,11 @@ const CreateAccountScreen = () => {
           </View>
 
           {/* Confirm Password Input */}
-          <Text style={[styles.label, { color: colors.text }]}>Confirm Password</Text>
+          <Text style={[styles.label, { color: colors.text }]}>{t('common.confirmPassword')}</Text>
           <View style={styles.passwordContainer}>
             <TextInput
               style={[styles.passwordInput, { borderColor: colors.border, color: colors.text }]}
-              placeholder="Confirm password"
+              placeholder={t('createAccount.confirmPasswordPlaceholder')}
               placeholderTextColor={colors.textSecondary}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
@@ -238,6 +238,7 @@ const CreateAccountScreen = () => {
             <TouchableOpacity
               style={styles.eyeButton}
               onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+              hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
             >
               <Ionicons
                 name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
@@ -267,9 +268,9 @@ const CreateAccountScreen = () => {
                     {acceptedTerms && <Ionicons name="checkmark" size={16} color="#fff" />}
                   </View>
                   <Text style={[styles.termsText, { color: colors.textSecondary }]}>
-                    I accept the{' '}
+                    {t('createAccount.acceptPrefix')}{' '}
                     <Text style={{ color: colors.primary, fontWeight: 'bold', textDecorationLine: 'underline' }} onPress={() => setShowTermsModal(true)}>
-                      Terms and Conditions
+                      {t('common.termsAndConditions')}
                     </Text>
                   </Text>
                 </TouchableOpacity>
@@ -284,10 +285,10 @@ const CreateAccountScreen = () => {
                     {acceptedPrivacy && <Ionicons name="checkmark" size={16} color="#fff" />}
                   </View>
                   <Text style={[styles.termsText, { color: colors.textSecondary }]}>
-                    I accept the{' '}
+                    {t('createAccount.acceptPrefix')}{' '}
                     <Text style={{ color: colors.primary, fontWeight: 'bold', textDecorationLine: 'underline' }} 
                           onPress={() => setShowPrivacyModal(true)}>
-                      Privacy Notice & Consent
+                      {t('common.privacyNoticeConsent')}
                     </Text>
                   </Text>
                 </TouchableOpacity>
@@ -306,7 +307,7 @@ const CreateAccountScreen = () => {
             onPress={handleSubmit}
             disabled={loading || !acceptedTerms || !acceptedPrivacy || !isValidPassword}
           >
-            <Text style={styles.buttonText}>{loading ? 'Creating Account...' : 'Create Account'}</Text>
+            <Text style={styles.buttonText}>{loading ? t('createAccount.buttonLoading') : t('common.createAccount')}</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>

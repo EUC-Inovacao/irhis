@@ -4,6 +4,7 @@ import { LineChart, BarChart } from "react-native-chart-kit";
 import { useTheme } from "@theme/ThemeContext";
 import { getSessionHistory } from "@services/sessionService";
 import { getPatientFeedback } from "@services/feedbackService";
+import { useTranslation } from "react-i18next";
 
 interface PatientProgressGraphsProps {
   patientId: string;
@@ -13,6 +14,7 @@ const PatientProgressGraphs: React.FC<PatientProgressGraphsProps> = ({
   patientId,
 }) => {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasMetrics, setHasMetrics] = useState(false);
@@ -54,10 +56,10 @@ const PatientProgressGraphs: React.FC<PatientProgressGraphsProps> = ({
     return (
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Progress Overview
+          {t("patientProgress.title")}
         </Text>
         <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-          Loading progress data...
+          {t("patientProgress.loading")}
         </Text>
       </View>
     );
@@ -67,17 +69,16 @@ const PatientProgressGraphs: React.FC<PatientProgressGraphsProps> = ({
     return (
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Progress Overview
+          {t("patientProgress.title")}
         </Text>
         <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-          No session metrics available yet. Once you analyze or record
-          exercises, ROM, repetitions, and other metrics will appear here.
+          {t("patientProgress.empty")}
         </Text>
       </View>
     );
   }
 
-  const labels = sessions.map((s, idx) => {
+  const labels = sessions.map((s) => {
     const d = new Date(s.startTime);
     return `${d.getDate()}/${d.getMonth() + 1}`;
   });
@@ -91,8 +92,8 @@ const PatientProgressGraphs: React.FC<PatientProgressGraphsProps> = ({
     backgroundGradientFrom: colors.card,
     backgroundGradientTo: colors.card,
     decimalPlaces: 1,
-    color: (opacity = 1) => colors.primary,
-    labelColor: (opacity = 1) => colors.textSecondary,
+    color: () => colors.primary,
+    labelColor: () => colors.textSecondary,
     style: {
       borderRadius: 12,
     },
@@ -102,14 +103,21 @@ const PatientProgressGraphs: React.FC<PatientProgressGraphsProps> = ({
     },
   };
 
+  const helperText =
+    feedbackCount > 0
+      ? t("patientProgress.basedOnSessionsAndFeedback", {
+          sessions: sessions.length,
+          feedback: feedbackCount,
+        })
+      : t("patientProgress.basedOnSessions", { sessions: sessions.length });
+
   return (
     <View style={[styles.section, { backgroundColor: colors.card }]}>
       <Text style={[styles.sectionTitle, { color: colors.text }]}>
-        Progress Overview
+        {t("patientProgress.title")}
       </Text>
       <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-        Based on {sessions.length} sessions
-        {feedbackCount ? ` and ${feedbackCount} feedback entries` : ""}.
+        {helperText}
       </Text>
 
       <ScrollView
@@ -117,10 +125,9 @@ const PatientProgressGraphs: React.FC<PatientProgressGraphsProps> = ({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.chartsRow}
       >
-        {/* ROM progression */}
         <View style={styles.chartCard}>
           <Text style={[styles.chartTitle, { color: colors.text }]}>
-            ROM Progression
+            {t("patientProgress.romProgression")}
           </Text>
           <LineChart
             data={{
@@ -141,10 +148,9 @@ const PatientProgressGraphs: React.FC<PatientProgressGraphsProps> = ({
           />
         </View>
 
-        {/* Repetitions progression */}
         <View style={styles.chartCard}>
           <Text style={[styles.chartTitle, { color: colors.text }]}>
-            Repetitions
+            {t("patientProgress.repetitions")}
           </Text>
           <BarChart
             data={{
@@ -161,11 +167,10 @@ const PatientProgressGraphs: React.FC<PatientProgressGraphsProps> = ({
           />
         </View>
 
-        {/* Session score (if available) */}
         {scoreData.some((v) => v && v > 0) && (
           <View style={styles.chartCard}>
             <Text style={[styles.chartTitle, { color: colors.text }]}>
-              Session Score
+              {t("patientProgress.sessionScore")}
             </Text>
             <LineChart
               data={{
@@ -227,4 +232,3 @@ const styles = StyleSheet.create({
 });
 
 export default PatientProgressGraphs;
-

@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from "react";
+import React, { useCallback } from "react";
 import {
   View,
   Text,
@@ -13,9 +13,11 @@ import { useTheme } from "@theme/ThemeContext";
 import { useAuth } from "@context/AuthContext";
 import { usePatients } from "@context/PatientContext";
 import { useFocusEffect } from "@react-navigation/native";
+import { useTranslation } from "react-i18next";
 import type { Session } from "../types";
 
-const ExerciseHistoryScreen = ({ navigation }: any) => {
+const ExerciseHistoryScreen = ({ navigation , route }: any) => {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const { user } = useAuth();
   const {
@@ -23,11 +25,10 @@ const ExerciseHistoryScreen = ({ navigation }: any) => {
     fetchPatientSessions,
     loading,
   } = usePatients();
-  const patientId = user?.id ?? "";
+  const patientId = route.params?.patientId ?? user?.id;
   const { completed = [] } = sessionsByPatient[patientId] ?? { completed: [] as Session[] };
 
-  // Refresh data when screen comes into focus
-  useFocusEffect(
+useFocusEffect(
     useCallback(() => {
       if (patientId) {
         fetchPatientSessions(patientId);
@@ -36,7 +37,9 @@ const ExerciseHistoryScreen = ({ navigation }: any) => {
   );
 
   const onRefresh = () => {
-    if (patientId) fetchPatientSessions(patientId);
+    if (patientId) {
+      fetchPatientSessions(patientId);
+    }
   };
 
   const renderItem = ({ item }: { item: Session }) => {
@@ -47,9 +50,15 @@ const ExerciseHistoryScreen = ({ navigation }: any) => {
           year: "numeric",
         })
       : "";
-    const reps = item.repetitions != null ? `${item.repetitions} reps` : "";
-    const duration = item.duration ? ` • ${item.duration}` : "";
-    const summary = [reps, duration].filter(Boolean).join(" ") || "—";
+
+    const reps =
+      item.repetitions != null
+        ? t("exerciseHistory.repetitionsSummary", {
+            count: item.repetitions,
+          })
+        : "";
+    const duration = item.duration ? ` - ${item.duration}` : "";
+    const summary = [reps, duration].filter(Boolean).join(" ") || "--";
 
     return (
       <TouchableOpacity
@@ -60,12 +69,24 @@ const ExerciseHistoryScreen = ({ navigation }: any) => {
         activeOpacity={0.7}
       >
         <View style={styles.cardContent}>
-          <View style={[styles.iconWrap, { backgroundColor: colors.primary + "15" }]}>
-            <Ionicons name="barbell-outline" size={24} color={colors.primary} />
+          <View
+            style={[
+              styles.iconWrap,
+              { backgroundColor: colors.primary + "15" },
+            ]}
+          >
+            <Ionicons
+              name="barbell-outline"
+              size={24}
+              color={colors.primary}
+            />
           </View>
           <View style={styles.textBlock}>
-            <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
-              {item.exerciseType || "Exercise"}
+            <Text
+              style={[styles.title, { color: colors.text }]}
+              numberOfLines={1}
+            >
+              {item.exerciseType || t("navigation.exercise")}
             </Text>
             <Text style={[styles.date, { color: colors.textSecondary }]}>
               {dateStr}
@@ -74,33 +95,43 @@ const ExerciseHistoryScreen = ({ navigation }: any) => {
               {summary}
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+          <Ionicons
+            name="chevron-forward"
+            size={20}
+            color={colors.textSecondary}
+          />
         </View>
       </TouchableOpacity>
     );
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: colors.background }]}
+    >
       <View style={styles.container}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Exercise History
+          {t("exerciseHistory.title")}
         </Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Completed sessions with metrics and feedback
+          {t("exerciseHistory.subtitle")}
         </Text>
         {loading && completed.length === 0 ? (
           <Text style={[styles.empty, { color: colors.textSecondary }]}>
-            Loading...
+            {t("exerciseHistory.loading")}
           </Text>
         ) : completed.length === 0 ? (
           <View style={[styles.emptyCard, { backgroundColor: colors.card }]}>
-            <Ionicons name="fitness-outline" size={48} color={colors.textSecondary} />
+            <Ionicons
+              name="fitness-outline"
+              size={48}
+              color={colors.textSecondary}
+            />
             <Text style={[styles.emptyTitle, { color: colors.text }]}>
-              No completed exercises yet
+              {t("exerciseHistory.emptyTitle")}
             </Text>
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              Your completed sessions will appear here with metrics and feedback.
+              {t("exerciseHistory.emptyDescription")}
             </Text>
           </View>
         ) : (
@@ -158,7 +189,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 16,
   },
-  emptyTitle: { fontSize: 18, fontWeight: "600", marginTop: 16, marginBottom: 8 },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginTop: 16,
+    marginBottom: 8,
+  },
   emptyText: { fontSize: 14, textAlign: "center" },
 });
 

@@ -13,6 +13,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { createFeedback } from '../services/feedbackService';
+import { useTranslation } from 'react-i18next';
 
 interface SessionFeedbackModalProps {
   visible: boolean;
@@ -30,6 +31,7 @@ const SessionFeedbackModal: React.FC<SessionFeedbackModalProps> = ({
   patientId,
 }) => {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [pain, setPain] = useState(5);
   const [fatigue, setFatigue] = useState(5);
   const [difficulty, setDifficulty] = useState(5);
@@ -62,7 +64,7 @@ const SessionFeedbackModal: React.FC<SessionFeedbackModalProps> = ({
       onClose();
     } catch (error: any) {
       console.error('Error submitting feedback:', error);
-      Alert.alert('Error', error.message || 'Failed to submit feedback. Please try again.');
+      Alert.alert(t('common.error'), error.message || t('sessionFeedback.failedSubmit'));
     } finally {
       setSubmitting(false);
     }
@@ -88,7 +90,7 @@ const SessionFeedbackModal: React.FC<SessionFeedbackModalProps> = ({
         <View style={[styles.modalView, { backgroundColor: colors.card }]}>
           <View style={styles.header}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>
-              Session Feedback
+              {t('sessionFeedback.title')}
             </Text>
             <TouchableOpacity onPress={handleSkip}>
               <Ionicons name="close" size={24} color={colors.text} />
@@ -97,7 +99,7 @@ const SessionFeedbackModal: React.FC<SessionFeedbackModalProps> = ({
 
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
             <Text style={[styles.description, { color: colors.textSecondary }]}>
-              Please rate your experience during this exercise session.
+              {t('sessionFeedback.description')}
             </Text>
 
             {/* Pain Rating */}
@@ -105,7 +107,7 @@ const SessionFeedbackModal: React.FC<SessionFeedbackModalProps> = ({
               <View style={styles.ratingHeader}>
                 <Ionicons name="bandage-outline" size={24} color="#FF6B6B" />
                 <Text style={[styles.ratingLabel, { color: colors.text }]}>
-                  Pain Level
+                  {t('sessionFeedback.painLevel')}
                 </Text>
                 <Text style={[styles.ratingValue, { color: colors.primary }]}>
                   {Math.round(pain)}/10
@@ -124,10 +126,10 @@ const SessionFeedbackModal: React.FC<SessionFeedbackModalProps> = ({
               />
               <View style={styles.sliderLabels}>
                 <Text style={[styles.sliderLabel, { color: colors.textSecondary }]}>
-                  No Pain
+                  {t('sessionFeedback.noPain')}
                 </Text>
                 <Text style={[styles.sliderLabel, { color: colors.textSecondary }]}>
-                  Severe Pain
+                  {t('sessionFeedback.severePain')}
                 </Text>
               </View>
             </View>
@@ -137,7 +139,7 @@ const SessionFeedbackModal: React.FC<SessionFeedbackModalProps> = ({
               <View style={styles.ratingHeader}>
                 <Ionicons name="battery-half-outline" size={24} color={colors.warning} />
                 <Text style={[styles.ratingLabel, { color: colors.text }]}>
-                  Fatigue Level
+                  {t('sessionFeedback.fatigueLevel')}
                 </Text>
                 <Text style={[styles.ratingValue, { color: colors.primary }]}>
                   {Math.round(fatigue)}/10
@@ -156,10 +158,10 @@ const SessionFeedbackModal: React.FC<SessionFeedbackModalProps> = ({
               />
               <View style={styles.sliderLabels}>
                 <Text style={[styles.sliderLabel, { color: colors.textSecondary }]}>
-                  Not Tired
+                  {t('sessionFeedback.notTired')}
                 </Text>
                 <Text style={[styles.sliderLabel, { color: colors.textSecondary }]}>
-                  Very Tired
+                  {t('sessionFeedback.veryTired')}
                 </Text>
               </View>
             </View>
@@ -169,7 +171,7 @@ const SessionFeedbackModal: React.FC<SessionFeedbackModalProps> = ({
               <View style={styles.ratingHeader}>
                 <Ionicons name="barbell-outline" size={24} color={colors.primary} />
                 <Text style={[styles.ratingLabel, { color: colors.text }]}>
-                  Difficulty Level
+                  {t('sessionFeedback.difficultyLevel')}
                 </Text>
                 <Text style={[styles.ratingValue, { color: colors.primary }]}>
                   {Math.round(difficulty)}/10
@@ -188,10 +190,10 @@ const SessionFeedbackModal: React.FC<SessionFeedbackModalProps> = ({
               />
               <View style={styles.sliderLabels}>
                 <Text style={[styles.sliderLabel, { color: colors.textSecondary }]}>
-                  Very Easy
+                  {t('sessionFeedback.veryEasy')}
                 </Text>
                 <Text style={[styles.sliderLabel, { color: colors.textSecondary }]}>
-                  Very Hard
+                  {t('sessionFeedback.veryHard')}
                 </Text>
               </View>
             </View>
@@ -199,7 +201,7 @@ const SessionFeedbackModal: React.FC<SessionFeedbackModalProps> = ({
             {/* Comments */}
             <View style={styles.commentsSection}>
               <Text style={[styles.commentsLabel, { color: colors.text }]}>
-                Additional Comments (Optional)
+                {t('sessionFeedback.comments')}
               </Text>
               <TextInput
                 style={[
@@ -210,7 +212,7 @@ const SessionFeedbackModal: React.FC<SessionFeedbackModalProps> = ({
                     backgroundColor: colors.background,
                   },
                 ]}
-                placeholder="Share any additional thoughts about this session..."
+                placeholder={t('sessionFeedback.placeholder')}
                 placeholderTextColor={colors.textSecondary}
                 value={comments}
                 onChangeText={setComments}
@@ -229,7 +231,7 @@ const SessionFeedbackModal: React.FC<SessionFeedbackModalProps> = ({
               disabled={submitting}
             >
               <Text style={[styles.skipButtonText, { color: colors.textSecondary }]}>
-                Skip
+                {t('common.skip')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -238,7 +240,7 @@ const SessionFeedbackModal: React.FC<SessionFeedbackModalProps> = ({
               disabled={submitting}
             >
               <Text style={[styles.submitButtonText, { color: colors.white }]}>
-                {submitting ? 'Submitting...' : 'Submit Feedback'}
+                {submitting ? t('sessionFeedback.submitting') : t('sessionFeedback.submit')}
               </Text>
             </TouchableOpacity>
           </View>

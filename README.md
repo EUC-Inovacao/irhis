@@ -596,3 +596,5 @@ This project is proprietary and confidential. All rights reserved.
 
 For questions or issues, contact the development team or create an issue in the repository.
 
+Last update: 25/02/2026
+

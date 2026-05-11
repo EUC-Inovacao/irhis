@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { usePatients } from '@context/PatientContext';
 import { getUnassignedPatients, assignPatientToDoctor, createNewPatient } from "@services/patientService";
 import type { Patient } from '../types';
+import { useTranslation } from 'react-i18next';
 
 // TEMPORARY: clinical-study patients use a generated internal code instead of
 // real identity fields until a dedicated schema/auth flow is available.
@@ -26,6 +27,7 @@ const TEMPORARY_STUDY_PATIENT_FLOW = true;
 
 const CreatePatientScreen = ({ navigation }: any) => {
     const { colors } = useTheme();
+    const { t } = useTranslation();
     const { assignPatient, fetchPatients } = usePatients();
     const [unassignedPatients, setUnassignedPatients] = useState<Patient[]>([]);
     const [loading, setLoading] = useState(true);
@@ -66,6 +68,17 @@ const CreatePatientScreen = ({ navigation }: any) => {
     const handleBirthDateChange = (text: string) => {
         const formatted = formatBirthDate(text);
         setBirthDate(formatted);
+    };
+    
+    const isFutureDate = (dateStr: string): boolean => {
+        const parts = dateStr.split('/');
+        if (parts.length !== 3) return true;
+
+        const [day, month, year] = parts.map(Number);
+        const inputDate = new Date(year, month - 1, day);
+        const today = new Date();
+
+        return inputDate > today;
     };
     
     // Convert DD/MM/YYYY to YYYY-MM-DD format for database
@@ -112,7 +125,7 @@ const CreatePatientScreen = ({ navigation }: any) => {
             setUnassignedPatients(data);
         } catch (error) {
             console.error('Failed to fetch unassigned patients:', error);
-            Alert.alert('Error', 'Failed to fetch unassigned patients.');
+            Alert.alert(t('common.error'), t('createPatient.fetchUnassignedFailed'));
         } finally {
             setLoading(false);
         }
@@ -125,11 +138,11 @@ const CreatePatientScreen = ({ navigation }: any) => {
     const handleAssignPatient = async (patientId: string) => {
         try {
             await assignPatient(patientId);
-            Alert.alert('Success', 'Patient assigned successfully.');
+            Alert.alert(t('common.success'), t('createPatient.assignSuccess'));
             fetchUnassignedPatients(); // Refresh the list
             fetchPatients(); // Refresh doctor's patient list
         } catch (error) {
-            Alert.alert('Error', 'Failed to assign patient.');
+            Alert.alert(t('common.error'), t('createPatient.assignFailed'));
         }
     };
 
@@ -172,10 +185,9 @@ const CreatePatientScreen = ({ navigation }: any) => {
             Alert.alert('Invalid Date', 'Please enter a valid date in DD/MM/YYYY format.');
             return;
         }
-        
         // Validate at least one joint is affected
         if (!affectedRightKnee && !affectedLeftKnee && !affectedRightHip && !affectedLeftHip) {
-            Alert.alert('Required', 'Please select at least one affected joint.');
+            Alert.alert(t('common.required'), t('createPatient.selectAffectedJoint'));
             return;
         }
         
@@ -244,7 +256,7 @@ const CreatePatientScreen = ({ navigation }: any) => {
             fetchUnassignedPatients(); // Refresh the list
             fetchPatients(); // Refresh doctor's patient list
         } catch (error: any) {
-            Alert.alert('Error', error.message || 'Failed to create patient.');
+            Alert.alert(t('common.error'), error.message || t('createPatient.createFailed'));
         } finally {
             setCreating(false);
         }
@@ -287,13 +299,13 @@ const CreatePatientScreen = ({ navigation }: any) => {
     return (
         <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['bottom']}>
             <View style={styles.header}>
-                <Text style={[styles.title, { color: colors.text }]}>Add Patient</Text>
+                <Text style={[styles.title, { color: colors.text }]}>{t('createPatient.addPatient')}</Text>
                 <TouchableOpacity
                     style={[styles.createButton, { backgroundColor: colors.primary }]}
                     onPress={() => setShowCreateModal(true)}
                 >
                     <Ionicons name="add" size={24} color="#fff" />
-                    <Text style={styles.createButtonText}>Create New</Text>
+                    <Text style={styles.createButtonText}>{t('createPatient.createNew')}</Text>
                 </TouchableOpacity>
             </View>
 
@@ -304,15 +316,15 @@ const CreatePatientScreen = ({ navigation }: any) => {
                 contentContainerStyle={styles.container}
                 ListHeaderComponent={() => (
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                        Unassigned Patients
+                        {t('createPatient.unassignedPatients')}
                     </Text>
                 )}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Ionicons name="people-outline" size={48} color={colors.textSecondary} />
-                        <Text style={[styles.emptyText, { color: colors.text }]}>No unassigned patients</Text>
+                        <Text style={[styles.emptyText, { color: colors.text }]}>{t('createPatient.noUnassigned')}</Text>
                         <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
-                            Create a new patient or wait for patients to register
+                            {t('createPatient.noUnassignedSubtitle')}
                         </Text>
                     </View>
                 }
@@ -331,7 +343,7 @@ const CreatePatientScreen = ({ navigation }: any) => {
                 >
                     <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
                         <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: colors.text }]}>Create New Patient</Text>
+                            <Text style={[styles.modalTitle, { color: colors.text }]}>{t('createPatient.modalTitle')}</Text>
                             <TouchableOpacity onPress={() => setShowCreateModal(false)}>
                                 <Ionicons name="close" size={24} color={colors.text} />
                             </TouchableOpacity>
@@ -406,36 +418,36 @@ const CreatePatientScreen = ({ navigation }: any) => {
                                 secureTextEntry
                             />
 
-                            <Text style={[styles.label, { color: colors.text }]}>Sex *</Text>
+                            <Text style={[styles.label, { color: colors.text }]}>{t('createPatient.sexLabel')}</Text>
                             <View style={styles.radioGroup}>
                                 <TouchableOpacity
                                     style={[styles.radioButton, sex === 'male' && { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}
                                     onPress={() => setSex('male')}
                                 >
-                                    <Text style={[styles.radioText, sex === 'male' && { color: colors.primary }]}>Male</Text>
+                                    <Text style={[styles.radioText, sex === 'male' && { color: colors.primary }]}>{t('createPatient.male')}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={[styles.radioButton, sex === 'female' && { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}
                                     onPress={() => setSex('female')}
                                 >
-                                    <Text style={[styles.radioText, sex === 'female' && { color: colors.primary }]}>Female</Text>
+                                    <Text style={[styles.radioText, sex === 'female' && { color: colors.primary }]}>{t('createPatient.female')}</Text>
                                 </TouchableOpacity>
                             </View>
 
-                            <Text style={[styles.label, { color: colors.text }]}>Weight (kg) - Optional</Text>
+                            <Text style={[styles.label, { color: colors.text }]}>{t('createPatient.weightOptional')}</Text>
                             <TextInput
                                 style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
-                                placeholder="Enter weight"
+                                placeholder={t('createPatient.weightPlaceholder')}
                                 placeholderTextColor={colors.textSecondary}
                                 value={weight}
                                 onChangeText={setWeight}
                                 keyboardType="decimal-pad"
                             />
 
-                            <Text style={[styles.label, { color: colors.text }]}>Height (cm) - Optional</Text>
+                            <Text style={[styles.label, { color: colors.text }]}>{t('createPatient.heightOptional')}</Text>
                             <TextInput
                                 style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
-                                placeholder="Enter height"
+                                placeholder={t('createPatient.heightPlaceholder')}
                                 placeholderTextColor={colors.textSecondary}
                                 value={height}
                                 onChangeText={setHeight}
@@ -444,7 +456,7 @@ const CreatePatientScreen = ({ navigation }: any) => {
 
                             {(weight && height && parseFloat(height) > 0) && (
                                 <View style={[styles.bmiContainer, { backgroundColor: colors.primary + '10', borderColor: colors.primary + '30' }]}>
-                                    <Text style={[styles.bmiLabel, { color: colors.textSecondary }]}>Calculated BMI:</Text>
+                                    <Text style={[styles.bmiLabel, { color: colors.textSecondary }]}>{t('createPatient.calculatedBmi')}</Text>
                                     <Text style={[styles.bmiValue, { color: colors.primary }]}>
                                         {(() => {
                                             const w = parseFloat(weight);
@@ -453,39 +465,39 @@ const CreatePatientScreen = ({ navigation }: any) => {
                                                 const calculated = w / Math.pow(h / 100, 2);
                                                 return calculated.toFixed(1);
                                             }
-                                            return 'N/A';
+                                                return t('common.na');
                                         })()}
                                     </Text>
                                 </View>
                             )}
 
-                            <Text style={[styles.label, { color: colors.text }]}>Occupation - Optional</Text>
+                            <Text style={[styles.label, { color: colors.text }]}>{t('createPatient.occupationOptional')}</Text>
                             <View style={styles.radioGroup}>
                                 <TouchableOpacity
                                     style={[styles.radioButton, occupation === 'white' && { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}
                                     onPress={() => setOccupation('white')}
                                 >
-                                    <Text style={[styles.radioText, occupation === 'white' && { color: colors.primary }]}>White Collar</Text>
+                                    <Text style={[styles.radioText, occupation === 'white' && { color: colors.primary }]}>{t('createPatient.whiteCollar')}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={[styles.radioButton, occupation === 'blue' && { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}
                                     onPress={() => setOccupation('blue')}
                                 >
-                                    <Text style={[styles.radioText, occupation === 'blue' && { color: colors.primary }]}>Blue Collar</Text>
+                                    <Text style={[styles.radioText, occupation === 'blue' && { color: colors.primary }]}>{t('createPatient.blueCollar')}</Text>
                                 </TouchableOpacity>
                             </View>
 
-                            <Text style={[styles.label, { color: colors.text }]}>Education (years) - Optional</Text>
+                            <Text style={[styles.label, { color: colors.text }]}>{t('createPatient.educationOptional')}</Text>
                             <TextInput
                                 style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
-                                placeholder="Enter years of education"
+                                placeholder={t('createPatient.educationPlaceholder')}
                                 placeholderTextColor={colors.textSecondary}
                                 value={education}
                                 onChangeText={setEducation}
                                 keyboardType="number-pad"
                             />
 
-                            <Text style={[styles.label, { color: colors.text }]}>Affected Joints *</Text>
+                            <Text style={[styles.label, { color: colors.text }]}>{t('createPatient.affectedJoints')}</Text>
                             <View style={styles.checkboxGroup}>
                                 <TouchableOpacity
                                     style={styles.checkboxRow}
@@ -496,7 +508,7 @@ const CreatePatientScreen = ({ navigation }: any) => {
                                         size={24}
                                         color={affectedRightKnee ? colors.primary : colors.textSecondary}
                                     />
-                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>Right Knee</Text>
+                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>{t('createPatient.rightKnee')}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={styles.checkboxRow}
@@ -507,7 +519,7 @@ const CreatePatientScreen = ({ navigation }: any) => {
                                         size={24}
                                         color={affectedLeftKnee ? colors.primary : colors.textSecondary}
                                     />
-                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>Left Knee</Text>
+                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>{t('createPatient.leftKnee')}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={styles.checkboxRow}
@@ -518,7 +530,7 @@ const CreatePatientScreen = ({ navigation }: any) => {
                                         size={24}
                                         color={affectedRightHip ? colors.primary : colors.textSecondary}
                                     />
-                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>Right Hip</Text>
+                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>{t('createPatient.rightHip')}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={styles.checkboxRow}
@@ -529,14 +541,14 @@ const CreatePatientScreen = ({ navigation }: any) => {
                                         size={24}
                                         color={affectedLeftHip ? colors.primary : colors.textSecondary}
                                     />
-                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>Left Hip</Text>
+                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>{t('createPatient.leftHip')}</Text>
                                 </TouchableOpacity>
                             </View>
 
-                            <Text style={[styles.label, { color: colors.text }]}>Medical History - Optional</Text>
+                            <Text style={[styles.label, { color: colors.text }]}>{t('createPatient.medicalHistoryOptional')}</Text>
                             <TextInput
                                 style={[styles.textArea, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
-                                placeholder="Enter medical history"
+                                placeholder={t('createPatient.medicalHistoryPlaceholder')}
                                 placeholderTextColor={colors.textSecondary}
                                 value={medicalHistory}
                                 onChangeText={setMedicalHistory}
@@ -544,33 +556,33 @@ const CreatePatientScreen = ({ navigation }: any) => {
                                 numberOfLines={4}
                             />
 
-                            <Text style={[styles.label, { color: colors.text }]}>Time After Symptoms (days) - Optional</Text>
+                            <Text style={[styles.label, { color: colors.text }]}>{t('createPatient.timeAfterSymptomsOptional')}</Text>
                             <TextInput
                                 style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
-                                placeholder="Enter days"
+                                placeholder={t('createPatient.daysPlaceholder')}
                                 placeholderTextColor={colors.textSecondary}
                                 value={timeAfterSymptoms}
                                 onChangeText={setTimeAfterSymptoms}
                                 keyboardType="number-pad"
                             />
 
-                            <Text style={[styles.label, { color: colors.text }]}>Leg Dominance *</Text>
+                            <Text style={[styles.label, { color: colors.text }]}>{t('createPatient.legDominance')}</Text>
                             <View style={styles.radioGroup}>
                                 <TouchableOpacity
                                     style={[styles.radioButton, legDominance === 'dominant' && { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}
                                     onPress={() => setLegDominance('dominant')}
                                 >
-                                    <Text style={[styles.radioText, legDominance === 'dominant' && { color: colors.primary }]}>Dominant</Text>
+                                    <Text style={[styles.radioText, legDominance === 'dominant' && { color: colors.primary }]}>{t('createPatient.dominant')}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={[styles.radioButton, legDominance === 'non-dominant' && { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}
                                     onPress={() => setLegDominance('non-dominant')}
                                 >
-                                    <Text style={[styles.radioText, legDominance === 'non-dominant' && { color: colors.primary }]}>Non-Dominant</Text>
+                                    <Text style={[styles.radioText, legDominance === 'non-dominant' && { color: colors.primary }]}>{t('createPatient.nonDominant')}</Text>
                                 </TouchableOpacity>
                             </View>
 
-                            <Text style={[styles.label, { color: colors.text }]}>Additional Information</Text>
+                            <Text style={[styles.label, { color: colors.text }]}>{t('createPatient.additionalInfo')}</Text>
                             <View style={styles.checkboxGroup}>
                                 <TouchableOpacity
                                     style={styles.checkboxRow}
@@ -581,7 +593,7 @@ const CreatePatientScreen = ({ navigation }: any) => {
                                         size={24}
                                         color={contralateralJointAffect ? colors.primary : colors.textSecondary}
                                     />
-                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>Contralateral Joint Affect</Text>
+                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>{t('createPatient.contralateralJointAffect')}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={styles.checkboxRow}
@@ -592,7 +604,7 @@ const CreatePatientScreen = ({ navigation }: any) => {
                                         size={24}
                                         color={physicallyActive ? colors.primary : colors.textSecondary}
                                     />
-                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>Physically Active</Text>
+                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>{t('createPatient.physicallyActive')}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={styles.checkboxRow}
@@ -603,7 +615,7 @@ const CreatePatientScreen = ({ navigation }: any) => {
                                         size={24}
                                         color={coMorbiditiesNMS ? colors.primary : colors.textSecondary}
                                     />
-                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>Co-morbidities NMS</Text>
+                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>{t('createPatient.comorbiditiesNms')}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={styles.checkboxRow}
@@ -614,7 +626,7 @@ const CreatePatientScreen = ({ navigation }: any) => {
                                         size={24}
                                         color={coMorbiditiesSystemic ? colors.primary : colors.textSecondary}
                                     />
-                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>Co-morbidities Systemic</Text>
+                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>{t('createPatient.comorbiditiesSystemic')}</Text>
                                 </TouchableOpacity>
                             </View>
                         </ScrollView>
@@ -624,7 +636,7 @@ const CreatePatientScreen = ({ navigation }: any) => {
                                 style={[styles.cancelButton, { borderColor: colors.border }]}
                                 onPress={() => setShowCreateModal(false)}
                             >
-                                <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
+                                <Text style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[styles.submitButton, { backgroundColor: colors.primary }]}
@@ -640,7 +652,7 @@ const CreatePatientScreen = ({ navigation }: any) => {
                                 {creating ? (
                                     <ActivityIndicator color="#fff" />
                                 ) : (
-                                    <Text style={styles.submitButtonText}>Create Patient</Text>
+                                    <Text style={styles.submitButtonText}>{t('createPatient.createPatient')}</Text>
                                 )}
                             </TouchableOpacity>
                         </View>
