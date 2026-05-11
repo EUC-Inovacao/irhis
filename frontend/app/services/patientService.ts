@@ -2,9 +2,10 @@ import api from "./api";
 import type { Patient, PatientDetails, RecoveryProcess, PatientFeedback } from "../types";
 
 export type CreatePatientPayload = {
-  name: string;
+  name?: string;
   email?: string;
-  birthDate: string; 
+  birthDate?: string;
+  password: string;
   sex: "male" | "female";
   weight?: number;
   height?: number;
@@ -79,6 +80,8 @@ function toPatient(raw: any): Patient {
   const result = {
     id: String(raw?.id ?? raw?.ID ?? ""),
     name: String(raw?.name ?? raw?.Name ?? ""),
+    accessCode: raw?.accessCode ? String(raw.accessCode) : undefined,
+    patientCode: raw?.patientCode ? String(raw.patientCode) : undefined,
     details: toPatientDetails(raw?.details),
     recovery_process: Array.isArray(raw?.recovery_process) ? (raw.recovery_process as RecoveryProcess[]) : [],
     doctor: raw?.doctor ? { id: String(raw.doctor.id), name: String(raw.doctor.name ?? "") } : undefined,
@@ -123,15 +126,16 @@ export async function assignPatientToDoctor(patientId: string): Promise<void> {
 
 export async function createNewPatient(payload: CreatePatientPayload): Promise<Patient> {
   // Parse name into first_name and last_name
-  const nameParts = payload.name.trim().split(/\s+/);
+  const nameParts = (payload.name ?? "").trim().split(/\s+/);
   const first_name = nameParts[0] || "";
   const last_name = nameParts.slice(1).join(" ") || "";
   
   // Map camelCase to snake_case and ensure required fields are not undefined
   const backendPayload = {
+    password: payload.password,
     first_name,
     last_name: last_name || undefined,
-    birth_date: payload.birthDate,
+    birth_date: payload.birthDate || undefined,
     sex: payload.sex,
     weight: payload.weight ?? 0,  // Backend requires non-null
     height: payload.height ?? 0,    // Backend requires non-null

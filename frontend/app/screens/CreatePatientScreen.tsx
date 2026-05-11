@@ -20,6 +20,10 @@ import { usePatients } from '@context/PatientContext';
 import { getUnassignedPatients, assignPatientToDoctor, createNewPatient } from "@services/patientService";
 import type { Patient } from '../types';
 
+// TEMPORARY: clinical-study patients use a generated internal code instead of
+// real identity fields until a dedicated schema/auth flow is available.
+const TEMPORARY_STUDY_PATIENT_FLOW = true;
+
 const CreatePatientScreen = ({ navigation }: any) => {
     const { colors } = useTheme();
     const { assignPatient, fetchPatients } = usePatients();
@@ -32,6 +36,8 @@ const CreatePatientScreen = ({ navigation }: any) => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [birthDate, setBirthDate] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [sex, setSex] = useState<'male' | 'female'>('male');
     
     // Format date of birth as DD/MM/YYYY while typing
@@ -130,15 +136,31 @@ const CreatePatientScreen = ({ navigation }: any) => {
     const handleCreatePatient = async () => {
         const nameTrim = name.trim();
         const birthDateTrim = birthDate.trim();
+        const isTemporaryStudyPatient = TEMPORARY_STUDY_PATIENT_FLOW;
         
         // Validate required fields
-        if (!nameTrim) {
+        if (!isTemporaryStudyPatient && !nameTrim) {
             Alert.alert('Required', 'Patient name is required.');
             return;
         }
         
-        if (!birthDateTrim) {
+        if (!isTemporaryStudyPatient && !birthDateTrim) {
             Alert.alert('Required', 'Birth date is required.');
+            return;
+        }
+
+        if (!password || !confirmPassword) {
+            Alert.alert('Required', 'Please define the patient password.');
+            return;
+        }
+
+        if (password.length < 6) {
+            Alert.alert('Invalid Password', 'Password must be at least 6 characters.');
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            Alert.alert('Invalid Password', 'Passwords do not match.');
             return;
         }
         
@@ -146,7 +168,7 @@ const CreatePatientScreen = ({ navigation }: any) => {
         const birthDateForDB = convertToDatabaseFormat(birthDateTrim);
         
         // Validate date format
-        if (!birthDateForDB.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        if (!isTemporaryStudyPatient && !birthDateForDB.match(/^\d{4}-\d{2}-\d{2}$/)) {
             Alert.alert('Invalid Date', 'Please enter a valid date in DD/MM/YYYY format.');
             return;
         }
@@ -159,10 +181,11 @@ const CreatePatientScreen = ({ navigation }: any) => {
         
         setCreating(true);
         try {
-            await createNewPatient({
-                name: nameTrim,
-                email: email.trim() || undefined,
-                birthDate: birthDateForDB,
+            const createdPatient = await createNewPatient({
+                name: isTemporaryStudyPatient ? undefined : nameTrim,
+                email: isTemporaryStudyPatient ? undefined : (email.trim() || undefined),
+                birthDate: isTemporaryStudyPatient ? undefined : birthDateForDB,
+                password,
                 sex,
                 weight: weight ? parseFloat(weight) : undefined,
                 height: height ? parseFloat(height) : undefined,
@@ -190,12 +213,18 @@ const CreatePatientScreen = ({ navigation }: any) => {
                 coMorbiditiesSystemic,
             });
             
-            Alert.alert('Success', 'Patient created and assigned successfully.');
+            const generatedCode = createdPatient.accessCode || createdPatient.patientCode;
+            const patientCodeMessage = generatedCode
+                ? `\n\nAccess code: ${generatedCode}`
+                : '';
+            Alert.alert('Success', `Patient created and assigned successfully.${patientCodeMessage}`);
             setShowCreateModal(false);
             // Reset all fields
             setName('');
             setEmail('');
             setBirthDate('');
+            setPassword('');
+            setConfirmPassword('');
             setSex('male');
             setWeight('');
             setHeight('');
@@ -309,37 +338,72 @@ const CreatePatientScreen = ({ navigation }: any) => {
                         </View>
 
                         <ScrollView style={styles.modalBody}>
-                            <Text style={[styles.label, { color: colors.text }]}>Name *</Text>
-                            <TextInput
-                                style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
-                                placeholder="Enter patient name"
-                                placeholderTextColor={colors.textSecondary}
-                                value={name}
-                                onChangeText={setName}
-                                autoCapitalize="words"
-                            />
+                            {TEMPORARY_STUDY_PATIENT_FLOW ? (
+                                <View style={[styles.infoCard, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                                    <Text style={[styles.infoTitle, { color: colors.text }]}>Temporary Study Registration</Text>
+                                    <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+                                        The system will generate a non-sensitive patient code automatically. Real name, real email, and date of birth are intentionally not collected in this temporary study flow.
+                                    </Text>
+                                </View>
+                            ) : (
+                                <>
+                                    <Text style={[styles.label, { color: colors.text }]}>Name *</Text>
+                                    <TextInput
+                                        style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
+                                        placeholder="Enter patient name"
+                                        placeholderTextColor={colors.textSecondary}
+                                        value={name}
+                                        onChangeText={setName}
+                                        autoCapitalize="words"
+                                    />
 
-                            <Text style={[styles.label, { color: colors.text }]}>Email (Optional)</Text>
+                                    <Text style={[styles.label, { color: colors.text }]}>Email (Optional)</Text>
+                                    <TextInput
+                                        style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
+                                        placeholder="email@example.com"
+                                        placeholderTextColor={colors.textSecondary}
+                                        value={email}
+                                        onChangeText={setEmail}
+                                        keyboardType="email-address"
+                                        autoCapitalize="none"
+                                        autoCorrect={false}
+                                    />
+
+                                    <Text style={[styles.label, { color: colors.text }]}>Date of Birth *</Text>
+                                    <TextInput
+                                        style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
+                                        placeholder="DD/MM/YYYY"
+                                        placeholderTextColor={colors.textSecondary}
+                                        value={birthDate}
+                                        onChangeText={handleBirthDateChange}
+                                        keyboardType="number-pad"
+                                        maxLength={10} // DD/MM/YYYY = 10 characters
+                                    />
+                                </>
+                            )}
+
+                            <Text style={[styles.label, { color: colors.text }]}>Initial Password *</Text>
                             <TextInput
                                 style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
-                                placeholder="email@example.com"
+                                placeholder="Enter temporary password"
                                 placeholderTextColor={colors.textSecondary}
-                                value={email}
-                                onChangeText={setEmail}
-                                keyboardType="email-address"
+                                value={password}
+                                onChangeText={setPassword}
                                 autoCapitalize="none"
                                 autoCorrect={false}
+                                secureTextEntry
                             />
 
-                            <Text style={[styles.label, { color: colors.text }]}>Date of Birth *</Text>
+                            <Text style={[styles.label, { color: colors.text }]}>Confirm Password *</Text>
                             <TextInput
                                 style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
-                                placeholder="DD/MM/YYYY"
+                                placeholder="Confirm password"
                                 placeholderTextColor={colors.textSecondary}
-                                value={birthDate}
-                                onChangeText={handleBirthDateChange}
-                                keyboardType="number-pad"
-                                maxLength={10} // DD/MM/YYYY = 10 characters
+                                value={confirmPassword}
+                                onChangeText={setConfirmPassword}
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                                secureTextEntry
                             />
 
                             <Text style={[styles.label, { color: colors.text }]}>Sex *</Text>
@@ -565,7 +629,13 @@ const CreatePatientScreen = ({ navigation }: any) => {
                             <TouchableOpacity
                                 style={[styles.submitButton, { backgroundColor: colors.primary }]}
                                 onPress={handleCreatePatient}
-                                disabled={creating || !name.trim() || !birthDate.trim() || (!affectedRightKnee && !affectedLeftKnee && !affectedRightHip && !affectedLeftHip)}
+                                disabled={
+                                    creating ||
+                                    !password ||
+                                    !confirmPassword ||
+                                    password !== confirmPassword ||
+                                    (!affectedRightKnee && !affectedLeftKnee && !affectedRightHip && !affectedLeftHip)
+                                }
                             >
                                 {creating ? (
                                     <ActivityIndicator color="#fff" />
@@ -718,6 +788,21 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         fontSize: 16,
         marginBottom: 16,
+    },
+    infoCard: {
+        borderWidth: 1,
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 16,
+    },
+    infoTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 6,
+    },
+    infoText: {
+        fontSize: 14,
+        lineHeight: 20,
     },
     modalFooter: {
         flexDirection: 'row',

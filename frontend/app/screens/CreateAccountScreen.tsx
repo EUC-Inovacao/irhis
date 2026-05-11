@@ -1,97 +1,79 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../context/AuthContext';
 import TermsAndConditionsModal from "../components/TermsAndConditionsModal";
 import PrivacyNoticeModal from '@components/PrivacyNoticeModal';
+import * as RemoteAuth from '../services/auth';
+
+// TEMPORARY: both patients and doctors receive generated internal access codes
+// until the dedicated identity flow is introduced.
+const TEMPORARY_STUDY_ACCESS_FLOW = true;
 
 const CreateAccountScreen = () => {
   const { colors } = useTheme();
-  const navigation = useNavigation();
-  const { signup } = useAuth();
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const navigation = useNavigation<any>();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<'patient' | 'doctor'>('patient');
-  const [birthDate, setBirthDate] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasMinLength, setHasMinLength] = useState(false);
+  const [hasUpperCase, setHasUpperCase] = useState(false);
+  const [hasNumber, setHasNumber] = useState(false);
+  const [passwordsMatch, setPasswordsMatch] = useState(false);
 
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
-  const formatBirthDate = (text: string) => {
-    const numbers = text.replace(/\D/g, '');
-    const limitedNumbers = numbers.slice(0, 8);
-    
-    let formatted = '';
-    if (limitedNumbers.length > 0) {
-      formatted = limitedNumbers.slice(0, 2);
-    }
-    if (limitedNumbers.length > 2) {
-      formatted += '/' + limitedNumbers.slice(2, 4);
-    }
-    if (limitedNumbers.length > 4) {
-      formatted += '/' + limitedNumbers.slice(4, 8);
-    }
-    return formatted;
-  };
-  
-  const handleBirthDateChange = (text: string) => {
-    const formatted = formatBirthDate(text);
-    setBirthDate(formatted);
-  };
+  useEffect(() => {
+    setHasMinLength(password.length >= 8);
+    setHasUpperCase(/[A-Z]/.test(password));
+    setHasNumber(/[0-9]/.test(password));
+    setPasswordsMatch(password.length > 0 && password === confirmPassword);
+  }, [password, confirmPassword]);
 
-  // Convert DD/MM/YYYY to YYYY-MM-DD format for database
-  const convertToDatabaseFormat = (dateStr: string): string => {
-    const parts = dateStr.split('/');
-    if (parts.length === 3) {
-      const [day, month, year] = parts;
-      if (day.length === 2 && month.length === 2 && year.length === 4) {
-        return `${year}-${month}-${day}`;
-      }
-    }
-    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      return dateStr;
-    }
-    return dateStr;
-  };
+  const isValidPassword = hasMinLength && hasUpperCase && hasNumber && passwordsMatch;
+
+  const Requirement = ({ label, met }: { label: string; met: boolean }) => (
+    <View style={styles.requirementRow}>
+      <Ionicons
+        name={met ? 'checkmark-circle' : 'ellipse-outline'}
+        size={16}
+        color={met ? colors.success : colors.textSecondary}
+      />
+      <Text style={[styles.requirementText, { color: met ? colors.text : colors.textSecondary }]}>
+        {label}
+      </Text>
+    </View>
+  );
 
   const handleSubmit = async () => {
-    const nameTrim = name.trim();
-    const emailTrim = email.trim();
-    const birthDateTrim = birthDate.trim();
-    
-    // Validation
-    if (!nameTrim || !emailTrim || !password || !confirmPassword) {
+    if (!password || !confirmPassword) {
       setError('All fields are required.');
       return;
     }
-    
-    // For patients, birth date is required
-    if (role === 'patient' && !birthDateTrim) {
-        setError('Birth date is required for patient accounts.');
-        return;
-      }
-    
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(emailTrim)) {
-        setError('Please enter a valid email.');
-        return;
-      }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
-                return;
-      }
+    if (!hasMinLength) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
+
+    if (!hasUpperCase) {
+      setError('Password must contain at least one uppercase letter.');
+      return;
+    }
+
+    if (!hasNumber) {
+      setError('Password must contain at least one number.');
+      return;
+    }
     
     if (!acceptedTerms) {
         setError('You must accept the terms and conditions to continue.');
@@ -103,34 +85,49 @@ const CreateAccountScreen = () => {
         return;
     }
     
-    if (password !== confirmPassword) {
+    if (!passwordsMatch) {
       setError('Passwords do not match.');
       return;
-    }
-    
-    // Validate birth date format for patients
-    if (role === 'patient') {
-      const birthDateForDB = convertToDatabaseFormat(birthDateTrim);
-      if (!birthDateForDB.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        setError('Please enter a valid date in DD/MM/YYYY format.');
-        return;
-      }
     }
 
     setError(null);
     setLoading(true);
     
     try {
-      // Convert birth date to database format if patient
-      const birthDateForDB = role === 'patient' ? convertToDatabaseFormat(birthDateTrim) : undefined;
+      // TEMPORARY: do not auto-login after signup, otherwise the screen changes
+      // before the generated access code alert can be acknowledged by the user.
+      const createdUser = (await RemoteAuth.signup('', '', password, role)).user;
+      const generatedCode = createdUser.accessCode || createdUser.patientCode;
+      setLoading(false);
 
-      // Create account using remote signup (AuthContext handles user/token + storage)
-      await signup(nameTrim, emailTrim, password, role);
-      
-      // AppNavigator will automatically switch to authenticated stack when user state changes
-      // No manual navigation needed - the navigator re-renders based on user state
+      if (generatedCode) {
+        Alert.alert(
+          role === 'doctor' ? 'Doctor created' : 'Patient created',
+          `Access code: ${generatedCode}\n\nUse this code with the chosen password to sign in.`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setPassword('');
+                setConfirmPassword('');
+                setError(null);
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                } else {
+                  navigation.navigate('Login');
+                }
+              },
+            },
+          ],
+          { cancelable: false }
+        );
+      }
     } catch (err: any) {
-      const msg = err.message || 'Failed to create account. Please try again.';
+      const rawMsg = err.message || 'Failed to create account. Please try again.';
+      const msg =
+        rawMsg === 'Missing required fields'
+          ? 'The account could not be created. Please check the required information and try again.'
+          : rawMsg;
       setError(msg);
       setLoading(false);
     }
@@ -142,7 +139,9 @@ const CreateAccountScreen = () => {
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Text style={[styles.title, { color: colors.text }]}>Create Account</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Create a new account. Choose whether you're a doctor or patient.
+            {TEMPORARY_STUDY_ACCESS_FLOW
+              ? 'Patients and doctors receive generated internal access codes in this temporary flow.'
+              : 'Create a new account. Choose whether you\'re a doctor or patient.'}
           </Text>
 
           {/* Role Selection */}
@@ -187,36 +186,23 @@ const CreateAccountScreen = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Name Input */}
-          <Text style={[styles.label, { color: colors.text }]}>Full Name</Text>
-          <TextInput
-            style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-            placeholder="Enter full name"
-            placeholderTextColor={colors.textSecondary}
-            value={name}
-            onChangeText={setName}
-            autoCapitalize="words"
-          />
-
-          {/* Email Input */}
-          <Text style={[styles.label, { color: colors.text }]}>Email</Text>
-          <TextInput
-            style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-            placeholder="email@example.com"
-            placeholderTextColor={colors.textSecondary}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+          {TEMPORARY_STUDY_ACCESS_FLOW && (
+            <View style={[styles.infoCard, { borderColor: colors.border, backgroundColor: colors.card }]}>
+              <Text style={[styles.infoTitle, { color: colors.text }]}>Temporary Access Code</Text>
+              <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+                {role === 'doctor'
+                  ? 'A non-sensitive doctor access code will be generated automatically using a different pattern from the patient code.'
+                  : 'A non-sensitive patient access code will be generated automatically using a different pattern from the doctor code.'}
+              </Text>
+            </View>
+          )}
 
           {/* Password Input */}
           <Text style={[styles.label, { color: colors.text }]}>Password</Text>
           <View style={styles.passwordContainer}>
             <TextInput
               style={[styles.passwordInput, { borderColor: colors.border, color: colors.text }]}
-              placeholder="Enter password (min. 6 characters)"
+              placeholder="Enter password (min. 8 characters)"
               placeholderTextColor={colors.textSecondary}
               value={password}
               onChangeText={setPassword}
@@ -261,23 +247,13 @@ const CreateAccountScreen = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Birth Date Input - Only for Patients */}
-          {role === 'patient' && (
-            <>
-              <Text style={[styles.label, { color: colors.text }]}>Date of Birth *</Text>
-              <TextInput
-                style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-                placeholder="DD/MM/YYYY"
-                placeholderTextColor={colors.textSecondary}
-                value={birthDate}
-                onChangeText={handleBirthDateChange}
-                keyboardType="number-pad"
-                maxLength={10}
-              />
-
-              
-            </>
-          )}
+          <View style={[styles.rulesContainer, { backgroundColor: colors.info + '15', borderColor: colors.info + '30' }]}>
+            <Text style={[styles.rulesTitle, { color: colors.info }]}>Password requirements:</Text>
+            <Requirement label="At least 8 characters" met={hasMinLength} />
+            <Requirement label="One uppercase letter" met={hasUpperCase} />
+            <Requirement label="One number" met={hasNumber} />
+            <Requirement label="Passwords match" met={passwordsMatch} />
+          </View>
 
           <View style={styles.termsWrapper}>
                 <TouchableOpacity
@@ -320,9 +296,15 @@ const CreateAccountScreen = () => {
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.primary, opacity: (!acceptedTerms || !acceptedPrivacy) ? 0.6 : 1 }]}
+            style={[
+              styles.button,
+              {
+                backgroundColor: colors.primary,
+                opacity: (!acceptedTerms || !acceptedPrivacy || !isValidPassword || loading) ? 0.6 : 1,
+              },
+            ]}
             onPress={handleSubmit}
-            disabled={loading}
+            disabled={loading || !acceptedTerms || !acceptedPrivacy || !isValidPassword}
           >
             <Text style={styles.buttonText}>{loading ? 'Creating Account...' : 'Create Account'}</Text>
           </TouchableOpacity>
@@ -348,6 +330,13 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, marginBottom: 24, color: '#666' },
   label: { fontSize: 14, fontWeight: '600', marginBottom: 8, marginTop: 4 },
   input: { borderWidth: 1, borderRadius: 12, height: 52, paddingHorizontal: 16, fontSize: 16, marginBottom: 16 },
+  infoCard: { borderWidth: 1, borderRadius: 12, padding: 16, marginBottom: 16 },
+  infoTitle: { fontSize: 16, fontWeight: '600', marginBottom: 6 },
+  infoText: { fontSize: 14, lineHeight: 20 },
+  rulesContainer: { marginTop: 8, marginBottom: 8, padding: 16, borderRadius: 12, borderWidth: 1 },
+  rulesTitle: { fontSize: 14, fontWeight: 'bold', marginBottom: 12 },
+  requirementRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 },
+  requirementText: { fontSize: 14 },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',

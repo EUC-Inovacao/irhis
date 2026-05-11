@@ -5,6 +5,7 @@ import jwt as PyJWT
 import zipfile
 import io
 import csv
+import re
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -35,9 +36,15 @@ from db import (
     create_patient_record,
     user_exists,
     create_user,
+    create_temporary_user,
     update_patient_details as db_update_patient_details,
     insert_feedback,
     get_feedback_by_patient,
+    build_temporary_access_email,
+    build_temporary_access_label,
+    extract_temporary_access_code,
+    get_temporary_role_from_access_code,
+    normalize_temporary_access_code,
 )
 
 
@@ -56,6 +63,74 @@ default_patient_details = {
 
 def normalize_role(role):
     return str(role or "").strip().lower()
+
+
+def validate_signup_password(password):
+    # TEMPORARY: keep backend validation aligned with the current UI rules
+    # so study access creation fails with a clear message instead of a
+    # generic field error.
+    password_value = str(password or "")
+    if len(password_value) < 8:
+        return "Password must be at least 8 characters."
+    if not re.search(r"[A-Z]", password_value):
+        return "Password must contain at least one uppercase letter."
+    if not re.search(r"[0-9]", password_value):
+        return "Password must contain at least one number."
+    return None
+
+
+def get_public_user_name(user_data):
+    access_code = extract_temporary_access_code(
+        user_data.get("Email"),
+        user_data.get("FirstName"),
+        user_data.get("LastName"),
+    )
+    if access_code:
+        return build_temporary_access_label(user_data.get("Role"), access_code)
+
+    return (
+        f"{user_data.get('FirstName', '')} {user_data.get('LastName', '')}".strip()
+        or user_data.get("Email", "")
+    )
+
+
+def build_public_user_payload(user_data):
+    access_code = extract_temporary_access_code(
+        user_data.get("Email"),
+        user_data.get("FirstName"),
+        user_data.get("LastName"),
+    )
+    is_temporary_user = bool(access_code)
+
+    payload = {
+        "id": str(user_data.get("ID", "")),
+        "email": "" if is_temporary_user else (user_data.get("Email") or ""),
+        "name": get_public_user_name(user_data),
+        "role": user_data.get("Role"),
+    }
+    if access_code:
+        payload["accessCode"] = access_code
+        payload["patientCode"] = access_code
+    return payload
+
+
+def sanitize_birth_date_for_response(patient_data):
+    # TEMPORARY: do not expose birth dates in public responses during the
+    # clinical-study login workaround. Existing age calculations can still use
+    # the stored value internally when needed.
+    return None
+
+
+def resolve_login_identifier(identifier, role):
+    normalized_identifier = str(identifier or "").strip()
+    access_code = normalize_temporary_access_code(normalized_identifier)
+    if access_code:
+        if role:
+            access_role = get_temporary_role_from_access_code(access_code)
+            if access_role and normalize_role(access_role) != normalize_role(role):
+                return normalized_identifier
+        return build_temporary_access_email(access_code)
+    return normalized_identifier
 
 
 def ensure_patient_resource_access(current_user, patient_id, message="Unauthorized"):
@@ -88,8 +163,18 @@ def token_required(f):
                 'id': str(user_data.get('ID')),
                 'role': normalize_role(user_data.get('Role')),
                 '_role_display': user_data.get('Role'),
-                'email': user_data.get('Email'),
-                'name': f"{user_data.get('FirstName','')} {user_data.get('LastName','')}".strip()
+                'email': build_public_user_payload(user_data).get('email', ''),
+                'name': get_public_user_name(user_data),
+                'accessCode': extract_temporary_access_code(
+                    user_data.get('Email'),
+                    user_data.get('FirstName'),
+                    user_data.get('LastName'),
+                ),
+                'patientCode': extract_temporary_access_code(
+                    user_data.get('Email'),
+                    user_data.get('FirstName'),
+                    user_data.get('LastName'),
+                ),
             }
 
         except Exception as e:
@@ -105,24 +190,34 @@ def home():
 
 @app.route('/login', methods=['POST'])
 def login():
-    data = request.get_json()
+    data = request.get_json() or {}
 
-    email = data.get('email')
+    email = (data.get('email') or data.get('identifier') or data.get('accessCode') or '').strip()
     password = data.get('password')
     role = data.get('role')
 
-    if not email or not password or not role:
-        return jsonify({"error": "Missing email, password, or role"}), 400
+    if not email or not password:
+        return jsonify({"error": "Missing identifier or password"}), 400
 
     if not is_db_enabled():
         return jsonify({"error": "Database not configured"}), 500
 
-    user = get_user_for_login(email, role)
+    if role:
+        roles_to_try = ["Doctor" if normalize_role(role) == "doctor" else "Patient"]
+    else:
+        inferred_role = get_temporary_role_from_access_code(email)
+        roles_to_try = [inferred_role] if inferred_role else ["Patient", "Doctor"]
+
+    user = None
+    for candidate_role in roles_to_try:
+        user = get_user_for_login(resolve_login_identifier(email, candidate_role), candidate_role)
+        if not user:
+            continue
+        if check_password_hash(user["Password"], password):
+            break
+        user = None
 
     if not user:
-        return jsonify({"error": "Invalid credentials"}), 401
-
-    if not check_password_hash(user["Password"], password):
         return jsonify({"error": "Invalid credentials"}), 401
 
     token = PyJWT.encode(
@@ -137,40 +232,50 @@ def login():
 
     return jsonify({
         "token": token,
-        "user": {
-            "id": str(user["ID"]),
-            "email": user["Email"],
-            "name": f"{user.get('FirstName','')} {user.get('LastName','')}".strip(),
-            "role": user["Role"],
-        }
+        "user": build_public_user_payload(user),
     }), 200
 
 
 @app.route('/signup', methods=['POST'])
 def signup():
     try:
-        data = request.get_json()
-        email = data.get('email')
+        data = request.get_json(silent=True) or {}
+        email = (data.get('email') or '').strip()
         password = data.get('password')
         role = data.get('role')
-        name = data.get('name')
-
-        if not all([email, password, role, name]):
-            return jsonify({"error": "Missing required fields"}), 400
+        name = (data.get('name') or '').strip()
+        use_temporary_access_code = bool(data.get('useTemporaryAccessCode')) or (not email and not name)
 
         if not is_db_enabled():
             return jsonify({"error": "Database not configured"}), 500
 
+        if not role:
+            return jsonify({"error": "Role is required"}), 400
+
+        if not password:
+            return jsonify({"error": "Password is required"}), 400
+
+        password_validation_error = validate_signup_password(password)
+        if password_validation_error:
+            return jsonify({"error": password_validation_error}), 400
+
         # Normalize role to match database enum (Patient/Doctor)
         normalized_role = "Doctor" if role.lower() == "doctor" else "Patient"
 
+        # TEMPORARY clinical-study flow:
+        # when a study user is created without real identifying fields, generate
+        # a non-sensitive role-based code and store only technical compatibility values.
+        if not use_temporary_access_code and not all([email, name]):
+            return jsonify({"error": "Name and email are required for this signup flow"}), 400
+
         # Check if email already exists
-        try:
-            if user_exists(email):
-                return jsonify({"error": "Email already registered"}), 409
-        except Exception as e:
-            import traceback
-            return jsonify({"error": f"Error checking email: {str(e)}", "traceback": traceback.format_exc()}), 500
+        if email and not use_temporary_access_code:
+            try:
+                if user_exists(email):
+                    return jsonify({"error": "Email already registered"}), 409
+            except Exception as e:
+                import traceback
+                return jsonify({"error": f"Error checking email: {str(e)}", "traceback": traceback.format_exc()}), 500
 
         # Parse name into first and last name
         name_parts = name.strip().split(maxsplit=1)
@@ -181,13 +286,18 @@ def signup():
         hashed_password = generate_password_hash(password)
         
         try:
-            user_id = create_user(email, hashed_password, first_name, last_name, normalized_role)
+            temp_user = None
+            if use_temporary_access_code:
+                temp_user = create_temporary_user(normalized_role, hashed_password)
+                user_id = temp_user["user_id"]
+            else:
+                user_id = create_user(email, hashed_password, first_name, last_name, normalized_role)
             
             # If patient, create a patient record in the patient table
             if normalized_role == "Patient":
                 try:
-                    # Extract birth date from name_parts if provided (for future use)
-                    # For now, create patient record without birth date
+                    # TEMPORARY: use NULL birth date when the existing schema allows
+                    # it so study patients do not need to provide real DOB values.
                     create_patient_record(user_id, birth_date=None)
                 except Exception as e:
                     # Log but don't fail signup if patient record creation fails
@@ -210,12 +320,15 @@ def signup():
 
         return jsonify({
             "token": token,
-            "user": {
-                "id": user_id,
-                "email": email,
-                "name": name,
-                "role": normalized_role
-            }
+            "user": build_public_user_payload(
+                {
+                    "ID": user_id,
+                    "Email": temp_user["email"] if use_temporary_access_code else email,
+                    "FirstName": normalized_role if use_temporary_access_code else first_name,
+                    "LastName": temp_user["access_code"] if use_temporary_access_code else last_name,
+                    "Role": normalized_role,
+                }
+            ),
         }), 201
     except Exception as e:
         import traceback
@@ -331,10 +444,10 @@ def get_patient(current_user, patient_id):
         ]
         patient = {
             "id": patient_data.get('ID') or patient_id,
-            "name": f"{patient_data.get('FirstName', '')} {patient_data.get('LastName', '')}".strip() or patient_data.get('Email', ''),
+            "name": get_public_user_name(patient_data),
             "details": {
                 "age": age,
-                "birthDate": patient_data.get('BirthDate'),
+                "birthDate": sanitize_birth_date_for_response(patient_data),
                 "sex": sex,
                 "height": height or 0,
                 "weight": patient_data.get('Weight') or 0,
@@ -397,7 +510,7 @@ def get_doctors_me_patients(current_user):
             "type": "patient",
             "id": str(r["id"]),
             "name": name,
-            "email": r.get("email") or "",
+            "email": "" if extract_temporary_access_code(r.get("email"), name, None) else (r.get("email") or ""),
             "nif": "",
             "status": "Confirmed",
 
@@ -523,10 +636,10 @@ def update_patient_details(current_user, patient_id):
             height = height / 100
         patient = {
             "id": _get(patient_data, 'ID', 'id') or patient_id,
-            "name": f"{_get(patient_data, 'FirstName', 'firstname') or ''} {_get(patient_data, 'LastName', 'lastname') or ''}".strip() or _get(patient_data, 'Email', 'email') or '',
+            "name": get_public_user_name(patient_data),
             "details": {
                 "age": age,
-                "birthDate": birth_date_val,
+                "birthDate": sanitize_birth_date_for_response(patient_data),
                 "sex": sex,
                 "height": height or 0,
                 "weight": _get(patient_data, 'Weight', 'weight') or 0,
@@ -935,7 +1048,7 @@ def register_patient_manual(current_user):
     doctor_id = current_user['id'] 
 
     required_fields = [
-        'first_name', 'birth_date', 'sex', 'weight', 'height', 'bmi',
+        'password', 'sex', 'weight', 'height', 'bmi',
         'affected_right_knee', 'affected_left_knee', 
         'affected_right_hip', 'affected_left_hip', 'leg_dominance'
     ]
@@ -945,17 +1058,28 @@ def register_patient_manual(current_user):
         return jsonify({"error": f"Campos obrigatórios ausentes: {', '.join(missing)}"}), 400
 
     try:
-        user_info = {
-            'first_name': data.get('first_name'), 
-            'last_name': data.get('last_name', '')
-        }
-        
-        user_id, email = create_manual_patient(user_info, data, doctor_id)
+        hashed_password = generate_password_hash(data.get('password'))
+        created_patient = create_manual_patient(data, doctor_id, hashed_password)
         
         return jsonify({
             "message": "Paciente registrado e vinculado com sucesso",
-            "patient_id": user_id,
-            "generated_email": email
+            "id": created_patient["user_id"],
+            "patient_id": created_patient["user_id"],
+            "accessCode": created_patient["access_code"],
+            "patientCode": created_patient["patient_code"],
+            "name": created_patient["label"],
+            "details": {
+                "age": 0,
+                "birthDate": None,
+                "sex": "Male" if str(data.get('sex', '')).lower() == 'male' else ("Female" if str(data.get('sex', '')).lower() == 'female' else "Other"),
+                "height": (data.get('height') or 0) / 100 if data.get('height') else 0,
+                "weight": data.get('weight') or 0,
+                "bmi": data.get('bmi') or 0,
+                "clinicalInfo": data.get('medical_history') or 'No information provided.',
+                "medicalHistory": data.get('medical_history'),
+            },
+            "recovery_process": [],
+            "feedback": [],
         }), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500

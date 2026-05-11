@@ -10,7 +10,7 @@ interface AuthContextData {
   token: string | null;
   loading: boolean;
   login: (email: string, password: string, role?: AuthRole) => Promise<void>;
-  signup: (name: string, email: string, password: string, role: AuthRole) => Promise<void>;
+  signup: (name: string, email: string, password: string, role: AuthRole) => Promise<User>;
   logout: () => Promise<void>;
 }
 
@@ -18,6 +18,13 @@ const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 
 const STORAGE_USER_KEY = "@IRHIS:user";
 const STORAGE_TOKEN_KEY = "@IRHIS:token";
+
+function normalizeUser(user: User): User {
+  return {
+    ...user,
+    role: user.role?.toLowerCase() === "doctor" ? "doctor" : "patient",
+  };
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -33,7 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ]);
 
         if (storedUser && storedToken) {
-          setUser(JSON.parse(storedUser) as User);
+          setUser(normalizeUser(JSON.parse(storedUser) as User));
           setToken(storedToken);
         }
       } finally {
@@ -48,12 +55,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     try {
       const { token: newToken, user: newUser } = await RemoteAuth.login(email, password, role);
+      const normalizedUser = normalizeUser(newUser);
 
-      setUser(newUser);
+      setUser(normalizedUser);
       setToken(newToken);
 
       await Promise.all([
-        AsyncStorage.setItem(STORAGE_USER_KEY, JSON.stringify(newUser)),
+        AsyncStorage.setItem(STORAGE_USER_KEY, JSON.stringify(normalizedUser)),
         AsyncStorage.setItem(STORAGE_TOKEN_KEY, newToken),
       ]);
     } catch (error) {
@@ -68,14 +76,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     try {
       const { token: newToken, user: newUser } = await RemoteAuth.signup(name, email, password, role);
+      const normalizedUser = normalizeUser(newUser);
 
-      setUser(newUser);
+      setUser(normalizedUser);
       setToken(newToken);
 
       await Promise.all([
-        AsyncStorage.setItem(STORAGE_USER_KEY, JSON.stringify(newUser)),
+        AsyncStorage.setItem(STORAGE_USER_KEY, JSON.stringify(normalizedUser)),
         AsyncStorage.setItem(STORAGE_TOKEN_KEY, newToken),
       ]);
+      return normalizedUser;
     } catch (error) {
       setLoading(false);
       throw error; // Re-throw so caller can handle it
