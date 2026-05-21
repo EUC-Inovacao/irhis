@@ -12,8 +12,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@theme/ThemeContext";
 import { useAuth } from "@context/AuthContext";
 import { getSessionById } from "../services/sessionService";
+import {
+  getStoredSessionFeedback,
+  type PatientFeedback,
+} from "../services/feedbackService";
 import type { Session } from "../types";
-import { FeedbackRepository } from "../storage/repositories";
 import SessionFeedbackModal from "@components/SessionFeedbackModal";
 import MetricsDisplayCard from "@components/MetricsDisplayCard";
 
@@ -27,7 +30,7 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sessionFeedback, setSessionFeedback] = useState<any[]>([]);
+  const [sessionFeedback, setSessionFeedback] = useState<PatientFeedback[]>([]);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
   useEffect(() => {
@@ -51,10 +54,9 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
   useEffect(() => {
     const loadFeedback = async () => {
       try {
-        const allFeedback = await FeedbackRepository.listByPatient(patientId);
-        // Filter feedback for this specific session
-        const feedbackForSession = allFeedback.filter(
-          (fb) => fb.sessionId === sessionId
+        const feedbackForSession = await getStoredSessionFeedback(
+          patientId,
+          sessionId
         );
         setSessionFeedback(feedbackForSession);
       } catch (error) {
@@ -307,9 +309,9 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
           onSubmit={async () => {
             // Reload feedback after submission
             try {
-              const allFeedback = await FeedbackRepository.listByPatient(patientId);
-              const feedbackForSession = allFeedback.filter(
-                (fb) => fb.sessionId === sessionId
+              const feedbackForSession = await getStoredSessionFeedback(
+                patientId,
+                sessionId
               );
               setSessionFeedback(feedbackForSession);
             } catch (error) {

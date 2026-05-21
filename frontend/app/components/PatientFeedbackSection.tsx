@@ -3,8 +3,8 @@ import { View, Text, StyleSheet, Dimensions } from "react-native";
 import { useTheme } from "@theme/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { LineChart } from "react-native-chart-kit";
-import { FeedbackRecord } from "@storage/repositories";
 import { getPatientFeedback } from "@services/feedbackService";
+import type { PatientFeedback } from "@services/feedbackService";
 import { useTranslation } from "react-i18next";
 
 interface PatientFeedbackSectionProps {
@@ -33,7 +33,7 @@ const PatientFeedbackSection: React.FC<PatientFeedbackSectionProps> = ({
       ? theme.colors
       : DEFAULT_COLORS;
 
-  const [feedback, setFeedback] = useState<FeedbackRecord[]>([]);
+  const [feedback, setFeedback] = useState<PatientFeedback[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

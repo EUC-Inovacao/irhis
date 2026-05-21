@@ -1,9 +1,12 @@
 // app/services/api.ts
-import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from "axios";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios, {
+  AxiosHeaders,
+  type AxiosInstance,
+  type InternalAxiosRequestConfig,
+} from "axios";
 import { API_URL } from "../../config/env";
 
-const STORAGE_TOKEN_KEY = "@IRHIS:token";
+let authToken: string | null = null;
 
 const api: AxiosInstance = axios.create({
   baseURL: API_URL,
@@ -13,20 +16,20 @@ const api: AxiosInstance = axios.create({
   },
 });
 
+export function setApiAuthToken(token: string | null) {
+  authToken = token;
+}
 
-api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const url = String(config.url ?? "");
   const isAuthCall = url.startsWith("/login") || url.startsWith("/signup");
 
-
-  if (!isAuthCall) {
-    const token = await AsyncStorage.getItem(STORAGE_TOKEN_KEY);
-    if (token) {
-      if (!config.headers) {
-        config.headers = {};
-      }
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+  if (!isAuthCall && authToken) {
+    const headers = config.headers instanceof AxiosHeaders
+      ? config.headers
+      : new AxiosHeaders(config.headers);
+    headers.set("Authorization", `Bearer ${authToken}`);
+    config.headers = headers;
   }
 
   return config;

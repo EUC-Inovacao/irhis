@@ -1,5 +1,14 @@
 import api from "./api";
-import { ExerciseTypeRecord } from "../storage/repositories";
+
+export interface ExerciseTypeRecord {
+  id: string;
+  name: string;
+  description?: string;
+  targetReps?: number;
+  targetSets?: number;
+  instructions?: string;
+  category: "knee" | "hip" | "ankle" | "general";
+}
 
 export interface AssignSessionPayload {
   exerciseId: string;
@@ -41,6 +50,41 @@ export async function getAvailableExercises(): Promise<ExerciseTypeRecord[]> {
     console.error("Failed to fetch available exercises:", error);
     return [];
   }
+}
+
+export async function getOrCreateExerciseTypeByName(
+  availableExerciseTypes: ExerciseTypeRecord[],
+  draft: {
+    name: string;
+    instructions?: string;
+    targetRepetitions?: number;
+    targetSets?: number;
+  }
+): Promise<ExerciseTypeRecord> {
+  const normalizedName = draft.name.trim().toLowerCase();
+  const existingExerciseType = availableExerciseTypes.find(
+    (exerciseType) => exerciseType.name.trim().toLowerCase() === normalizedName
+  );
+
+  if (existingExerciseType) {
+    return existingExerciseType;
+  }
+
+  const slug = draft.name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  return {
+    id: slug || `custom_exercise_${Date.now()}`,
+    name: draft.name,
+    description: draft.instructions || undefined,
+    targetReps: draft.targetRepetitions || undefined,
+    targetSets: draft.targetSets || undefined,
+    instructions: draft.instructions || undefined,
+    category: "general",
+  };
 }
 
 export async function assignExerciseToPatient(
