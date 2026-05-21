@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
-  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
@@ -33,78 +32,6 @@ interface DetailItemProps {
 }
 
 const EMPTY_VALUE = "--";
-
-const normalizeBackendBirthDate = (birthDate?: string): string | undefined => {
-  if (!birthDate) return undefined;
-
-  const trimmedBirthDate = birthDate.trim();
-  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(trimmedBirthDate);
-  if (isoMatch) {
-    return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
-  }
-
-  const parsed = new Date(trimmedBirthDate);
-  if (Number.isNaN(parsed.getTime())) {
-    return undefined;
-  }
-
-  const year = parsed.getUTCFullYear();
-  const month = String(parsed.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(parsed.getUTCDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const formatBirthDateForInput = (birthDate?: string): string => {
-  const normalizedBirthDate = normalizeBackendBirthDate(birthDate);
-  if (!normalizedBirthDate) return "";
-
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(normalizedBirthDate);
-  if (!match) return "";
-  const [, year, month, day] = match;
-  return `${day}/${month}/${year}`;
-};
-
-const formatBirthDateForDisplay = (birthDate?: string): string => {
-  const formatted = formatBirthDateForInput(birthDate);
-  return formatted || EMPTY_VALUE;
-};
-
-const normalizeBirthDateInput = (text: string): string => {
-  const numbers = text.replace(/\D/g, "").slice(0, 8);
-
-  let formatted = "";
-  if (numbers.length > 0) {
-    formatted = numbers.slice(0, 2);
-  }
-  if (numbers.length > 2) {
-    formatted += `/${numbers.slice(2, 4)}`;
-  }
-  if (numbers.length > 4) {
-    formatted += `/${numbers.slice(4, 8)}`;
-  }
-
-  return formatted;
-};
-
-const toDatabaseBirthDate = (input: string): string | undefined => {
-  if (!input.trim()) return undefined;
-  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(input.trim());
-  if (!match) return undefined;
-
-  const [, day, month, year] = match;
-  const parsed = new Date(`${year}-${month}-${day}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime())) return undefined;
-
-  if (
-    parsed.getUTCFullYear() !== Number(year) ||
-    parsed.getUTCMonth() + 1 !== Number(month) ||
-    parsed.getUTCDate() !== Number(day)
-  ) {
-    return undefined;
-  }
-
-  return `${year}-${month}-${day}`;
-};
 
 const DetailItem: React.FC<DetailItemProps> = ({
   label,
@@ -154,7 +81,6 @@ const PatientDetailsCard: React.FC<PatientDetailsCardProps> = ({
   useEffect(() => {
     setEditableDetails({
       ...details,
-      birthDateInput: formatBirthDateForInput(details.birthDate),
       height: details.height && details.height > 0 ? details.height * 100 : "",
     });
   }, [details]);
@@ -166,8 +92,6 @@ const PatientDetailsCard: React.FC<PatientDetailsCardProps> = ({
 
       if (field === "weight" || field === "height") {
         nextValue = nextValue.replace(",", ".");
-      } else if (field === "birthDateInput") {
-        nextValue = normalizeBirthDateInput(nextValue);
       }
 
       const nextState = { ...prev, [field]: nextValue };
@@ -188,18 +112,8 @@ const PatientDetailsCard: React.FC<PatientDetailsCardProps> = ({
     const heightCm = parseFloat(String(editableDetails.height)) || 0;
     const height = heightCm > 0 ? heightCm / 100 : 0;
     const bmi = Number(editableDetails.bmi) || 0;
-    const birthDate = toDatabaseBirthDate(editableDetails.birthDateInput);
-
-    if (editableDetails.birthDateInput?.trim() && !birthDate) {
-      Alert.alert(
-        t("patientDetailsCard.invalidBirthDateTitle"),
-        t("patientDetailsCard.invalidBirthDateMessage")
-      );
-      return;
-    }
 
     const finalData: Partial<PatientDetails> = {
-      birthDate,
       sex: editableDetails.sex,
       weight,
       height,
@@ -219,7 +133,6 @@ const PatientDetailsCard: React.FC<PatientDetailsCardProps> = ({
   const handleCancel = () => {
     setEditableDetails({
       ...details,
-      birthDateInput: formatBirthDateForInput(details.birthDate),
       height: details.height && details.height > 0 ? details.height * 100 : "",
     });
     setIsEditing(false);
@@ -251,15 +164,8 @@ const PatientDetailsCard: React.FC<PatientDetailsCardProps> = ({
           isEditing={false}
           colors={colors}
         />
-        <DetailItem
-          label={t("patientDetailsCard.birthDate")}
-          value={formatBirthDateForDisplay(details.birthDate)}
-          isEditingValue={editableDetails.birthDateInput ?? ""}
-          isEditing={isEditing}
-          onChangeText={(text) => updateField("birthDateInput", text)}
-          keyboardType="numeric"
-          colors={colors}
-        />
+        {/* TEMPORARY: hide birth date in the study flow to avoid exposing
+            placeholder DOB values while we reuse the existing schema. */}
         <View style={styles.detailItem}>
           <Text style={[styles.label, { color: colors.textSecondary }]}>
             {t("patientDetailsCard.sex")}

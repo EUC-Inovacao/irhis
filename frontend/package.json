@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "REACT_NATIVE_PACKAGER_HOSTNAME=0.0.0.0 expo start",
-    "start:dev-client": "REACT_NATIVE_PACKAGER_HOSTNAME=0.0.0.0 expo start --dev-client",
+    "start": "cross-env REACT_NATIVE_PACKAGER_HOSTNAME=0.0.0.0 expo start",
+    "start:dev-client": "cross-env REACT_NATIVE_PACKAGER_HOSTNAME=0.0.0.0 expo start --dev-client",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "ios:device": "expo run:ios --device",

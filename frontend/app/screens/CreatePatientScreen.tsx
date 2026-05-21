@@ -17,13 +17,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { usePatients } from '@context/PatientContext';
-import { getUnassignedPatients, assignPatientToDoctor, createNewPatient } from "@services/patientService";
+import { getUnassignedPatients, createNewPatient } from "@services/patientService";
 import type { Patient } from '../types';
 import { useTranslation } from 'react-i18next';
-
-// TEMPORARY: clinical-study patients use a generated internal code instead of
-// real identity fields until a dedicated schema/auth flow is available.
-const TEMPORARY_STUDY_PATIENT_FLOW = true;
 
 const CreatePatientScreen = ({ navigation }: any) => {
     const { colors } = useTheme();
@@ -34,71 +30,11 @@ const CreatePatientScreen = ({ navigation }: any) => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [creating, setCreating] = useState(false);
     
-    // Form fields for creating new patient
-    const [name, setName] = useState('');
-    const [email, setEmail] = useState('');
-    const [birthDate, setBirthDate] = useState('');
+    // TEMPORARY: the study flow intentionally avoids collecting real name,
+    // email, or date of birth until a dedicated patient identity model exists.
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [sex, setSex] = useState<'male' | 'female'>('male');
-    
-    // Format date of birth as DD/MM/YYYY while typing
-    const formatBirthDate = (text: string) => {
-        // Remove all non-numeric characters
-        const numbers = text.replace(/\D/g, '');
-        
-        // Limit to 8 digits (DDMMYYYY)
-        const limitedNumbers = numbers.slice(0, 8);
-        
-        // Format as DD/MM/YYYY
-        let formatted = '';
-        if (limitedNumbers.length > 0) {
-            formatted = limitedNumbers.slice(0, 2);
-        }
-        if (limitedNumbers.length > 2) {
-            formatted += '/' + limitedNumbers.slice(2, 4);
-        }
-        if (limitedNumbers.length > 4) {
-            formatted += '/' + limitedNumbers.slice(4, 8);
-        }
-        
-        return formatted;
-    };
-    
-    const handleBirthDateChange = (text: string) => {
-        const formatted = formatBirthDate(text);
-        setBirthDate(formatted);
-    };
-    
-    const isFutureDate = (dateStr: string): boolean => {
-        const parts = dateStr.split('/');
-        if (parts.length !== 3) return true;
-
-        const [day, month, year] = parts.map(Number);
-        const inputDate = new Date(year, month - 1, day);
-        const today = new Date();
-
-        return inputDate > today;
-    };
-    
-    // Convert DD/MM/YYYY to YYYY-MM-DD format for database
-    const convertToDatabaseFormat = (dateStr: string): string => {
-        // Remove slashes and extract parts
-        const parts = dateStr.split('/');
-        if (parts.length === 3) {
-            const [day, month, year] = parts;
-            // Validate lengths
-            if (day.length === 2 && month.length === 2 && year.length === 4) {
-                return `${year}-${month}-${day}`;
-            }
-        }
-        // If already in YYYY-MM-DD format, return as is
-        if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-            return dateStr;
-        }
-        // If format is invalid, try to parse
-        return dateStr;
-    };
     const [weight, setWeight] = useState('');
     const [height, setHeight] = useState('');
     // BMI will be calculated automatically
@@ -147,28 +83,23 @@ const CreatePatientScreen = ({ navigation }: any) => {
     };
 
     const handleCreatePatient = async () => {
-        const nameTrim = name.trim();
-        const birthDateTrim = birthDate.trim();
-        const isTemporaryStudyPatient = TEMPORARY_STUDY_PATIENT_FLOW;
-        
-        // Validate required fields
-        if (!isTemporaryStudyPatient && !nameTrim) {
-            Alert.alert('Required', 'Patient name is required.');
-            return;
-        }
-        
-        if (!isTemporaryStudyPatient && !birthDateTrim) {
-            Alert.alert('Required', 'Birth date is required.');
-            return;
-        }
-
         if (!password || !confirmPassword) {
             Alert.alert('Required', 'Please define the patient password.');
             return;
         }
 
-        if (password.length < 6) {
-            Alert.alert('Invalid Password', 'Password must be at least 6 characters.');
+        if (password.length < 8) {
+            Alert.alert('Invalid Password', 'Password must be at least 8 characters.');
+            return;
+        }
+
+        if (!/[A-Z]/.test(password)) {
+            Alert.alert('Invalid Password', 'Password must contain at least one uppercase letter.');
+            return;
+        }
+
+        if (!/[0-9]/.test(password)) {
+            Alert.alert('Invalid Password', 'Password must contain at least one number.');
             return;
         }
 
@@ -176,15 +107,7 @@ const CreatePatientScreen = ({ navigation }: any) => {
             Alert.alert('Invalid Password', 'Passwords do not match.');
             return;
         }
-        
-        // Convert DD/MM/YYYY to YYYY-MM-DD format for database
-        const birthDateForDB = convertToDatabaseFormat(birthDateTrim);
-        
-        // Validate date format
-        if (!isTemporaryStudyPatient && !birthDateForDB.match(/^\d{4}-\d{2}-\d{2}$/)) {
-            Alert.alert('Invalid Date', 'Please enter a valid date in DD/MM/YYYY format.');
-            return;
-        }
+
         // Validate at least one joint is affected
         if (!affectedRightKnee && !affectedLeftKnee && !affectedRightHip && !affectedLeftHip) {
             Alert.alert(t('common.required'), t('createPatient.selectAffectedJoint'));
@@ -194,9 +117,6 @@ const CreatePatientScreen = ({ navigation }: any) => {
         setCreating(true);
         try {
             const createdPatient = await createNewPatient({
-                name: isTemporaryStudyPatient ? undefined : nameTrim,
-                email: isTemporaryStudyPatient ? undefined : (email.trim() || undefined),
-                birthDate: isTemporaryStudyPatient ? undefined : birthDateForDB,
                 password,
                 sex,
                 weight: weight ? parseFloat(weight) : undefined,
@@ -227,14 +147,11 @@ const CreatePatientScreen = ({ navigation }: any) => {
             
             const generatedCode = createdPatient.accessCode || createdPatient.patientCode;
             const patientCodeMessage = generatedCode
-                ? `\n\nAccess code: ${generatedCode}`
+                ? `\n\nPatient code: ${generatedCode}`
                 : '';
             Alert.alert('Success', `Patient created and assigned successfully.${patientCodeMessage}`);
             setShowCreateModal(false);
             // Reset all fields
-            setName('');
-            setEmail('');
-            setBirthDate('');
             setPassword('');
             setConfirmPassword('');
             setSex('male');
@@ -272,9 +189,9 @@ const CreatePatientScreen = ({ navigation }: any) => {
                 </View>
                 <View style={styles.patientDetails}>
                     <Text style={[styles.patientName, { color: colors.text }]}>{item.name}</Text>
-                    {item.id && item.id.includes('@') && (
+                    {(item.accessCode || item.patientCode) && (
                         <Text style={[styles.patientEmail, { color: colors.textSecondary }]}>
-                            {item.id}
+                            {item.accessCode || item.patientCode}
                         </Text>
                     )}
                 </View>
@@ -350,49 +267,12 @@ const CreatePatientScreen = ({ navigation }: any) => {
                         </View>
 
                         <ScrollView style={styles.modalBody}>
-                            {TEMPORARY_STUDY_PATIENT_FLOW ? (
-                                <View style={[styles.infoCard, { borderColor: colors.border, backgroundColor: colors.background }]}>
-                                    <Text style={[styles.infoTitle, { color: colors.text }]}>Temporary Study Registration</Text>
-                                    <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                                        The system will generate a non-sensitive patient code automatically. Real name, real email, and date of birth are intentionally not collected in this temporary study flow.
-                                    </Text>
-                                </View>
-                            ) : (
-                                <>
-                                    <Text style={[styles.label, { color: colors.text }]}>Name *</Text>
-                                    <TextInput
-                                        style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
-                                        placeholder="Enter patient name"
-                                        placeholderTextColor={colors.textSecondary}
-                                        value={name}
-                                        onChangeText={setName}
-                                        autoCapitalize="words"
-                                    />
-
-                                    <Text style={[styles.label, { color: colors.text }]}>Email (Optional)</Text>
-                                    <TextInput
-                                        style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
-                                        placeholder="email@example.com"
-                                        placeholderTextColor={colors.textSecondary}
-                                        value={email}
-                                        onChangeText={setEmail}
-                                        keyboardType="email-address"
-                                        autoCapitalize="none"
-                                        autoCorrect={false}
-                                    />
-
-                                    <Text style={[styles.label, { color: colors.text }]}>Date of Birth *</Text>
-                                    <TextInput
-                                        style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
-                                        placeholder="DD/MM/YYYY"
-                                        placeholderTextColor={colors.textSecondary}
-                                        value={birthDate}
-                                        onChangeText={handleBirthDateChange}
-                                        keyboardType="number-pad"
-                                        maxLength={10} // DD/MM/YYYY = 10 characters
-                                    />
-                                </>
-                            )}
+                            <View style={[styles.infoCard, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                                <Text style={[styles.infoTitle, { color: colors.text }]}>Temporary Study Registration</Text>
+                                <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+                                    The system will generate a non-sensitive patient code automatically. Real name, real email, and date of birth are intentionally not collected in this temporary study flow.
+                                </Text>
+                            </View>
 
                             <Text style={[styles.label, { color: colors.text }]}>Initial Password *</Text>
                             <TextInput

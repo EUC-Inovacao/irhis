@@ -19,6 +19,7 @@ import { useTranslation } from "react-i18next";
 
 const LoginScreen = ({ navigation }: any) => {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { login } = useAuth();
   const [accessCode, setAccessCode] = useState("");
   const [password, setPassword] = useState("");

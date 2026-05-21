@@ -44,6 +44,7 @@ from db import (
     insert_feedback,
     get_feedback_by_patient,
     build_temporary_access_email,
+    build_legacy_temporary_access_email,
     build_temporary_access_label,
     extract_temporary_access_code,
     get_temporary_role_from_access_code,
@@ -251,11 +252,11 @@ def home():
 def login():
     data = request.get_json() or {}
 
-    email = (data.get('email') or data.get('identifier') or data.get('accessCode') or '').strip()
+    identifier = (data.get('email') or data.get('identifier') or data.get('accessCode') or '').strip()
     password = data.get('password')
     role = data.get('role')
 
-    if not email or not password:
+    if not identifier or not password:
         return jsonify({"error": "Missing identifier or password"}), 400
 
     if not is_db_enabled():
@@ -264,17 +265,29 @@ def login():
     if role:
         roles_to_try = ["Doctor" if normalize_role(role) == "doctor" else "Patient"]
     else:
-        inferred_role = get_temporary_role_from_access_code(email)
+        inferred_role = get_temporary_role_from_access_code(identifier)
         roles_to_try = [inferred_role] if inferred_role else ["Patient", "Doctor"]
 
     user = None
     for candidate_role in roles_to_try:
-        user = get_user_for_login(resolve_login_identifier(email, candidate_role), candidate_role)
+        resolved_identifier = resolve_login_identifier(identifier, candidate_role)
+        login_identifiers = [resolved_identifier]
+
+        legacy_identifier = build_legacy_temporary_access_email(resolved_identifier)
+        if legacy_identifier and legacy_identifier not in login_identifiers:
+            login_identifiers.append(legacy_identifier)
+
+        for login_identifier in login_identifiers:
+            user = get_user_for_login(login_identifier, candidate_role)
+            if not user:
+                continue
+            if check_password_hash(user["Password"], password):
+                break
+            user = None
+
         if not user:
             continue
-        if check_password_hash(user["Password"], password):
-            break
-        user = None
+        break
 
     if not user:
         return jsonify({"error": "Invalid credentials"}), 401
@@ -1120,6 +1133,10 @@ def register_patient_manual(current_user):
     missing = [field for field in required_fields if data.get(field) is None]
     if missing:
         return jsonify({"error": f"Campos obrigatórios ausentes: {', '.join(missing)}"}), 400
+
+    password_validation_error = validate_signup_password(data.get('password'))
+    if password_validation_error:
+        return jsonify({"error": password_validation_error}), 400
 
     try:
         hashed_password = generate_password_hash(data.get('password'))

@@ -46,18 +46,20 @@ _engine: Optional[Engine] = (
 )
 
 # TEMPORARY clinical-study login compatibility layer.
-# Reuses the existing users columns without changing the schema so both
-# patients and doctors can authenticate with non-sensitive internal codes.
+# Reuses the existing users columns without changing the schema so patients
+# can authenticate with non-sensitive internal codes until a dedicated
+# identity model is introduced.
 TEMPORARY_ACCESS_CODE_EMAIL_DOMAIN = "irhis.local"
+TEMPORARY_BIRTH_DATE_PLACEHOLDER = "1900-01-01"
 TEMPORARY_ACCESS_CODE_PREFIXES = {
-    "Patient": "IRHIS-P",
+    "Patient": "IRHIS",
     "Doctor": "IRHIS-D",
 }
-TEMPORARY_ACCESS_CODE_PATTERNS = {
-    "Patient": re.compile(r"^IRHIS-P-(\d{6})$", re.IGNORECASE),
-    "Doctor": re.compile(r"^IRHIS-D-(\d{6})$", re.IGNORECASE),
-}
-LEGACY_TEMPORARY_PATIENT_CODE_PATTERN = re.compile(r"^IRHIS-(\d{6})$", re.IGNORECASE)
+TEMPORARY_ACCESS_CODE_PATTERNS = (
+    ("Patient", re.compile(r"^IRHIS-(\d{6})$", re.IGNORECASE)),
+    ("Patient", re.compile(r"^IRHIS-P-(\d{6})$", re.IGNORECASE)),
+    ("Doctor", re.compile(r"^IRHIS-D-(\d{6})$", re.IGNORECASE)),
+)
 TEMPORARY_ACCESS_CODE_EMAIL_PATTERN = re.compile(
     r"^(irhis-(?:p|d)-\d{6}|irhis-\d{6})@irhis\.local$",
     re.IGNORECASE,
@@ -106,14 +108,10 @@ def normalize_temporary_access_code(value: Optional[str]) -> Optional[str]:
     if not cleaned:
         return None
 
-    for role, pattern in TEMPORARY_ACCESS_CODE_PATTERNS.items():
+    for role, pattern in TEMPORARY_ACCESS_CODE_PATTERNS:
         code_match = pattern.match(cleaned)
         if code_match:
             return f"{TEMPORARY_ACCESS_CODE_PREFIXES[role]}-{code_match.group(1)}"
-
-    legacy_patient_match = LEGACY_TEMPORARY_PATIENT_CODE_PATTERN.match(cleaned)
-    if legacy_patient_match:
-        return f"IRHIS-{legacy_patient_match.group(1)}"
 
     email_match = TEMPORARY_ACCESS_CODE_EMAIL_PATTERN.match(cleaned.lower())
     if email_match:
@@ -138,6 +136,16 @@ def build_temporary_access_email(access_code: str) -> str:
     if not normalized_code:
         raise ValueError("Invalid temporary access code")
     return f"{normalized_code.lower()}@{TEMPORARY_ACCESS_CODE_EMAIL_DOMAIN}"
+
+def build_legacy_temporary_access_email(access_code: str) -> Optional[str]:
+    normalized_code = normalize_temporary_access_code(access_code)
+    if not normalized_code or get_temporary_role_from_access_code(normalized_code) != "Patient":
+        return None
+
+    # TEMPORARY: keep older study accounts that were stored as
+    # irhis-p-000001@irhis.local working while new registrations use the
+    # simplified IRHIS-000001 code format.
+    return f"irhis-p-{normalized_code.split('-')[-1].lower()}@{TEMPORARY_ACCESS_CODE_EMAIL_DOMAIN}"
 
 def build_temporary_access_label(role: str, access_code: str) -> str:
     normalized_role = "Doctor" if str(role).lower() == "doctor" else "Patient"
@@ -213,11 +221,32 @@ def create_temporary_user(role: str, password_hash: str) -> dict[str, str]:
         "role": normalized_role,
     }
 
+def _execute_patient_insert_with_temporary_birthdate_fallback(
+    sql: str,
+    params: dict[str, Any],
+) -> None:
+    try:
+        execute(sql, params)
+    except Exception:
+        if params.get("birth_date") is not None:
+            raise
+
+        # TEMPORARY: if the current DB rejects NULL birth dates, store a
+        # technical placeholder without changing the schema. Public responses
+        # already suppress this value and study logic must not rely on it.
+        execute(
+            sql,
+            {
+                **params,
+                "birth_date": TEMPORARY_BIRTH_DATE_PLACEHOLDER,
+            },
+        )
+
 def create_manual_patient(patient_data, doctor_id, password_hash):
     temp_user = create_temporary_user("Patient", password_hash)
     user_id = temp_user["user_id"]
 
-    execute(
+    _execute_patient_insert_with_temporary_birthdate_fallback(
         """
         INSERT INTO patient (
             UserID, BirthDate, Sex, Weight, Height, BMI, Occupation, Education,
@@ -253,6 +282,7 @@ def create_manual_patient(patient_data, doctor_id, password_hash):
 
     return {
         "user_id": user_id,
+        "access_code": temp_user["access_code"],
         "patient_code": temp_user["patient_code"],
         "label": temp_user["label"],
         "email": temp_user["email"],
@@ -482,7 +512,7 @@ def get_patient_by_id(patient_id: str) -> Optional[dict[str, Any]]:
 
 def create_patient_record(user_id: str, birth_date: Optional[str] = None) -> None:
     """Create a minimal patient record in the patient table. Sex is required (DB enum: male, female)."""
-    execute(
+    _execute_patient_insert_with_temporary_birthdate_fallback(
         """
         INSERT INTO patient (
             UserID, BirthDate, Sex, Weight, Height, BMI, Occupation, Education,

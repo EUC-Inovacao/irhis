@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import TermsAndConditionsModal from "../components/TermsAndConditionsModal";
@@ -13,6 +15,7 @@ const TEMPORARY_STUDY_ACCESS_FLOW = true;
 
 const CreateAccountScreen = () => {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const navigation = useNavigation<any>();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
