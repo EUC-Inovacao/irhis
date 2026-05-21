@@ -120,9 +120,115 @@ default_patient_details = {
     "clinicalInfo": ""
 }
 
+DEV_SHARED_TEST_PASSWORD = _get_env_value("DEV_TEST_PASSWORD") or "DevPass123"
+DEV_TEST_DOCTOR_CODE = "IRHIS-D-900001"
+DEV_TEST_PATIENT_CODE = "IRHIS-900001"
+
 
 def normalize_role(role):
     return str(role or "").strip().lower()
+
+
+def _is_mock_auth_enabled():
+    return (
+        not _is_production_environment()
+        and normalize_role(_get_env_value("DEV_AUTH_MODE")) == "mock"
+    )
+
+
+def _build_mock_user(user_id, access_code, role):
+    normalized_role = "Doctor" if normalize_role(role) == "doctor" else "Patient"
+    return {
+        "ID": user_id,
+        "Email": build_temporary_access_email(access_code),
+        "Role": normalized_role,
+        "FirstName": normalized_role,
+        "LastName": access_code,
+        "Active": 1,
+        "Deleted": 0,
+    }
+
+
+def _get_mock_users():
+    doctor = _build_mock_user("dev-doctor-900001", DEV_TEST_DOCTOR_CODE, "Doctor")
+    patient = _build_mock_user("dev-patient-900001", DEV_TEST_PATIENT_CODE, "Patient")
+    return {
+        doctor["ID"]: doctor,
+        patient["ID"]: patient,
+    }
+
+
+def _get_mock_user_by_id(user_id):
+    if not _is_mock_auth_enabled():
+        return None
+    return _get_mock_users().get(str(user_id))
+
+
+def _authenticate_mock_user(identifier, password, role=None):
+    if not _is_mock_auth_enabled() or password != DEV_SHARED_TEST_PASSWORD:
+        return None
+
+    normalized_identifier = str(identifier or "").strip()
+    requested_role = normalize_role(role) if role else None
+
+    for user in _get_mock_users().values():
+        if requested_role and normalize_role(user["Role"]) != requested_role:
+            continue
+
+        resolved_identifier = resolve_login_identifier(normalized_identifier, user["Role"])
+        legacy_identifier = build_legacy_temporary_access_email(resolved_identifier)
+        candidate_identifiers = {
+            normalized_identifier.lower(),
+            str(resolved_identifier or "").lower(),
+        }
+        if legacy_identifier:
+            candidate_identifiers.add(legacy_identifier.lower())
+
+        if str(user["Email"]).lower() in candidate_identifiers:
+            return user
+
+        user_access_code = extract_temporary_access_code(
+            user.get("Email"),
+            user.get("FirstName"),
+            user.get("LastName"),
+        )
+        if user_access_code and normalize_temporary_access_code(normalized_identifier) == user_access_code:
+            return user
+
+    return None
+
+
+def _build_current_user(user_data):
+    return {
+        'id': str(user_data.get('ID')),
+        'role': normalize_role(user_data.get('Role')),
+        '_role_display': user_data.get('Role'),
+        'email': build_public_user_payload(user_data).get('email', ''),
+        'name': get_public_user_name(user_data),
+        'accessCode': extract_temporary_access_code(
+            user_data.get('Email'),
+            user_data.get('FirstName'),
+            user_data.get('LastName'),
+        ),
+        'patientCode': extract_temporary_access_code(
+            user_data.get('Email'),
+            user_data.get('FirstName'),
+            user_data.get('LastName'),
+        ),
+    }
+
+
+def _issue_auth_token(user_data, mock_auth=False):
+    return PyJWT.encode(
+        {
+            "user_id": str(user_data["ID"]),
+            "role": user_data["Role"],
+            "mock_auth": bool(mock_auth),
+            "exp": datetime.now(timezone.utc) + timedelta(days=1),
+        },
+        app.config["SECRET_KEY"],
+        algorithm="HS256",
+    )
 
 
 def validate_signup_password(password):
@@ -214,28 +320,15 @@ def token_required(f):
 
         try:
             data = PyJWT.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
-            user_data = get_user_by_id(str(data['user_id']))
+            if data.get("mock_auth"):
+                user_data = _get_mock_user_by_id(str(data['user_id']))
+            else:
+                user_data = get_user_by_id(str(data['user_id']))
             
             if not user_data:
                 return jsonify({'error': 'Invalid token'}), 401
 
-            current_user = {
-                'id': str(user_data.get('ID')),
-                'role': normalize_role(user_data.get('Role')),
-                '_role_display': user_data.get('Role'),
-                'email': build_public_user_payload(user_data).get('email', ''),
-                'name': get_public_user_name(user_data),
-                'accessCode': extract_temporary_access_code(
-                    user_data.get('Email'),
-                    user_data.get('FirstName'),
-                    user_data.get('LastName'),
-                ),
-                'patientCode': extract_temporary_access_code(
-                    user_data.get('Email'),
-                    user_data.get('FirstName'),
-                    user_data.get('LastName'),
-                ),
-            }
+            current_user = _build_current_user(user_data)
 
         except Exception as e:
             return jsonify({'error': 'Invalid token'}), 401
@@ -258,6 +351,14 @@ def login():
 
     if not identifier or not password:
         return jsonify({"error": "Missing identifier or password"}), 400
+
+    mock_user = _authenticate_mock_user(identifier, password, role)
+    if mock_user:
+        token = _issue_auth_token(mock_user, mock_auth=True)
+        return jsonify({
+            "token": token,
+            "user": build_public_user_payload(mock_user),
+        }), 200
 
     if not is_db_enabled():
         return jsonify({"error": "Database not configured"}), 500
@@ -292,15 +393,7 @@ def login():
     if not user:
         return jsonify({"error": "Invalid credentials"}), 401
 
-    token = PyJWT.encode(
-        {
-            "user_id": str(user["ID"]),
-            "role": user["Role"],
-            "exp": datetime.now(timezone.utc) + timedelta(days=1),
-        },
-        app.config["SECRET_KEY"],
-        algorithm="HS256",
-    )
+    token = _issue_auth_token(user)
 
     return jsonify({
         "token": token,

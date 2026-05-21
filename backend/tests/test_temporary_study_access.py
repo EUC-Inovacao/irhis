@@ -2,6 +2,7 @@ import sys
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+import os
 
 import jwt as PyJWT
 
@@ -193,6 +194,38 @@ class TemporaryStudyAccessTests(unittest.TestCase):
         self.assertEqual(payload["name"], "Patient IRHIS-000002")
         self.assertNotIn("email", payload)
         create_manual_patient.assert_called_once()
+
+    def test_mock_dev_login_works_without_database(self):
+        with patch.dict(os.environ, {"DEV_AUTH_MODE": "mock"}, clear=False):
+            response = self.client.post(
+                "/login",
+                json={"identifier": "IRHIS-D-900001", "password": "DevPass123"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["user"]["accessCode"], "IRHIS-D-900001")
+        self.assertEqual(payload["user"]["role"], "Doctor")
+        self.assertEqual(payload["user"]["email"], "")
+
+    def test_mock_dev_me_works_without_database(self):
+        with patch.dict(os.environ, {"DEV_AUTH_MODE": "mock"}, clear=False):
+            login_response = self.client.post(
+                "/login",
+                json={"identifier": "IRHIS-900001", "password": "DevPass123"},
+            )
+
+            token = login_response.get_json()["token"]
+            me_response = self.client.get(
+                "/me",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+        self.assertEqual(me_response.status_code, 200)
+        payload = me_response.get_json()
+        self.assertEqual(payload["patientCode"], "IRHIS-900001")
+        self.assertEqual(payload["role"], "Patient")
+        self.assertEqual(payload["email"], "")
 
 
 if __name__ == "__main__":
