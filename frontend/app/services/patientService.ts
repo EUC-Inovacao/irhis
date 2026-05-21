@@ -76,22 +76,6 @@ function normalizeBirthDate(
 }
 
 function toPatientDetails(details: unknown): PatientDetails {
-  fetch(
-    "http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "patientService.ts:27",
-        message: "toPatientDetails input",
-        data: { details },
-        timestamp: Date.now(),
-        runId: "run1",
-        hypothesisId: "C",
-      }),
-    }
-  ).catch(() => {});
-
   const d = (details ?? {}) as Partial<PatientDetails & { birthDate?: string }>;
 
   const parseNumber = (value: unknown): number => {
@@ -122,42 +106,10 @@ function toPatientDetails(details: unknown): PatientDetails {
     medicalHistory: (d as any).medicalHistory,
   };
 
-  fetch(
-    "http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "patientService.ts:42",
-        message: "toPatientDetails output",
-        data: { result },
-        timestamp: Date.now(),
-        runId: "run1",
-        hypothesisId: "C",
-      }),
-    }
-  ).catch(() => {});
-
   return result;
 }
 
 function toPatient(raw: any): Patient {
-  fetch(
-    "http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "patientService.ts:40",
-        message: "toPatient input",
-        data: { raw },
-        timestamp: Date.now(),
-        runId: "run1",
-        hypothesisId: "D",
-      }),
-    }
-  ).catch(() => {});
-
   const result = {
     id: String(raw?.id ?? raw?.ID ?? ""),
     name: String(raw?.name ?? raw?.Name ?? ""),
@@ -175,101 +127,17 @@ function toPatient(raw: any): Patient {
       : [],
   };
 
-  fetch(
-    "http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "patientService.ts:49",
-        message: "toPatient output",
-        data: { result },
-        timestamp: Date.now(),
-        runId: "run1",
-        hypothesisId: "D",
-      }),
-    }
-  ).catch(() => {});
-
   return result;
 }
 
 export async function getPatientById(patientId: string): Promise<Patient | null> {
-  fetch(
-    "http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "patientService.ts:51",
-        message: "getPatientById called",
-        data: { patientId },
-        timestamp: Date.now(),
-        runId: "run1",
-        hypothesisId: "E",
-      }),
-    }
-  ).catch(() => {});
-
   try {
     const res = await api.get<any>(`/patients/${patientId}`);
 
-    fetch(
-      "http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          location: "patientService.ts:54",
-          message: "getPatientById API response",
-          data: { status: res.status, data: res.data },
-          timestamp: Date.now(),
-          runId: "run1",
-          hypothesisId: "E",
-        }),
-      }
-    ).catch(() => {});
-
     const mapped = toPatient(res.data);
-
-    fetch(
-      "http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          location: "patientService.ts:57",
-          message: "getPatientById mapped result",
-          data: { mapped },
-          timestamp: Date.now(),
-          runId: "run1",
-          hypothesisId: "E",
-        }),
-      }
-    ).catch(() => {});
 
     return mapped;
   } catch (error: any) {
-    fetch(
-      "http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          location: "patientService.ts:60",
-          message: "getPatientById error",
-          data: {
-            error: error?.message,
-            status: error?.response?.status,
-            data: error?.response?.data,
-          },
-          timestamp: Date.now(),
-          runId: "run1",
-          hypothesisId: "E",
-        }),
-      }
-    ).catch(() => {});
-
     return null;
   }
 }

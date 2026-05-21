@@ -77,21 +77,12 @@ export async function getDoctorsMePatients(params?: {
   nif?: string;
   sort?: string;
 }): Promise<DoctorsMePatientsResponse> {
-  // #region agent log
-  fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'doctorService.ts:78',message:'getDoctorsMePatients called',data:{params},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
   try {
     const response = await api.get<DoctorsMePatientsResponse>("/doctors/me/patients", {
       params,
     });
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'doctorService.ts:82',message:'getDoctorsMePatients response received',data:{status:response.status,itemsCount:response.data?.items?.length,confirmedCount:response.data?.confirmed?.length,hasItems:!!response.data?.items,responseData:response.data},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     return response.data;
   } catch (error: any) {
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'doctorService.ts:87',message:'getDoctorsMePatients error',data:{errorMessage:error?.message,errorStatus:error?.response?.status,errorData:error?.response?.data,isAxiosError:!!error?.isAxiosError},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     throw error;
   }
 }
@@ -153,7 +144,9 @@ export async function getDoctorsMeLatestFeedback(
     })
   );
 
-  return results.filter((x): x is LatestFeedbackItem => x !== null);
+  return results.filter(
+    (x): x is NonNullable<typeof x> => x !== null
+  );
 }
 
 export async function getDoctorsMeMetricsSummary(): Promise<MetricsSummaryItem[]> {

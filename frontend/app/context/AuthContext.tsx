@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { User } from "../types";
 import * as RemoteAuth from "../services/auth";
+import { setApiAuthToken } from "../services/api";
 
 type AuthRole = "patient" | "doctor";
 
@@ -16,9 +16,6 @@ interface AuthContextData {
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 
-const STORAGE_USER_KEY = "@IRHIS:user";
-const STORAGE_TOKEN_KEY = "@IRHIS:token";
-
 function normalizeUser(user: User): User {
   return {
     ...user,
@@ -32,23 +29,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const restore = async () => {
-      try {
-        const [storedUser, storedToken] = await Promise.all([
-          AsyncStorage.getItem(STORAGE_USER_KEY),
-          AsyncStorage.getItem(STORAGE_TOKEN_KEY),
-        ]);
-
-        if (storedUser && storedToken) {
-          setUser(normalizeUser(JSON.parse(storedUser) as User));
-          setToken(storedToken);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    restore();
+    setLoading(false);
   }, []);
 
   async function login(email: string, password: string, role?: AuthRole) {
@@ -59,11 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setUser(normalizedUser);
       setToken(newToken);
-
-      await Promise.all([
-        AsyncStorage.setItem(STORAGE_USER_KEY, JSON.stringify(normalizedUser)),
-        AsyncStorage.setItem(STORAGE_TOKEN_KEY, newToken),
-      ]);
+      setApiAuthToken(newToken);
     } catch (error) {
       setLoading(false);
       throw error; // Re-throw so caller can handle it
@@ -80,11 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setUser(normalizedUser);
       setToken(newToken);
-
-      await Promise.all([
-        AsyncStorage.setItem(STORAGE_USER_KEY, JSON.stringify(normalizedUser)),
-        AsyncStorage.setItem(STORAGE_TOKEN_KEY, newToken),
-      ]);
+      setApiAuthToken(newToken);
       return normalizedUser;
     } catch (error) {
       setLoading(false);
@@ -99,10 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setUser(null);
       setToken(null);
-      await Promise.all([
-        AsyncStorage.removeItem(STORAGE_USER_KEY),
-        AsyncStorage.removeItem(STORAGE_TOKEN_KEY),
-      ]);
+      setApiAuthToken(null);
     } finally {
       setLoading(false);
     }

@@ -8,35 +8,9 @@ import { PatientProvider } from "./app/context/PatientContext";
 import { HealthProvider } from "./app/context/HealthContext";
 import { HealthGoalsProvider } from "./app/context/HealthGoalsContext";
 import healthService from "./app/services/healthService";
-import { runMigrations } from "./app/storage/db";
-import { seedPresetUsers } from "./app/storage/seed";
-import { seedExerciseTypes } from "./app/storage/exerciseSeed";
-// import { clearAllSessionData } from "./app/storage/cleanupMockData"; // Removed - was clearing all data on every startup
 
 export default function App() {
   useEffect(() => {
-    const initialize = async () => {
-      try {
-        console.log("Starting app initialization...");
-        await runMigrations();
-        console.log("Migrations completed");
-        
-        // NOTE: clearAllSessionData() was removed - it was deleting ALL data on every app start
-        // If you need to clear mock data, do it manually or use a one-time flag
-        // await clearAllSessionData(); // REMOVED - was deleting real user data!
-        
-        await seedPresetUsers();
-        console.log("Users seeded (no mock data generated)");
-        await seedExerciseTypes();
-        console.log("Exercise types seeded");
-        console.log("App initialization completed successfully");
-      } catch (e) {
-        console.error("DB initialization failed", e);
-        // Don't throw - allow app to continue even if initialization fails
-      }
-    };
-    initialize();
-    
     return () => {
       try {
         healthService.cleanup();

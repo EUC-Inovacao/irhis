@@ -280,9 +280,6 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
     );
     const fetchTask = (async () => {
       if (user.role?.toLowerCase() === "doctor") {
-        // #region agent log
-        fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatientContext.tsx:234',message:'fetchPatients doctor branch - calling getDoctorsMePatients',data:{userId:user.id},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
         const patientsRes = await getDoctorsMePatients();
         const kpisRes = computeDashboardKpis(patientsRes);
         const [metricsRes, activityRes, trendsRes] = await Promise.all([
@@ -291,9 +288,6 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
           getDoctorsMeTrends().catch(() => null),
         ]);
         const feedbackRes: LatestFeedbackItem[] = [];
-        // #region agent log
-        fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatientContext.tsx:249',message:'fetchPatients doctor branch - received patientsRes',data:{itemsCount:patientsRes?.items?.length,confirmedCount:patientsRes?.confirmed?.length,hasItems:!!patientsRes?.items,patientsRes},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
         setDoctorPatientsItems(patientsRes.items);
         setDashboardKpis(kpisRes);
         setLatestFeedback(Array.isArray(feedbackRes) ? feedbackRes : []);
@@ -303,9 +297,6 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
         const confirmed =
           patientsRes.confirmed ??
           patientsRes.items.filter((x: any) => x.type === "patient");
-        // #region agent log
-        fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatientContext.tsx:257',message:'fetchPatients doctor branch - confirmed patients',data:{confirmedCount:confirmed?.length,confirmed},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
 
         const patientsById: Record<string, Patient> = {};
         // Load full patient data for each confirmed patient in parallel
@@ -359,9 +350,6 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
           patientsById[result.id] = result.patient;
         }
         setPatients(patientsById);
-        // #region agent log
-        fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatientContext.tsx:299',message:'fetchPatients doctor branch - setPatients called',data:{patientsByIdCount:Object.keys(patientsById).length,patientsById},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
         await Promise.all(
           confirmed.map((c: any) => fetchPatientSessions(c.id).catch(() => undefined))
         );
@@ -400,9 +388,6 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
     try {
       await Promise.race([fetchTask, timeoutPromise]);
     } catch (error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatientContext.tsx:320',message:'fetchPatients error caught',data:{errorMessage:(error as Error)?.message,errorString:String(error),userRole:user?.role},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       console.error("Failed to fetch patients:", error);
       if (user?.role?.toLowerCase() === "doctor") {
         setDoctorDashboardError(

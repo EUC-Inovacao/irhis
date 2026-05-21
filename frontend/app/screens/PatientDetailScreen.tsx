@@ -134,13 +134,7 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
   };
 
   const handleAddAssignment = (name: string, dosage?: string) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatientDetailScreen.tsx:141',message:'handleAddAssignment called',data:{assignmentType, name, dosage, patientId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     if (assignmentType === "exercise") {
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatientDetailScreen.tsx:143',message:'Creating exercise in local state only',data:{name, patientId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       const newExercise: RecoveryProcess = {
         id: `rp${Date.now()}`,
         name,
@@ -148,9 +142,6 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
         assignedDate: new Date().toISOString(),
       };
       setExercises((current) => [...current, newExercise]);
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PatientDetailScreen.tsx:149',message:'Exercise added to local state - NOT saved to assignedExercises table',data:{exerciseId:newExercise.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
     } else if (assignmentType === "medication") {
       const newMedication: Medication = {
         id: `med${Date.now()}`,

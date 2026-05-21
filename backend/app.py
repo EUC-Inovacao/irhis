@@ -39,6 +39,7 @@ from db import (
     user_exists,
     create_user,
     create_temporary_user,
+    update_user_password,
     update_patient_details as db_update_patient_details,
     insert_feedback,
     get_feedback_by_patient,
@@ -50,9 +51,65 @@ from db import (
 )
 
 
+def _get_env_value(name):
+    value = (os.getenv(name) or "").strip()
+    return value or None
+
+
+def _is_production_environment():
+    return (os.getenv("FLASK_ENV") or "development").strip().lower() == "production"
+
+
+def _get_secret_key():
+    secret_key = _get_env_value("SECRET_KEY")
+    if secret_key:
+        return secret_key
+    if _is_production_environment():
+        raise RuntimeError("SECRET_KEY must be configured when FLASK_ENV=production")
+
+    print(
+        "WARNING: SECRET_KEY is not configured. Using a development-only fallback secret.",
+        flush=True,
+    )
+    return "development-only-insecure-secret-key"
+
+
+def _get_cors_origins():
+    configured_origins = _get_env_value("CORS_ALLOWED_ORIGINS")
+    if configured_origins:
+        return [origin.strip() for origin in configured_origins.split(",") if origin.strip()]
+
+    if _is_production_environment():
+        print(
+            "WARNING: CORS_ALLOWED_ORIGINS is not configured. Browser cross-origin access is disabled.",
+            flush=True,
+        )
+        return []
+
+    return [
+        "http://localhost:19006",
+        "http://127.0.0.1:19006",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:8081",
+        "http://127.0.0.1:8081",
+    ]
+
+
 app = Flask(__name__)
-CORS(app)
-app.config['SECRET_KEY'] = 'your-secret-key'  
+app.config["SECRET_KEY"] = _get_secret_key()
+CORS(app, resources={r"/*": {"origins": _get_cors_origins()}})
+
+
+def _log_server_error(context, exc):
+    app.logger.exception("%s: %s", context, exc)
+
+
+def _internal_error(message, exc, status_code=500):
+    _log_server_error(message, exc)
+    return jsonify({"error": message}), status_code
 
 hashed_password_doctor = generate_password_hash('password')
 
@@ -279,8 +336,7 @@ def signup():
                 if user_exists(email):
                     return jsonify({"error": "Email already registered"}), 409
             except Exception as e:
-                import traceback
-                return jsonify({"error": f"Error checking email: {str(e)}", "traceback": traceback.format_exc()}), 500
+                return _internal_error("Failed to validate signup request", e)
 
         # Parse name into first and last name
         name_parts = name.strip().split(maxsplit=1)
@@ -309,8 +365,7 @@ def signup():
                     # The patient record can be created later
                     print(f"Warning: Failed to create patient record: {e}")
         except Exception as e:
-            import traceback
-            return jsonify({"error": f"Failed to create user: {str(e)}", "traceback": traceback.format_exc()}), 500
+            return _internal_error("Failed to create user", e)
 
         # Generate token
         token = PyJWT.encode(
@@ -336,8 +391,7 @@ def signup():
             ),
         }), 201
     except Exception as e:
-        import traceback
-        return jsonify({"error": f"Unexpected error: {str(e)}", "traceback": traceback.format_exc()}), 500
+        return _internal_error("Unexpected server error", e)
 
 @app.route('/me', methods=['GET'])
 @token_required
@@ -378,7 +432,7 @@ def update_current_user_password(current_user):
         update_user_password(current_user['id'], hashed_password)
         return jsonify({"message": "Password updated successfully"}), 200
     except Exception as e:
-        return jsonify({"error": f"Failed to update password: {str(e)}"}), 500
+        return _internal_error("Failed to update password", e)
 
 @app.route('/patients/<patient_id>', methods=['GET'])
 @token_required
@@ -473,8 +527,7 @@ def get_patient(current_user, patient_id):
         }
         return jsonify(patient)
     except Exception as e:
-        import traceback
-        return jsonify({"error": f"Error building patient response: {str(e)}", "traceback": traceback.format_exc()}), 500
+        return _internal_error("Failed to load patient", e)
 
 @app.route('/doctors/<doctor_id>/patients', methods=['GET'])
 @token_required
@@ -665,8 +718,7 @@ def update_patient_details(current_user, patient_id):
         }
         return jsonify(patient)
     except Exception as e:
-        import traceback
-        return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
+        return _internal_error("Failed to update patient details", e)
 
 @app.route('/patients/<patient_id>/feedback', methods=['PUT'])
 @token_required
@@ -712,8 +764,7 @@ def update_patient_feedback(current_user, patient_id):
             "feedback": feedback_list,
         })
     except Exception as e:
-        import traceback
-        return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
+        return _internal_error("Failed to update patient feedback", e)
 
 @app.route('/doctors/me/metrics-summary', methods=['GET'])
 @token_required
@@ -926,7 +977,8 @@ def check_movement_api_health(current_user):
         else:
             return jsonify({"status": "error", "message": "External API not responding"}), 503
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 503
+        _log_server_error("Movement API health check failed", e)
+        return jsonify({"status": "error", "message": "Movement API is unavailable"}), 503
 
 @app.route('/movement/analyze', methods=['POST'])
 @token_required
@@ -998,14 +1050,13 @@ def analyze_movement_data(current_user):
             return jsonify({
                 "success": False,
                 "message": "External API analysis failed",
-                "error": response.text
             }), 502
             
     except Exception as e:
+        _log_server_error("Movement analysis failed", e)
         return jsonify({
             "success": False,
             "message": "Analysis failed",
-            "error": str(e)
         }), 500
 
 @app.route('/patients/<patient_id>/movement-analyses', methods=['GET'])
@@ -1045,10 +1096,10 @@ def test_movement_integration(current_user):
             }), 502
             
     except Exception as e:
+        _log_server_error("Movement integration test failed", e)
         return jsonify({
             "success": False,
             "message": "Integration test failed",
-            "error": str(e)
         }), 500
 
 @app.route('/patients/manual-registry', methods=['POST'])
@@ -1095,7 +1146,7 @@ def register_patient_manual(current_user):
             "feedback": [],
         }), 201
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Failed to register patient", e)
 
 @app.route('/patients/<patient_id>/sessions', methods=['POST'])
 @token_required
@@ -1144,7 +1195,7 @@ def assign_patients_sessions(current_user, patient_id):
         session = get_session_by_id(session_id)
         return jsonify(session or {"ID": session_id, "ExerciseType": exercise_type, "ExerciseDescription": exercise_description, "Repetitions": repetitions, "Duration": duration}), 201
     except Exception as e:
-        return jsonify({"error": f"Failed to assign session: {str(e)}"}), 500
+        return _internal_error("Failed to assign session", e)
 
 @app.route('/patients/<patient_id>/sessions', methods=['GET'])
 @token_required
@@ -1162,7 +1213,7 @@ def get_patients_sessions(current_user, patient_id):
         return jsonify(sessions), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Failed to load patient sessions", e)
     
 @app.route('/sessions/<session_id>', methods=['GET'])
 @token_required
@@ -1222,7 +1273,7 @@ def update_session(current_user, session_id):
         )
         return jsonify({"message": "Session updated successfully"}), 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Failed to update session", e)
 
 @app.route('/sessions/<session_id>', methods=['DELETE'])
 @token_required
@@ -1238,7 +1289,7 @@ def delete_session(current_user, session_id):
         delete_patient_session(session_id)
         return jsonify({"message": "Session deleted successfully"}), 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Failed to delete session", e)
 
 @app.route('/sessions/<session_id>/metrics', methods=['POST'])
 @token_required
@@ -1285,10 +1336,7 @@ def post_session_metrics(current_user, session_id):
         metric_id = insert_session_metrics(session_id, adapted)
         return jsonify({"message": "Metrics persisted", "id": metric_id}), 201
     except Exception as e:
-        import traceback
-        tb = traceback.format_exc()
-        print(f"[metrics] ERROR: {e}\n{tb}", flush=True)
-        return jsonify({"error": str(e), "traceback": tb}), 500
+        return _internal_error("Failed to persist session metrics", e)
 
 @app.route('/patients/<patient_id>/metrics', methods=['GET'])
 @token_required
@@ -1303,7 +1351,7 @@ def get_patient_metrics(current_user, patient_id):
         metrics = get_metrics_by_patient(patient_id, limit)
         return jsonify(metrics), 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Failed to load patient metrics", e)
 
 @app.route('/sessions/<session_id>/metrics', methods=['GET'])
 @token_required
@@ -1325,7 +1373,7 @@ def get_specific_session_metrics(current_user, session_id):
             
         return jsonify(metrics), 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return _internal_error("Failed to load session metrics", e)
 
 @app.route('/admin/fix-user-role', methods=['POST'])
 @token_required
@@ -1388,7 +1436,7 @@ def fix_user_role(current_user):
             "new_role": new_role
         }), 200
     except Exception as e:
-        return jsonify({"error": f"Failed to update role: {str(e)}"}), 500
+        return _internal_error("Failed to update user role", e)
 
 @app.route('/exercise-types', methods=['GET'])
 @token_required
@@ -1449,8 +1497,7 @@ def get_exercise_types(current_user):
         ]
         return jsonify(exercise_types)
     except Exception as e:
-        import traceback
-        return jsonify({"error": f"Error fetching exercise types: {str(e)}", "traceback": traceback.format_exc()}), 500
+        return _internal_error("Failed to load exercise types", e)
 
 @app.route('/patients/<patient_id>/exercises', methods=['GET'])
 @token_required
@@ -1489,8 +1536,7 @@ def get_patient_exercises(current_user, patient_id):
 
         return jsonify(assigned_exercises)
     except Exception as e:
-        import traceback
-        return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
+        return _internal_error("Failed to load assigned exercises", e)
 
 @app.route('/patients/<patient_id>/exercises', methods=['POST'])
 @token_required
@@ -1537,8 +1583,7 @@ def assign_patient_exercise(current_user, patient_id):
         
         return jsonify({"message": "Exercise assigned successfully"}), 201
     except Exception as e:
-        import traceback
-        return jsonify({"error": f"Error assigning exercise: {str(e)}", "traceback": traceback.format_exc()}), 500
+        return _internal_error("Failed to assign exercise", e)
 
 @app.route('/patients/<patient_id>/exercises/<exercise_id>', methods=['PUT'])
 @token_required
@@ -1610,8 +1655,7 @@ def update_patient_exercise(current_user, patient_id, exercise_id):
             }
         }), 200
     except Exception as e:
-        import traceback
-        return jsonify({"error": f"Error updating exercise: {str(e)}", "traceback": traceback.format_exc()}), 500
+        return _internal_error("Failed to update exercise", e)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))

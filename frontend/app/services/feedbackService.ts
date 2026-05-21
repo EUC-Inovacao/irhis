@@ -1,15 +1,50 @@
 import api from "./api";
-import type { FeedbackRecord } from "../storage/repositories";
+
+export interface PatientFeedback {
+  id?: string;
+  patientId?: string;
+  sessionId?: string;
+  timestamp: string;
+  pain: number;
+  fatigue: number;
+  difficulty: number;
+  comments?: string;
+}
+
+function normalizeFeedback(raw: any): PatientFeedback {
+  return {
+    id: raw?.id ? String(raw.id) : raw?.ID ? String(raw.ID) : undefined,
+    patientId: raw?.patientId ? String(raw.patientId) : raw?.PatientID ? String(raw.PatientID) : undefined,
+    sessionId: raw?.sessionId ? String(raw.sessionId) : raw?.SessionID ? String(raw.SessionID) : undefined,
+    timestamp: String(raw?.timestamp ?? raw?.FeedbackTime ?? raw?.TimeCreated ?? new Date().toISOString()),
+    pain: Number(raw?.pain ?? raw?.Pain ?? 0),
+    fatigue: Number(raw?.fatigue ?? raw?.Fatigue ?? 0),
+    difficulty: Number(raw?.difficulty ?? raw?.Difficulty ?? 0),
+    comments: typeof (raw?.comments ?? raw?.Comments) === "string" ? (raw.comments ?? raw.Comments) : undefined,
+  };
+}
 
 /**
  * Get feedback for a patient from backend.
  * Backend currently exposes feedback embedded in GET /patients/:id
  */
-export async function getPatientFeedback(patientId: string): Promise<FeedbackRecord[]> {
+export async function getPatientFeedback(patientId: string): Promise<PatientFeedback[]> {
   try {
-    const res = await api.get<{ feedback?: FeedbackRecord[] }>(`/patients/${patientId}`);
+    const res = await api.get<{ feedback?: unknown[] }>(`/patients/${patientId}`);
     const arr = res.data?.feedback;
-    return Array.isArray(arr) ? arr : [];
+    return Array.isArray(arr) ? arr.map(normalizeFeedback) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getStoredSessionFeedback(
+  patientId: string,
+  sessionId: string
+): Promise<PatientFeedback[]> {
+  try {
+    const allFeedback = await getPatientFeedback(patientId);
+    return allFeedback.filter((feedback) => feedback.sessionId === sessionId);
   } catch {
     return [];
   }
@@ -20,9 +55,9 @@ export async function getPatientFeedback(patientId: string): Promise<FeedbackRec
  */
 export async function createFeedback(
   patientId: string,
-  feedback: Omit<FeedbackRecord, "id" | "patientId">
+  feedback: Omit<PatientFeedback, "id" | "patientId">
 ): Promise<void> {
-  const feedbackRecord: FeedbackRecord = {
+  const feedbackRecord: PatientFeedback = {
     id: `feedback_${patientId}_${Date.now()}`,
     patientId,
     ...feedback,
@@ -30,17 +65,7 @@ export async function createFeedback(
 
   try {
     await api.put(`/patients/${patientId}/feedback`, { feedback: feedbackRecord });
-  } catch (e: any) {
-    const errData = e?.response?.data || {};
-    fetch('http://127.0.0.1:7244/ingest/3a24ed6e-2364-40cb-80fb-67e27d6c712f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'feedbackService.ts:createFeedback',message:'Feedback 500',data:{error:errData?.error,traceback:errData?.traceback?.slice?.(0,500),status:e?.response?.status},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-    throw e;
-  }
-
-  // Also save locally so SessionDetailScreen can display it
-  try {
-    const { FeedbackRepository } = await import("../storage/repositories");
-    await FeedbackRepository.create(feedbackRecord);
-  } catch {
-    // Ignore local save errors
+  } catch (error) {
+    throw error;
   }
 }
