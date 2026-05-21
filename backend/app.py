@@ -198,6 +198,11 @@ def _authenticate_mock_user(identifier, password, role=None):
     return None
 
 
+def _is_known_mock_identifier(identifier):
+    normalized_identifier = normalize_temporary_access_code(identifier)
+    return normalized_identifier in {DEV_TEST_DOCTOR_CODE, DEV_TEST_PATIENT_CODE}
+
+
 def _build_current_user(user_data):
     return {
         'id': str(user_data.get('ID')),
@@ -359,6 +364,9 @@ def login():
             "token": token,
             "user": build_public_user_payload(mock_user),
         }), 200
+
+    if _is_mock_auth_enabled() and _is_known_mock_identifier(identifier):
+        return jsonify({"error": "Invalid credentials"}), 401
 
     if not is_db_enabled():
         return jsonify({"error": "Database not configured"}), 500
