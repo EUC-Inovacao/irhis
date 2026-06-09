@@ -609,6 +609,23 @@ def get_patient(current_user, patient_id):
             return jsonify({"error": "Patient not found"}), 404
 
     try:
+        # Compute derived fields from patient_data
+        age = patient_data.get('Age') or 0
+        birth_date_val = patient_data.get('BirthDate')
+        if birth_date_val:
+            try:
+                from datetime import datetime as _dt
+                bd = _dt.strptime(str(birth_date_val), '%Y-%m-%d')
+                today = _dt.now()
+                age = today.year - bd.year - ((today.month, today.day) < (bd.month, bd.day))
+            except Exception:
+                pass
+        sex_map = {'male': 'Male', 'female': 'Female'}
+        sex_raw = patient_data.get('Sex') or ''
+        sex = sex_map.get(str(sex_raw).lower(), 'Other')
+        height_cm = patient_data.get('Height')
+        height = (height_cm / 100) if height_cm else 0
+
         feedback_rows = get_feedback_by_patient(patient_id, limit=50)
         feedback_list = [
             {
@@ -629,7 +646,7 @@ def get_patient(current_user, patient_id):
                 "age": age,
                 "birthDate": sanitize_birth_date_for_response(patient_data),
                 "sex": sex,
-                "height": height or 0,
+                "height": height,
                 "weight": patient_data.get('Weight') or 0,
                 "bmi": patient_data.get('BMI') or 0,
                 "clinicalInfo": patient_data.get('MedicalHistory') or 'No information provided.',
