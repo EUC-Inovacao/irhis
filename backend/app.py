@@ -408,7 +408,6 @@ def login():
         "user": build_public_user_payload(user),
     }), 200
 
-
 @app.route('/signup', methods=['POST'])
 def signup():
     try:
@@ -1774,6 +1773,54 @@ def update_patient_exercise(current_user, patient_id, exercise_id):
         }), 200
     except Exception as e:
         return _internal_error("Failed to update exercise", e)
+
+@app.route('/sessions/<session_id>/feedback', methods=['POST'])
+@token_required
+def post_session_feedback(current_user, session_id):
+
+    if current_user['role'].lower() != 'patient':
+        return jsonify({"error": "Only patients can submit feedback"}), 403
+
+    if not check_session_patient(session_id, current_user['id']):
+        return jsonify({"error": "Session not found or does not belong to this user"}), 404
+
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    required_fields = ['pain', 'fatigue', 'difficulty']
+    missing = [field for field in required_fields if data.get(field) is None]
+    if missing:
+        return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
+
+    try:
+        feedback_id = insert_patient_feedback(current_user['id'], session_id, data)
+        return jsonify({
+            "message": "Feedback submitted successfully", 
+            "id": feedback_id
+        }), 201
+    except Exception as e:
+        return jsonify({"error": "Internal server error while persisting feedback"}), 500
+
+
+@app.route('/patients/<patient_id>/feedback', methods=['GET'])
+@token_required
+def get_patient_feedback_history(current_user, patient_id):
+    try:
+
+        if current_user['role'].lower() == 'doctor':
+            doctor_id = current_user['id']
+            patient_id = session['PatientID'] 
+
+            relation = get_patient_doctor_relation(patient_id, doctor_id)
+        
+            if not relation:
+                return jsonify({"error": "Patient not associated with this doctor"}), 403
+        
+        feedbacks = get_feedback_by_patient(patient_id)
+        return jsonify(feedbacks), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
