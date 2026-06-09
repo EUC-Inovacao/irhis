@@ -6,8 +6,10 @@ import { useTheme } from '../../theme/ThemeContext';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList, User } from '../../types';
+import PasswordRequirementsCard from '../../components/PasswordRequirementsCard';
 import ProgressStepper from '../../components/ProgressStepper';
 import { completeSignup } from '../../services/inviteService';
+import { getPasswordValidationState } from '../../utils/passwordValidation';
 
 type NavProp = StackNavigationProp<RootStackParamList, 'OnboardingPassword'>;
 type RouteProps = RouteProp<RootStackParamList, 'OnboardingPassword'>;
@@ -25,22 +27,12 @@ const CreatePasswordOnboardingScreen = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-    const [hasMinLength, setHasMinLength] = useState(false);
-    const [hasUpperCase, setHasUpperCase] = useState(false);
-    const [hasNumber, setHasNumber] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-    useEffect(() => {
-        setHasMinLength(password.length >= 8);
-        setHasUpperCase(/[A-Z]/.test(password));
-        setHasNumber(/[0-9]/.test(password));
-    }, [password]);
-
-    const isValid = hasMinLength && hasUpperCase && hasNumber && (password === confirmPassword) && password.length > 0;
+    const validation = getPasswordValidationState(password, confirmPassword);
 
     const handleSubmit = async () => {
-        if (!isValid || isSubmitting) return;
+        if (!validation.isValid || isSubmitting) return;
         setErrorMessage(null);
         setIsSubmitting(true);
         try {
@@ -123,21 +115,7 @@ const CreatePasswordOnboardingScreen = () => {
                     </TouchableOpacity>
                 </View>
 
-                <View style={styles.requirementsBox}>
-                    <Text style={styles.reqTitle}>Password requirements:</Text>
-                    <View style={styles.reqItem}>
-                        <Ionicons name="checkmark" size={14} color={hasMinLength ? '#16A34A' : '#6B7280'} />
-                        <Text style={[styles.reqText, { color: hasMinLength ? '#16A34A' : '#6B7280' }]}>At least 8 characters</Text>
-                    </View>
-                    <View style={styles.reqItem}>
-                        <Ionicons name="checkmark" size={14} color={hasUpperCase ? '#16A34A' : '#6B7280'} />
-                        <Text style={[styles.reqText, { color: hasUpperCase ? '#16A34A' : '#6B7280' }]}>One uppercase letter</Text>
-                    </View>
-                    <View style={styles.reqItem}>
-                        <Ionicons name="checkmark" size={14} color={hasNumber ? '#16A34A' : '#6B7280'} />
-                        <Text style={[styles.reqText, { color: hasNumber ? '#16A34A' : '#6B7280' }]}>One number</Text>
-                    </View>
-                </View>
+                <PasswordRequirementsCard validation={validation} />
 
                 {errorMessage ? (
                     <View style={styles.errorBox}>
@@ -149,9 +127,9 @@ const CreatePasswordOnboardingScreen = () => {
 
             <View style={[styles.footer, { borderTopColor: colors.border }]}>
                 <TouchableOpacity 
-                    style={[styles.button, { backgroundColor: isValid && !isSubmitting ? '#0284C7' : '#93C5FD' }]}
+                    style={[styles.button, { backgroundColor: validation.isValid && !isSubmitting ? '#0284C7' : '#93C5FD' }]}
                     onPress={handleSubmit}
-                    disabled={!isValid || isSubmitting}
+                    disabled={!validation.isValid || isSubmitting}
                 >
                     <Text style={styles.buttonText}>{isSubmitting ? 'A concluir...' : 'Concluir registo'}</Text>
                 </TouchableOpacity>
@@ -182,10 +160,6 @@ const styles = StyleSheet.create({
     input: { flex: 1, fontSize: 16, height: '100%' },
     eyeIcon: { padding: 4 },
 
-    requirementsBox: { backgroundColor: '#BFDBFE', padding: 16, borderRadius: 8, marginTop: 8 },
-    reqTitle: { color: '#1E3A8A', marginBottom: 8, fontWeight: 'bold', fontSize: 14 },
-    reqItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-    reqText: { marginLeft: 8, fontSize: 13 },
     errorBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEE2E2', padding: 12, borderRadius: 8, marginTop: 16, gap: 8 },
     errorText: { color: '#DC2626', fontSize: 14, flex: 1 },
     footer: { padding: 24, borderTopWidth: 1 },

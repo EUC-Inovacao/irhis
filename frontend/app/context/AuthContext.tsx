@@ -1,85 +1,86 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import api from '@services/api';
-import * as RemoteAuth from '@services/auth';
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import type { User } from "../types";
+import * as RemoteAuth from "../services/auth";
+import { setApiAuthToken } from "../services/api";
 
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: 'patient' | 'doctor';
-  token?: string;
-}
+type AuthRole = "patient" | "doctor";
 
 interface AuthContextData {
   user: User | null;
+  token: string | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, role?: AuthRole) => Promise<void>;
+  signup: (name: string, email: string, password: string, role: AuthRole) => Promise<User>;
   logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 
-const STORAGE_TOKEN_KEY = '@IRHIS:token';
-const STORAGE_USER_KEY = '@IRHIS:user';
+function normalizeUser(user: User): User {
+  return {
+    ...user,
+    role: user.role?.toLowerCase() === "doctor" ? "doctor" : "patient",
+  };
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadStorageData();
+    setLoading(false);
   }, []);
 
-  async function loadStorageData() {
-    const storageUser = await AsyncStorage.getItem(STORAGE_USER_KEY);
-    const storageToken = await AsyncStorage.getItem(STORAGE_TOKEN_KEY);
+  async function login(email: string, password: string, role?: AuthRole) {
+    setLoading(true);
+    try {
+      const { token: newToken, user: newUser } = await RemoteAuth.login(email, password, role);
+      const normalizedUser = normalizeUser(newUser);
 
-    if (storageUser && storageToken) {
-      setUser(JSON.parse(storageUser));
-      api.defaults.headers.common.Authorization = `Bearer ${storageToken}`;
+      setUser(normalizedUser);
+      setToken(newToken);
+      setApiAuthToken(newToken);
+    } catch (error) {
+      setLoading(false);
+      throw error; // Re-throw so caller can handle it
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
-  async function login(email: string, password: string) {
+  async function signup(name: string, email: string, password: string, role: AuthRole) {
     setLoading(true);
+    try {
+      const { token: newToken, user: newUser } = await RemoteAuth.signup(name, email, password, role);
+      const normalizedUser = normalizeUser(newUser);
 
-    const detectedRole: 'doctor' | 'patient' =
-      email.toLowerCase().startsWith('doc') ? 'doctor' : 'patient';
-
-    const { token, user: loggedUser } = await RemoteAuth.login(email, password, detectedRole);
-
-    const userToStore: User = { ...loggedUser, token };
-
-    setUser(userToStore);
-
-    api.defaults.headers.common.Authorization = `Bearer ${token}`;
-
-    await AsyncStorage.setItem(STORAGE_USER_KEY, JSON.stringify(userToStore));
-    await AsyncStorage.setItem(STORAGE_TOKEN_KEY, token);
-
-    setLoading(false);
+      setUser(normalizedUser);
+      setToken(newToken);
+      setApiAuthToken(newToken);
+      return normalizedUser;
+    } catch (error) {
+      setLoading(false);
+      throw error; // Re-throw so caller can handle it
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function logout() {
-    setUser(null);
-    await AsyncStorage.multiRemove([STORAGE_USER_KEY, STORAGE_TOKEN_KEY]);
-    delete api.defaults.headers.common.Authorization;
+    setLoading(true);
+    try {
+      setUser(null);
+      setToken(null);
+      setApiAuthToken(null);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const value = useMemo(() => ({ user, token, loading, login, signup, logout }), [user, token, loading]);
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+export const useAuth = () => useContext(AuthContext);

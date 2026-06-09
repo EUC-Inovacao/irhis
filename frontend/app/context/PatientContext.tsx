@@ -5,26 +5,19 @@ import React, {
   ReactNode,
   useCallback,
   useEffect,
+  useRef,
 } from "react";
 import type { Patient, Session } from "../types";
-import {
-  getOrCreateLocalPatient,
-  assignLocalPatientToDoctor,
-  listLocalPatientsForDoctor,
-} from "@services/localPatientService";
-import {
-  getAssignedExercises,
-  AssignedExerciseWithDetails,
-} from "@services/exerciseAssignmentService";
+
 import {
   getPatientSessions,
   createSession as createSessionApi,
   CreateSessionDto,
 } from "@services/sessionService";
+
 import {
   getDoctorsMePatients,
-  getDoctorsMeDashboard,
-  getDoctorsMeLatestFeedback,
+  computeDashboardKpis,
   getDoctorsMeMetricsSummary,
   getDoctorsMeRecentActivity,
   getDoctorsMeTrends,
@@ -35,13 +28,30 @@ import {
   type RecentActivityItem,
   type TrendsData,
 } from "@services/doctorService";
-import { assignPatientToDoctor } from "@services/patientService";
+
+import { assignPatientToDoctor, getPatientById } from "@services/patientService";
 import { useAuth } from "./AuthContext";
 
-/** Session-based exercise shape compatible with AssignedExerciseWithDetails for list/card display */
-export type SessionAsExercise = AssignedExerciseWithDetails & {
+export type SessionAsExercise = {
+  id: string;
+  patientId: string;
+  exerciseTypeId: string;
+  assignedDate?: string;
+  completed: 0 | 1;
+  targetReps: number | null;
+  targetSets: number | null;
+
   sessionId?: string;
   timeCreated?: string;
+
+  exerciseType?: {
+    id: string;
+    name: string;
+    category?: string;
+    targetReps?: number | null;
+    targetSets?: number | null;
+    description?: string | null;
+  };
 };
 
 export interface SessionsByPatient {
@@ -68,39 +78,66 @@ interface PatientContextData {
   trends: TrendsData | null;
   /** Doctor dashboard load error */
   doctorDashboardError: string | null;
+  /** Patient dashboard load error */
+  patientDashboardError: string | null;
   fetchPatients: () => Promise<void>;
   fetchMetricsSummary: () => Promise<void>;
   fetchRecentActivity: () => Promise<void>;
   fetchTrends: () => Promise<void>;
-  fetchAssignedExercises: (patientId: string) => Promise<void>;
+
   fetchPatientSessions: (patientId: string) => Promise<void>;
+  fetchAssignedExercises: (patientId: string) => Promise<void>;
   createSession: (patientId: string, dto: CreateSessionDto) => Promise<Session>;
+
   assignPatient: (patientId: string) => Promise<void>;
-  updatePatient: (
-    patientId: string,
-    updates: Partial<Patient>
-  ) => Promise<void>;
+  updatePatient: (patientId: string, updates: Partial<Patient>) => Promise<void>;
 }
 
-function sessionToExercise(s: Session, completed: boolean): SessionAsExercise {
+function sessionToExercise(session: Session, completed: boolean): SessionAsExercise {
+  const exerciseTypeId =
+    (session as any).exerciseTypeId ??
+    (session as any).exercise_id ??
+    (session as any).exerciseType ??
+    session.id;
+
+  // exerciseDescription holds the user-friendly name from backend; exerciseType is often the ID
+  const desc = (session as any).exerciseDescription ?? (session as any).exerciseTypeName ?? "";
+  const exerciseTypeName = desc && !desc.startsWith("ex_") ? desc : "Exercise";
+
+  const createdAt =
+    (session as any).timeCreated ??
+    (session as any).created_at ??
+    (session as any).startTime ??
+    undefined;
+
+  const repetitions =
+    (session as any).repetitions ??
+    (session as any).target_reps ??
+    null;
+
+  const sets =
+    (session as any).targetSets ??
+    (session as any).target_sets ??
+    null;
+
   return {
-    id: s.id,
-    patientId: "",
-    exerciseTypeId: s.exerciseType || s.id,
-    assignedDate: s.timeCreated,
+    id: session.id,
+    patientId: (session as any).patientId ?? "",
+    exerciseTypeId: String(exerciseTypeId),
+    assignedDate: createdAt,
     completed: completed ? 1 : 0,
-    targetReps: s.repetitions ?? null,
-    targetSets: 3,
-    sessionId: s.id,
-    timeCreated: s.timeCreated,
+    targetReps: repetitions,
+    targetSets: sets ?? 3,
+    sessionId: session.id,
+    timeCreated: createdAt,
     exerciseType: {
-      id: s.id,
-      name: s.exerciseType || "Exercise",
+      id: String(exerciseTypeId),
+      name: String(exerciseTypeName),
       category: "general",
-      targetReps: s.repetitions ?? 10,
-      targetSets: 3,
+      targetReps: repetitions ?? 10,
+      targetSets: sets ?? 3,
     },
-  } as SessionAsExercise;
+  };
 }
 
 export const PatientContext = createContext<PatientContextData>({
@@ -115,15 +152,18 @@ export const PatientContext = createContext<PatientContextData>({
   recentActivity: [],
   trends: null,
   doctorDashboardError: null,
+  patientDashboardError: null,
   fetchPatients: async () => {},
-  fetchAssignedExercises: async () => {},
-  fetchPatientSessions: async () => {},
-  createSession: async () => ({} as Session),
-  assignPatient: async () => {},
-  updatePatient: async () => {},
   fetchMetricsSummary: async () => {},
   fetchRecentActivity: async () => {},
   fetchTrends: async () => {},
+
+  fetchPatientSessions: async () => {},
+  fetchAssignedExercises: async () => {},
+  createSession: async () => ({} as Session),
+
+  assignPatient: async () => {},
+  updatePatient: async () => {},
 });
 
 export const PatientProvider: React.FC<{ children: ReactNode }> = ({
@@ -157,21 +197,57 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
   const [doctorDashboardError, setDoctorDashboardError] = useState<string | null>(
     null
   );
+  const [patientDashboardError, setPatientDashboardError] = useState<string | null>(
+    null
+  );
+  const fetchPatientsInProgress = useRef(false);
+  const fetchSessionsInFlight = useRef<Set<string>>(new Set());
 
   const fetchPatientSessions = useCallback(async (patientId: string) => {
+    if (fetchSessionsInFlight.current.has(patientId)) return;
+    fetchSessionsInFlight.current.add(patientId);
     try {
       const { assigned, completed } = await getPatientSessions(patientId);
       setSessionsByPatient((prev) => ({
         ...prev,
         [patientId]: { assigned, completed },
       }));
-      const all: SessionAsExercise[] = [
-        ...assigned.map((s) => sessionToExercise(s, false)),
-        ...completed.map((s) => sessionToExercise(s, true)),
-      ];
+
+      // Group sessions by exercise (avoid duplicates when doing multiple sets)
+      const byExercise = new Map<string, { assigned: Session[]; completed: Session[] }>();
+      const key = (s: Session) =>
+        String((s as any).exerciseTypeId ?? (s as any).exerciseType ?? s.exerciseDescription ?? s.exerciseType ?? s.id);
+      for (const s of assigned) {
+        const k = key(s);
+        if (!byExercise.has(k)) byExercise.set(k, { assigned: [], completed: [] });
+        byExercise.get(k)!.assigned.push(s);
+      }
+      for (const s of completed) {
+        const k = key(s);
+        if (!byExercise.has(k)) byExercise.set(k, { assigned: [], completed: [] });
+        byExercise.get(k)!.completed.push(s);
+      }
+
+      const allExercises: SessionAsExercise[] = [];
+      for (const [k, { assigned: a, completed: c }] of byExercise) {
+        const completedCount = c.length;
+        const byTime = (x: Session, y: Session) =>
+          new Date((y as any).timeCreated ?? y.timeCreated ?? 0).getTime() -
+          new Date((x as any).timeCreated ?? x.timeCreated ?? 0).getTime();
+        const latestCompleted = [...c].sort(byTime)[0];
+        const latestAssigned = [...a].sort(byTime)[0];
+        const latestSession = latestCompleted ?? latestAssigned;
+        if (!latestSession) continue;
+        const targetSets = (latestSession as any).targetSets ?? (latestSession as any).target_sets ?? 3;
+        const ex = sessionToExercise(latestSession, completedCount > 0);
+        ex.id = k;
+        ex.completed = completedCount > 0 ? 1 : 0;
+        ex.targetSets = targetSets;
+        allExercises.push(ex);
+      }
       setAssignedExercises((prev) => ({
         ...prev,
-        [patientId]: all,
+        [patientId]: allExercises,
       }));
     } catch (error) {
       console.error(
@@ -183,25 +259,35 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
         [patientId]: { assigned: [], completed: [] },
       }));
       setAssignedExercises((prev) => ({ ...prev, [patientId]: [] }));
+    } finally {
+      fetchSessionsInFlight.current.delete(patientId);
     }
   }, []);
 
   const fetchPatients = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    if (fetchPatientsInProgress.current) return;
+    fetchPatientsInProgress.current = true;
     setLoading(true);
     setDoctorDashboardError(null);
-    try {
-      if (user.role === "doctor") {
-        const [patientsRes, kpisRes, feedbackRes, metricsRes, activityRes, trendsRes] = await Promise.all([
-          getDoctorsMePatients().catch((e) => {
-            throw e;
-          }),
-          getDoctorsMeDashboard().catch(() => null),
-          getDoctorsMeLatestFeedback().catch(() => []),
+    setPatientDashboardError(null);
+    const timeoutMs = 25000;
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Request timed out")), timeoutMs)
+    );
+    const fetchTask = (async () => {
+      if (user.role?.toLowerCase() === "doctor") {
+        const patientsRes = await getDoctorsMePatients();
+        const kpisRes = computeDashboardKpis(patientsRes);
+        const [metricsRes, activityRes, trendsRes] = await Promise.all([
           getDoctorsMeMetricsSummary().catch(() => []),
           getDoctorsMeRecentActivity().catch(() => []),
           getDoctorsMeTrends().catch(() => null),
         ]);
+        const feedbackRes: LatestFeedbackItem[] = [];
         setDoctorPatientsItems(patientsRes.items);
         setDashboardKpis(kpisRes);
         setLatestFeedback(Array.isArray(feedbackRes) ? feedbackRes : []);
@@ -210,67 +296,100 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
         setTrends(trendsRes);
         const confirmed =
           patientsRes.confirmed ??
-          patientsRes.items.filter((x) => x.type === "patient");
+          patientsRes.items.filter((x: any) => x.type === "patient");
+
         const patientsById: Record<string, Patient> = {};
-        for (const c of confirmed) {
-          patientsById[c.id] = {
-            id: c.id,
-            name: c.name,
-            details: undefined,
+        // Load full patient data for each confirmed patient in parallel
+        const patientPromises = confirmed.map(async (c: any) => {
+          try {
+            const fullPatient = await getPatientById(c.id);
+            if (fullPatient) {
+              return { id: c.id, patient: fullPatient };
+            } else {
+              // Fallback if patient not found
+              return {
+                id: c.id,
+                patient: {
+                  id: c.id,
+                  name: c.name,
+                  details: {
+                    age: 0,
+                    sex: 'Other' as const,
+                    height: 0,
+                    weight: 0,
+                    bmi: 0,
+                    clinicalInfo: '',
+                  },
+                  recovery_process: [],
+                },
+              };
+            }
+          } catch (err) {
+            console.error(`Failed to load patient ${c.id}:`, err);
+            return {
+              id: c.id,
+              patient: {
+                id: c.id,
+                name: c.name,
+                details: {
+                  age: 0,
+                  sex: 'Other' as const,
+                  height: 0,
+                  weight: 0,
+                  bmi: 0,
+                  clinicalInfo: '',
+                },
+                recovery_process: [],
+              },
+            };
+          }
+        });
+        
+        const patientResults = await Promise.all(patientPromises);
+        for (const result of patientResults) {
+          patientsById[result.id] = result.patient;
+        }
+        setPatients(patientsById);
+        await Promise.all(
+          confirmed.map((c: any) => fetchPatientSessions(c.id).catch(() => undefined))
+        );
+      } else {
+        let fullPatient = await getPatientById(user.id);
+
+        if (!fullPatient) {
+          // Fallback: build minimal patient from authenticated user (backend may not have record yet)
+          fullPatient = {
+            id: user.id,
+            name: user.name ?? "Patient",
+            details: {
+              age: 0,
+              sex: "Other" as const,
+              height: 0,
+              weight: 0,
+              bmi: 0,
+              clinicalInfo: "No information provided.",
+            },
             recovery_process: [],
           };
         }
-        setPatients(patientsById);
-        for (const c of confirmed) {
-          try {
-            await fetchPatientSessions(c.id);
-          } catch {
-            setAssignedExercises((prev) => ({ ...prev, [c.id]: [] }));
-            setSessionsByPatient((prev) => ({
-              ...prev,
-              [c.id]: { assigned: [], completed: [] },
-            }));
-          }
-        }
-      } else {
-        const local = await getOrCreateLocalPatient(
-          user.id,
-          user.name || "Patient"
-        );
-        const patientsById = { [local.id]: local };
-        setPatients(patientsById);
+
+        setPatients({ [fullPatient.id]: fullPatient });
+        await fetchPatientSessions(fullPatient.id);
+        setPatientDashboardError(null);
+
         setDoctorPatientsItems([]);
         setDashboardKpis(null);
         setLatestFeedback([]);
         setMetricsSummary([]);
         setRecentActivity([]);
         setTrends(null);
-        try {
-          await fetchPatientSessions(local.id);
-        } catch {
-          try {
-            const exercises = await getAssignedExercises(local.id);
-            setAssignedExercises((prev) => ({
-              ...prev,
-              [local.id]: exercises as SessionAsExercise[],
-            }));
-            setSessionsByPatient((prev) => ({
-              ...prev,
-              [local.id]: { assigned: [], completed: [] },
-            }));
-          } catch (err) {
-            console.error("Failed to fetch exercises for patient:", err);
-            setAssignedExercises((prev) => ({ ...prev, [local.id]: [] }));
-            setSessionsByPatient((prev) => ({
-              ...prev,
-              [local.id]: { assigned: [], completed: [] },
-            }));
-          }
-        }
       }
+    })();
+    try {
+      await Promise.race([fetchTask, timeoutPromise]);
     } catch (error) {
       console.error("Failed to fetch patients:", error);
-      if (user?.role === "doctor") {
+      if (user?.role?.toLowerCase() === "doctor") {
         setDoctorDashboardError(
           (error as Error)?.message || "Failed to load dashboard"
         );
@@ -280,33 +399,17 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
         setMetricsSummary([]);
         setRecentActivity([]);
         setTrends(null);
+      } else {
+        setPatientDashboardError(
+          (error as Error)?.message || "Failed to load dashboard"
+        );
+        setPatients({});
       }
     } finally {
       setLoading(false);
+      fetchPatientsInProgress.current = false;
     }
   }, [user, fetchPatientSessions]);
-
-  const fetchAssignedExercises = useCallback(
-    async (patientId: string) => {
-      try {
-        await fetchPatientSessions(patientId);
-      } catch {
-        try {
-          const exercises = await getAssignedExercises(patientId);
-          setAssignedExercises((prev) => ({
-            ...prev,
-            [patientId]: exercises as SessionAsExercise[],
-          }));
-        } catch (error) {
-          console.error(
-            `Failed to fetch exercises for patient ${patientId}:`,
-            error
-          );
-        }
-      }
-    },
-    [fetchPatientSessions]
-  );
 
   const createSession = useCallback(
     async (patientId: string, dto: CreateSessionDto): Promise<Session> => {
@@ -318,42 +421,44 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
   );
 
   useEffect(() => {
-    if (user) {
-      fetchPatients();
-    }
+    if (user) fetchPatients();
   }, [user, fetchPatients]);
 
-  const assignPatient = async (patientId: string) => {
-    try {
-      // Local assign; backend POST assign-doctor returns 410 (use invite flow for DB)
-      await assignLocalPatientToDoctor(patientId, user!.id);
-      await fetchPatients();
-    } catch (error) {
-      console.error("Failed to assign patient:", error);
-      throw error;
+  // Update avgProgress when assignedExercises are loaded (doctor dashboard)
+  useEffect(() => {
+    if (user?.role?.toLowerCase() !== "doctor") return;
+    const confirmed = doctorPatientsItems.filter(
+      (x: any) => x.type === "patient"
+    ) as { id: string }[];
+    if (confirmed.length === 0) return;
+
+    const progresses: number[] = [];
+    for (const p of confirmed) {
+      const exercises = assignedExercises[p.id] || [];
+      const total = exercises.length;
+      if (total === 0) continue;
+      const completed = exercises.filter((ex) => ex.completed === 1).length;
+      progresses.push((completed / total) * 100);
     }
+    if (progresses.length === 0) return;
+
+    const avg = progresses.reduce((a, b) => a + b, 0) / progresses.length;
+    setDashboardKpis((prev) => (prev ? { ...prev, avgProgress: avg } : null));
+  }, [user?.role, doctorPatientsItems, assignedExercises]);
+
+  const assignPatient = async (patientId: string) => {
+    await assignPatientToDoctor(patientId);
+    await fetchPatients();
   };
 
-  const updatePatient = async (
-    patientId: string,
-    updates: Partial<Patient>
-  ) => {
-    try {
-      // Update local state only (no remote API)
-      setPatients((prevPatients) => {
-        const updatedPatient = {
-          ...prevPatients[patientId],
-          ...updates,
-        };
-        return {
-          ...prevPatients,
-          [patientId]: updatedPatient,
-        };
-      });
-    } catch (error) {
-      console.error("Failed to update patient:", error);
-      throw error;
-    }
+  const updatePatient = async (patientId: string, updates: Partial<Patient>) => {
+    setPatients((prev) => ({
+      ...prev,
+      [patientId]: {
+        ...prev[patientId],
+        ...updates,
+      },
+    }));
   };
 
   const fetchMetricsSummary = useCallback(async () => {
@@ -403,9 +508,10 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({
         recentActivity,
         trends,
         doctorDashboardError,
+        patientDashboardError,
         fetchPatients,
-        fetchAssignedExercises,
         fetchPatientSessions,
+        fetchAssignedExercises: fetchPatientSessions, // Alias for backward compatibility
         createSession,
         assignPatient,
         updatePatient,

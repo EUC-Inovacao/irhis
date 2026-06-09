@@ -1,27 +1,67 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  FlatList, 
+  TouchableOpacity, 
+  ActivityIndicator, 
+  Alert,
+  TextInput,
+  Modal,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { usePatients } from '@context/PatientContext';
-import { getUnassignedPatients } from "@services/patientService";
-import { assignPatientToDoctor } from "@services/patientService";
+import { getUnassignedPatients, createNewPatient } from "@services/patientService";
 import type { Patient } from '../types';
+import { useTranslation } from 'react-i18next';
 
 const CreatePatientScreen = ({ navigation }: any) => {
     const { colors } = useTheme();
-    const { assignPatient } = usePatients();
+    const { t } = useTranslation();
+    const { assignPatient, fetchPatients } = usePatients();
     const [unassignedPatients, setUnassignedPatients] = useState<Patient[]>([]);
     const [loading, setLoading] = useState(true);
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [creating, setCreating] = useState(false);
+    
+    // TEMPORARY: the study flow intentionally avoids collecting real name,
+    // email, or date of birth until a dedicated patient identity model exists.
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [sex, setSex] = useState<'male' | 'female'>('male');
+    const [weight, setWeight] = useState('');
+    const [height, setHeight] = useState('');
+    // BMI will be calculated automatically
+    const [occupation, setOccupation] = useState<'white' | 'blue' | ''>('');
+    const [education, setEducation] = useState('');
+    const [affectedRightKnee, setAffectedRightKnee] = useState(false);
+    const [affectedLeftKnee, setAffectedLeftKnee] = useState(false);
+    const [affectedRightHip, setAffectedRightHip] = useState(false);
+    const [affectedLeftHip, setAffectedLeftHip] = useState(false);
+    const [medicalHistory, setMedicalHistory] = useState('');
+    const [timeAfterSymptoms, setTimeAfterSymptoms] = useState('');
+    const [legDominance, setLegDominance] = useState<'dominant' | 'non-dominant'>('dominant');
+    const [contralateralJointAffect, setContralateralJointAffect] = useState(false);
+    const [physicallyActive, setPhysicallyActive] = useState(false);
+    const [coMorbiditiesNMS, setCoMorbiditiesNMS] = useState(false);
+    const [coMorbiditiesSystemic, setCoMorbiditiesSystemic] = useState(false);
 
     const fetchUnassignedPatients = useCallback(async () => {
         try {
             setLoading(true);
             const data = await getUnassignedPatients();
+            console.log('Unassigned patients from API:', JSON.stringify(data, null, 2));
+            console.log('Number of unassigned patients:', data.length);
             setUnassignedPatients(data);
         } catch (error) {
             console.error('Failed to fetch unassigned patients:', error);
-            Alert.alert('Error', 'Failed to fetch unassigned patients.');
+            Alert.alert(t('common.error'), t('createPatient.fetchUnassignedFailed'));
         } finally {
             setLoading(false);
         }
@@ -34,10 +74,108 @@ const CreatePatientScreen = ({ navigation }: any) => {
     const handleAssignPatient = async (patientId: string) => {
         try {
             await assignPatient(patientId);
-            Alert.alert('Success', 'Patient assigned successfully.');
+            Alert.alert(t('common.success'), t('createPatient.assignSuccess'));
             fetchUnassignedPatients(); // Refresh the list
+            fetchPatients(); // Refresh doctor's patient list
         } catch (error) {
-            Alert.alert('Error', 'Failed to assign patient.');
+            Alert.alert(t('common.error'), t('createPatient.assignFailed'));
+        }
+    };
+
+    const handleCreatePatient = async () => {
+        if (!password || !confirmPassword) {
+            Alert.alert('Required', 'Please define the patient password.');
+            return;
+        }
+
+        if (password.length < 8) {
+            Alert.alert('Invalid Password', 'Password must be at least 8 characters.');
+            return;
+        }
+
+        if (!/[A-Z]/.test(password)) {
+            Alert.alert('Invalid Password', 'Password must contain at least one uppercase letter.');
+            return;
+        }
+
+        if (!/[0-9]/.test(password)) {
+            Alert.alert('Invalid Password', 'Password must contain at least one number.');
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            Alert.alert('Invalid Password', 'Passwords do not match.');
+            return;
+        }
+
+        // Validate at least one joint is affected
+        if (!affectedRightKnee && !affectedLeftKnee && !affectedRightHip && !affectedLeftHip) {
+            Alert.alert(t('common.required'), t('createPatient.selectAffectedJoint'));
+            return;
+        }
+        
+        setCreating(true);
+        try {
+            const createdPatient = await createNewPatient({
+                password,
+                sex,
+                weight: weight ? parseFloat(weight) : undefined,
+                height: height ? parseFloat(height) : undefined,
+                // Calculate BMI automatically
+                bmi: (() => {
+                    const w = weight ? parseFloat(weight) : undefined;
+                    const h = height ? parseFloat(height) : undefined;
+                    if (w && h && h > 0) {
+                        return w / Math.pow(h / 100, 2);
+                    }
+                    return undefined;
+                })(),
+                occupation: occupation ? occupation as 'white' | 'blue' : undefined,
+                education: education ? parseInt(education) : undefined,
+                affectedRightKnee,
+                affectedLeftKnee,
+                affectedRightHip,
+                affectedLeftHip,
+                medicalHistory: medicalHistory.trim() || undefined,
+                timeAfterSymptoms: timeAfterSymptoms ? parseInt(timeAfterSymptoms) : undefined,
+                legDominance,
+                contralateralJointAffect,
+                physicallyActive,
+                coMorbiditiesNMS,
+                coMorbiditiesSystemic,
+            });
+            
+            const generatedCode = createdPatient.accessCode || createdPatient.patientCode;
+            const patientCodeMessage = generatedCode
+                ? `\n\nPatient code: ${generatedCode}`
+                : '';
+            Alert.alert('Success', `Patient created and assigned successfully.${patientCodeMessage}`);
+            setShowCreateModal(false);
+            // Reset all fields
+            setPassword('');
+            setConfirmPassword('');
+            setSex('male');
+            setWeight('');
+            setHeight('');
+            setOccupation('');
+            setEducation('');
+            setAffectedRightKnee(false);
+            setAffectedLeftKnee(false);
+            setAffectedRightHip(false);
+            setAffectedLeftHip(false);
+            setMedicalHistory('');
+            setTimeAfterSymptoms('');
+            setLegDominance('dominant');
+            setContralateralJointAffect(false);
+            setPhysicallyActive(false);
+            setCoMorbiditiesNMS(false);
+            setCoMorbiditiesSystemic(false);
+            fetchUnassignedPatients(); // Refresh the list
+            fetchPatients(); // Refresh doctor's patient list
+        } catch (error: any) {
+            Alert.alert(t('common.error'), error.message || t('createPatient.createFailed'));
+        } finally {
+            setCreating(false);
         }
     };
 
@@ -49,7 +187,14 @@ const CreatePatientScreen = ({ navigation }: any) => {
                         {item.name.split(' ').map(n => n[0]).join('')}
                     </Text>
                 </View>
-                <Text style={[styles.patientName, { color: colors.text }]}>{item.name}</Text>
+                <View style={styles.patientDetails}>
+                    <Text style={[styles.patientName, { color: colors.text }]}>{item.name}</Text>
+                    {(item.accessCode || item.patientCode) && (
+                        <Text style={[styles.patientEmail, { color: colors.textSecondary }]}>
+                            {item.accessCode || item.patientCode}
+                        </Text>
+                    )}
+                </View>
             </View>
             <TouchableOpacity 
                 style={[styles.addButton, { backgroundColor: colors.primary }]}
@@ -69,22 +214,331 @@ const CreatePatientScreen = ({ navigation }: any) => {
     }
 
     return (
-        <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['bottom']}>
+            <View style={styles.header}>
+                <Text style={[styles.title, { color: colors.text }]}>{t('createPatient.addPatient')}</Text>
+                <TouchableOpacity
+                    style={[styles.createButton, { backgroundColor: colors.primary }]}
+                    onPress={() => setShowCreateModal(true)}
+                >
+                    <Ionicons name="add" size={24} color="#fff" />
+                    <Text style={styles.createButtonText}>{t('createPatient.createNew')}</Text>
+                </TouchableOpacity>
+            </View>
+
             <FlatList
                 data={unassignedPatients}
                 renderItem={renderPatientItem}
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={styles.container}
                 ListHeaderComponent={() => (
-                    <Text style={[styles.title, { color: colors.text }]}>Assign New Patient</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+                        {t('createPatient.unassignedPatients')}
+                    </Text>
                 )}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
-                        <Ionicons name="person-add-outline" size={48} color={colors.textSecondary} />
-                        <Text style={[styles.emptyText, { color: colors.text }]}>No new patients to assign</Text>
+                        <Ionicons name="people-outline" size={48} color={colors.textSecondary} />
+                        <Text style={[styles.emptyText, { color: colors.text }]}>{t('createPatient.noUnassigned')}</Text>
+                        <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                            {t('createPatient.noUnassignedSubtitle')}
+                        </Text>
                     </View>
                 }
             />
+
+            {/* Create Patient Modal */}
+            <Modal
+                visible={showCreateModal}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setShowCreateModal(false)}
+            >
+                <KeyboardAvoidingView 
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={styles.modalOverlay}
+                >
+                    <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+                        <View style={styles.modalHeader}>
+                            <Text style={[styles.modalTitle, { color: colors.text }]}>{t('createPatient.modalTitle')}</Text>
+                            <TouchableOpacity onPress={() => setShowCreateModal(false)}>
+                                <Ionicons name="close" size={24} color={colors.text} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView style={styles.modalBody}>
+                            <View style={[styles.infoCard, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                                <Text style={[styles.infoTitle, { color: colors.text }]}>Temporary Study Registration</Text>
+                                <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+                                    The system will generate a non-sensitive patient code automatically. Real name, real email, and date of birth are intentionally not collected in this temporary study flow.
+                                </Text>
+                            </View>
+
+                            <Text style={[styles.label, { color: colors.text }]}>Initial Password *</Text>
+                            <TextInput
+                                style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
+                                placeholder="Enter temporary password"
+                                placeholderTextColor={colors.textSecondary}
+                                value={password}
+                                onChangeText={setPassword}
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                                secureTextEntry
+                            />
+
+                            <Text style={[styles.label, { color: colors.text }]}>Confirm Password *</Text>
+                            <TextInput
+                                style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
+                                placeholder="Confirm password"
+                                placeholderTextColor={colors.textSecondary}
+                                value={confirmPassword}
+                                onChangeText={setConfirmPassword}
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                                secureTextEntry
+                            />
+
+                            <Text style={[styles.label, { color: colors.text }]}>{t('createPatient.sexLabel')}</Text>
+                            <View style={styles.radioGroup}>
+                                <TouchableOpacity
+                                    style={[styles.radioButton, sex === 'male' && { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}
+                                    onPress={() => setSex('male')}
+                                >
+                                    <Text style={[styles.radioText, sex === 'male' && { color: colors.primary }]}>{t('createPatient.male')}</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.radioButton, sex === 'female' && { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}
+                                    onPress={() => setSex('female')}
+                                >
+                                    <Text style={[styles.radioText, sex === 'female' && { color: colors.primary }]}>{t('createPatient.female')}</Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            <Text style={[styles.label, { color: colors.text }]}>{t('createPatient.weightOptional')}</Text>
+                            <TextInput
+                                style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
+                                placeholder={t('createPatient.weightPlaceholder')}
+                                placeholderTextColor={colors.textSecondary}
+                                value={weight}
+                                onChangeText={setWeight}
+                                keyboardType="decimal-pad"
+                            />
+
+                            <Text style={[styles.label, { color: colors.text }]}>{t('createPatient.heightOptional')}</Text>
+                            <TextInput
+                                style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
+                                placeholder={t('createPatient.heightPlaceholder')}
+                                placeholderTextColor={colors.textSecondary}
+                                value={height}
+                                onChangeText={setHeight}
+                                keyboardType="decimal-pad"
+                            />
+
+                            {(weight && height && parseFloat(height) > 0) && (
+                                <View style={[styles.bmiContainer, { backgroundColor: colors.primary + '10', borderColor: colors.primary + '30' }]}>
+                                    <Text style={[styles.bmiLabel, { color: colors.textSecondary }]}>{t('createPatient.calculatedBmi')}</Text>
+                                    <Text style={[styles.bmiValue, { color: colors.primary }]}>
+                                        {(() => {
+                                            const w = parseFloat(weight);
+                                            const h = parseFloat(height);
+                                            if (w && h > 0) {
+                                                const calculated = w / Math.pow(h / 100, 2);
+                                                return calculated.toFixed(1);
+                                            }
+                                                return t('common.na');
+                                        })()}
+                                    </Text>
+                                </View>
+                            )}
+
+                            <Text style={[styles.label, { color: colors.text }]}>{t('createPatient.occupationOptional')}</Text>
+                            <View style={styles.radioGroup}>
+                                <TouchableOpacity
+                                    style={[styles.radioButton, occupation === 'white' && { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}
+                                    onPress={() => setOccupation('white')}
+                                >
+                                    <Text style={[styles.radioText, occupation === 'white' && { color: colors.primary }]}>{t('createPatient.whiteCollar')}</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.radioButton, occupation === 'blue' && { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}
+                                    onPress={() => setOccupation('blue')}
+                                >
+                                    <Text style={[styles.radioText, occupation === 'blue' && { color: colors.primary }]}>{t('createPatient.blueCollar')}</Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            <Text style={[styles.label, { color: colors.text }]}>{t('createPatient.educationOptional')}</Text>
+                            <TextInput
+                                style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
+                                placeholder={t('createPatient.educationPlaceholder')}
+                                placeholderTextColor={colors.textSecondary}
+                                value={education}
+                                onChangeText={setEducation}
+                                keyboardType="number-pad"
+                            />
+
+                            <Text style={[styles.label, { color: colors.text }]}>{t('createPatient.affectedJoints')}</Text>
+                            <View style={styles.checkboxGroup}>
+                                <TouchableOpacity
+                                    style={styles.checkboxRow}
+                                    onPress={() => setAffectedRightKnee(!affectedRightKnee)}
+                                >
+                                    <Ionicons
+                                        name={affectedRightKnee ? "checkbox" : "checkbox-outline"}
+                                        size={24}
+                                        color={affectedRightKnee ? colors.primary : colors.textSecondary}
+                                    />
+                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>{t('createPatient.rightKnee')}</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.checkboxRow}
+                                    onPress={() => setAffectedLeftKnee(!affectedLeftKnee)}
+                                >
+                                    <Ionicons
+                                        name={affectedLeftKnee ? "checkbox" : "checkbox-outline"}
+                                        size={24}
+                                        color={affectedLeftKnee ? colors.primary : colors.textSecondary}
+                                    />
+                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>{t('createPatient.leftKnee')}</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.checkboxRow}
+                                    onPress={() => setAffectedRightHip(!affectedRightHip)}
+                                >
+                                    <Ionicons
+                                        name={affectedRightHip ? "checkbox" : "checkbox-outline"}
+                                        size={24}
+                                        color={affectedRightHip ? colors.primary : colors.textSecondary}
+                                    />
+                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>{t('createPatient.rightHip')}</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.checkboxRow}
+                                    onPress={() => setAffectedLeftHip(!affectedLeftHip)}
+                                >
+                                    <Ionicons
+                                        name={affectedLeftHip ? "checkbox" : "checkbox-outline"}
+                                        size={24}
+                                        color={affectedLeftHip ? colors.primary : colors.textSecondary}
+                                    />
+                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>{t('createPatient.leftHip')}</Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            <Text style={[styles.label, { color: colors.text }]}>{t('createPatient.medicalHistoryOptional')}</Text>
+                            <TextInput
+                                style={[styles.textArea, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
+                                placeholder={t('createPatient.medicalHistoryPlaceholder')}
+                                placeholderTextColor={colors.textSecondary}
+                                value={medicalHistory}
+                                onChangeText={setMedicalHistory}
+                                multiline
+                                numberOfLines={4}
+                            />
+
+                            <Text style={[styles.label, { color: colors.text }]}>{t('createPatient.timeAfterSymptomsOptional')}</Text>
+                            <TextInput
+                                style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
+                                placeholder={t('createPatient.daysPlaceholder')}
+                                placeholderTextColor={colors.textSecondary}
+                                value={timeAfterSymptoms}
+                                onChangeText={setTimeAfterSymptoms}
+                                keyboardType="number-pad"
+                            />
+
+                            <Text style={[styles.label, { color: colors.text }]}>{t('createPatient.legDominance')}</Text>
+                            <View style={styles.radioGroup}>
+                                <TouchableOpacity
+                                    style={[styles.radioButton, legDominance === 'dominant' && { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}
+                                    onPress={() => setLegDominance('dominant')}
+                                >
+                                    <Text style={[styles.radioText, legDominance === 'dominant' && { color: colors.primary }]}>{t('createPatient.dominant')}</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.radioButton, legDominance === 'non-dominant' && { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}
+                                    onPress={() => setLegDominance('non-dominant')}
+                                >
+                                    <Text style={[styles.radioText, legDominance === 'non-dominant' && { color: colors.primary }]}>{t('createPatient.nonDominant')}</Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            <Text style={[styles.label, { color: colors.text }]}>{t('createPatient.additionalInfo')}</Text>
+                            <View style={styles.checkboxGroup}>
+                                <TouchableOpacity
+                                    style={styles.checkboxRow}
+                                    onPress={() => setContralateralJointAffect(!contralateralJointAffect)}
+                                >
+                                    <Ionicons
+                                        name={contralateralJointAffect ? "checkbox" : "checkbox-outline"}
+                                        size={24}
+                                        color={contralateralJointAffect ? colors.primary : colors.textSecondary}
+                                    />
+                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>{t('createPatient.contralateralJointAffect')}</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.checkboxRow}
+                                    onPress={() => setPhysicallyActive(!physicallyActive)}
+                                >
+                                    <Ionicons
+                                        name={physicallyActive ? "checkbox" : "checkbox-outline"}
+                                        size={24}
+                                        color={physicallyActive ? colors.primary : colors.textSecondary}
+                                    />
+                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>{t('createPatient.physicallyActive')}</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.checkboxRow}
+                                    onPress={() => setCoMorbiditiesNMS(!coMorbiditiesNMS)}
+                                >
+                                    <Ionicons
+                                        name={coMorbiditiesNMS ? "checkbox" : "checkbox-outline"}
+                                        size={24}
+                                        color={coMorbiditiesNMS ? colors.primary : colors.textSecondary}
+                                    />
+                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>{t('createPatient.comorbiditiesNms')}</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.checkboxRow}
+                                    onPress={() => setCoMorbiditiesSystemic(!coMorbiditiesSystemic)}
+                                >
+                                    <Ionicons
+                                        name={coMorbiditiesSystemic ? "checkbox" : "checkbox-outline"}
+                                        size={24}
+                                        color={coMorbiditiesSystemic ? colors.primary : colors.textSecondary}
+                                    />
+                                    <Text style={[styles.checkboxLabel, { color: colors.text }]}>{t('createPatient.comorbiditiesSystemic')}</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </ScrollView>
+
+                        <View style={styles.modalFooter}>
+                            <TouchableOpacity
+                                style={[styles.cancelButton, { borderColor: colors.border }]}
+                                onPress={() => setShowCreateModal(false)}
+                            >
+                                <Text style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.submitButton, { backgroundColor: colors.primary }]}
+                                onPress={handleCreatePatient}
+                                disabled={
+                                    creating ||
+                                    !password ||
+                                    !confirmPassword ||
+                                    password !== confirmPassword ||
+                                    (!affectedRightKnee && !affectedLeftKnee && !affectedRightHip && !affectedLeftHip)
+                                }
+                            >
+                                {creating ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.submitButtonText}>{t('createPatient.createPatient')}</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </KeyboardAvoidingView>
+            </Modal>
         </SafeAreaView>
     );
 };
@@ -93,12 +547,40 @@ const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
     },
-    container: {
-        flex: 1,
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         padding: 16,
+        paddingTop: 8,
+        paddingBottom: 8,
     },
-    listContainer: {
-        gap: 12,
+    title: {
+        fontSize: 24,
+        fontWeight: 'bold',
+    },
+    createButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 8,
+    },
+    createButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    container: {
+        padding: 16,
+        paddingTop: 8,
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 12,
+        marginTop: 8,
     },
     patientCard: {
         flexDirection: 'row',
@@ -106,11 +588,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 16,
         borderRadius: 12,
+        marginBottom: 12,
     },
     patientInfo: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 16,
+        flex: 1,
     },
     avatar: {
         width: 40,
@@ -123,9 +607,16 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
     },
+    patientDetails: {
+        flex: 1,
+    },
     patientName: {
         fontSize: 16,
         fontWeight: '600',
+    },
+    patientEmail: {
+        fontSize: 14,
+        marginTop: 2,
     },
     addButton: {
         width: 40,
@@ -139,17 +630,160 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginTop: 50,
+        paddingHorizontal: 32,
     },
     emptyText: {
         marginTop: 16,
         fontSize: 18,
-        color: '#8E8E93',
+        fontWeight: '600',
     },
-    title: {
-        fontSize: 24,
+    emptySubtext: {
+        marginTop: 8,
+        fontSize: 14,
+        textAlign: 'center',
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        maxHeight: '80%',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+    },
+    modalTitle: {
+        fontSize: 20,
         fontWeight: 'bold',
-        marginBottom: 20,
+    },
+    modalBody: {
+        padding: 20,
+    },
+    label: {
+        fontSize: 14,
+        fontWeight: '600',
+        marginBottom: 8,
+        marginTop: 4,
+    },
+    input: {
+        borderWidth: 1,
+        borderRadius: 12,
+        height: 52,
+        paddingHorizontal: 16,
+        fontSize: 16,
+        marginBottom: 16,
+    },
+    infoCard: {
+        borderWidth: 1,
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 16,
+    },
+    infoTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 6,
+    },
+    infoText: {
+        fontSize: 14,
+        lineHeight: 20,
+    },
+    modalFooter: {
+        flexDirection: 'row',
+        gap: 12,
+        padding: 20,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(0, 0, 0, 0.1)',
+    },
+    cancelButton: {
+        flex: 1,
+        height: 52,
+        borderRadius: 12,
+        borderWidth: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    cancelButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    submitButton: {
+        flex: 1,
+        height: 52,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    submitButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    radioGroup: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 16,
+    },
+    radioButton: {
+        flex: 1,
+        borderWidth: 1,
+        borderRadius: 12,
+        height: 52,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderColor: '#ddd',
+    },
+    radioText: {
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    checkboxGroup: {
+        marginBottom: 16,
+    },
+    checkboxRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        marginBottom: 12,
+    },
+    checkboxLabel: {
+        fontSize: 16,
+    },
+    textArea: {
+        borderWidth: 1,
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        fontSize: 16,
+        marginBottom: 16,
+        minHeight: 100,
+        textAlignVertical: 'top',
+    },
+    bmiContainer: {
+        borderWidth: 1,
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 16,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    bmiLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    bmiValue: {
+        fontSize: 18,
+        fontWeight: 'bold',
     },
 });
 
-export default CreatePatientScreen; 
+export default CreatePatientScreen;

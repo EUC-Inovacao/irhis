@@ -1,9 +1,17 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { Patient } from '../types';
 import { usePatients, SessionAsExercise } from '@context/PatientContext';
+import {
+    assignExerciseToPatient,
+    getAvailableExercises,
+    getOrCreateExerciseTypeByName,
+    updateAssignedExercise,
+} from '@services/exerciseAssignmentService';
+import { useFocusEffect } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 
 interface AssignedExercisesCardProps {
     patient: Patient;
@@ -22,12 +30,13 @@ type ExerciseItem = {
 
 const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, isEditable, navigation }) => {
     const { colors } = useTheme();
-    const { assignedExercises, sessionsByPatient, fetchPatientSessions, createSession } = usePatients();
+    const { t } = useTranslation();
+    const { assignedExercises, fetchAssignedExercises } = usePatients();
     const [isEditing, setIsEditing] = useState(false);
     const listFromContext = assignedExercises[patient.id] ?? [];
     const toItem = (ex: SessionAsExercise): ExerciseItem => ({
         id: ex.id,
-        name: ex.exerciseType?.name ?? (ex as any).name ?? 'Exercise',
+        name: ex.exerciseType?.name ?? (ex as any).name ?? t('assignedExercises.exerciseFallback'),
         targetRepetitions: ex.targetReps ?? ex.exerciseType?.targetReps ?? 10,
         targetSets: ex.targetSets ?? ex.exerciseType?.targetSets ?? 3,
         instructions: '',
@@ -38,29 +47,84 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
         [listFromContext]
     );
     const [exercises, setExercises] = useState<ExerciseItem[]>(() => listFromContext.map(toItem));
+    const originalItemsById = useMemo(
+        () => new Map(listFromContext.map((exercise) => [exercise.id, toItem(exercise)])),
+        [listFromContext, t]
+    );
+
+    // Refresh exercises when screen comes into focus
+    useFocusEffect(
+        useCallback(() => {
+            if (!isEditing) {
+                fetchAssignedExercises(patient.id);
+            }
+        }, [patient.id, isEditing, fetchAssignedExercises])
+    );
 
     useEffect(() => {
         if (!isEditing) {
-            setExercises(listFromContext.map(toItem));
+            const newExercises = listFromContext.map(toItem);
+            setExercises(newExercises);
         }
-    }, [patient.id, listKey, isEditing]);
+    }, [patient.id, listKey, isEditing, listFromContext.length, listFromContext]);
 
     const handleSave = async () => {
         try {
             const newOnes = exercises.filter(e => e.id.startsWith('new_') || (e as any).isNew);
-            for (const ex of newOnes) {
-                await createSession(patient.id, {
-                    exerciseType: ex.name,
-                    exerciseDescription: ex.instructions,
-                    repetitions: ex.targetRepetitions,
-                    duration: undefined,
-                });
+            const updatedOnes = exercises.filter((exercise) => {
+                if (exercise.id.startsWith('new_') || exercise.isNew) {
+                    return false;
+                }
+
+                const original = originalItemsById.get(exercise.id);
+                if (!original) {
+                    return false;
+                }
+
+                return original.name !== exercise.name || original.targetRepetitions !== exercise.targetRepetitions;
+            });
+            
+            // Resolve exercise types in the service layer so this component does not talk to storage directly.
+            const allExerciseTypes = newOnes.length > 0 ? await getAvailableExercises() : [];
+
+            for (const exercise of updatedOnes) {
+                await updateAssignedExercise(
+                    patient.id,
+                    exercise.id,
+                    exercise.targetRepetitions,
+                    exercise.name.trim()
+                );
             }
-            await fetchPatientSessions(patient.id);
+            
+            for (const ex of newOnes) {
+                const exerciseType = await getOrCreateExerciseTypeByName(allExerciseTypes, {
+                    name: ex.name,
+                    instructions: ex.instructions,
+                    targetRepetitions: ex.targetRepetitions,
+                    targetSets: ex.targetSets,
+                });
+
+                await assignExerciseToPatient(
+                    patient.id,
+                    exerciseType.id,
+                    ex.targetRepetitions,
+                    ex.targetSets,
+                    ex.name
+                );
+            }
+            
             setIsEditing(false);
-            Alert.alert('Success', 'Exercise plan updated.');
+            await fetchAssignedExercises(patient.id);
+            Alert.alert(
+                t('common.success'),
+                t('assignedExercises.updatedSuccess')
+            );
         } catch (error) {
-            Alert.alert('Error', 'Failed to update exercise plan.');
+            console.error('Error saving exercises:', error);
+            Alert.alert(
+                t('common.error'),
+                `${t('assignedExercises.updateFailed')}: ${error instanceof Error ? error.message : String(error)}`
+            );
         }
     };
 
@@ -73,7 +137,7 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
     const handleAddNewExercise = () => {
         setExercises(current => [...current, {
             id: `new_${Date.now()}`,
-            name: 'New Exercise',
+            name: t('assignedExercises.newExercise'),
             targetRepetitions: 10,
             targetSets: 3,
             instructions: '',
@@ -95,7 +159,7 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
                         style={[styles.input, { color: colors.text }]}
                         value={item.name}
                         onChangeText={text => handleExerciseChange(item.id, 'name', text)}
-                        placeholder="Exercise Name"
+                        placeholder={t('assignedExercises.namePlaceholder')}
                     />
                     <View style={styles.repsSetsContainer}>
                         <TextInput
@@ -104,20 +168,20 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
                             onChangeText={text => handleExerciseChange(item.id, 'targetRepetitions', Number(text) || 0)}
                             keyboardType="number-pad"
                         />
-                        <Text style={{ color: colors.text }}>reps</Text>
+                        <Text style={{ color: colors.text }}>{t('assignedExercises.reps')}</Text>
                         <TextInput
                             style={[styles.input, styles.setsInput, { color: colors.text }]}
                             value={String(item.targetSets)}
                             onChangeText={text => handleExerciseChange(item.id, 'targetSets', Number(text) || 0)}
                             keyboardType="number-pad"
                         />
-                        <Text style={{ color: colors.text }}>sets</Text>
+                        <Text style={{ color: colors.text }}>{t('assignedExercises.sets')}</Text>
                     </View>
                     <TextInput
                         style={[styles.input, styles.instructionsInput, { color: colors.text }]}
                         value={item.instructions}
                         onChangeText={text => handleExerciseChange(item.id, 'instructions', text)}
-                        placeholder="Instructions"
+                        placeholder={t('assignedExercises.instructionsPlaceholder')}
                     />
                 </View>
             );
@@ -133,7 +197,10 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
                     <View>
                         <Text style={[styles.exerciseName, { color: colors.text }]}>{item.name}</Text>
                         <Text style={[styles.exerciseDetails, { color: colors.textSecondary }]}>
-                            {item.targetRepetitions} reps, {item.targetSets} sets
+                            {t('assignedExercises.details', {
+                                reps: item.targetRepetitions,
+                                sets: item.targetSets,
+                            })}
                         </Text>
                     </View>
                     {!isEditable && (
@@ -147,7 +214,7 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
     return (
         <View style={[styles.card, { backgroundColor: colors.card }]}>
             <View style={styles.header}>
-                <Text style={[styles.title, { color: colors.text }]}>Assigned Exercises</Text>
+                <Text style={[styles.title, { color: colors.text }]}>{t('assignedExercises.title')}</Text>
                 {isEditable && (
                     <TouchableOpacity onPress={() => setIsEditing(!isEditing)}>
                         <Ionicons name={isEditing ? "close" : "pencil"} size={24} color={colors.primary} />
@@ -164,10 +231,10 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
                 <View style={styles.buttonRow}>
                     <TouchableOpacity style={[styles.button, styles.addButton]} onPress={handleAddNewExercise}>
                         <Ionicons name="add" size={20} color={colors.primary} />
-                        <Text style={[styles.buttonText, { color: colors.primary }]}>Add Exercise</Text>
+                        <Text style={[styles.buttonText, { color: colors.primary }]}>{t('assignedExercises.addExercise')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleSave}>
-                        <Text style={[styles.buttonText, { color: colors.white }]}>Save Changes</Text>
+                        <Text style={[styles.buttonText, { color: colors.white }]}>{t('assignedExercises.saveChanges')}</Text>
                     </TouchableOpacity>
                 </View>
             )}

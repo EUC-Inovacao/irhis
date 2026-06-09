@@ -6,22 +6,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { StackHeaderProps } from '@react-navigation/stack';
+import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@theme/ThemeContext';
 import { useAuth } from '@context/AuthContext';
 
 import LoginScreen from '@screens/LoginScreen';
-import SignupScreen from '@screens/SignupScreen';
 import PatientHomeScreen from '@screens/PatientHomeScreen';
 import DoctorHomeScreen from '@screens/DoctorHomeScreen';
 import PatientDetailScreen from '@screens/PatientDetailScreen';
+import SessionDetailScreen from '@screens/SessionDetailScreen';
 import ExerciseDetailScreen from '@screens/ExerciseDetailScreen';
 import ExerciseHistoryScreen from '@screens/ExerciseHistoryScreen';
 import ExerciseHistoryDetailScreen from '@screens/ExerciseHistoryDetailScreen';
 import ProfileScreen from '@screens/ProfileScreen';
 import MovellaScreen from '@screens/MovellaScreen';
 import CreatePatientScreen from '@screens/CreatePatientScreen';
-import InvitePatientScreen from '@screens/InvitePatientScreen';
+import CreateAccountScreen from '@screens/CreateAccountScreen';
 import ManageInvitesScreen from '@screens/ManageInvitesScreen';
 import PatientListScreen from '@screens/PatientListScreen';
 import BleConnectionScreen from '@screens/BleConnectionScreen';
@@ -87,6 +88,7 @@ const CustomHeader: React.FC<StackHeaderProps> = ({ navigation, route, options }
 
 const PatientTabNavigator = () => {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -106,6 +108,7 @@ const PatientTabNavigator = () => {
         name="My Exercises"
         component={PatientHomeScreen}
         options={{
+          tabBarLabel: t('navigation.myExercises'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="fitness-outline" size={size} color={color} />
           ),
@@ -115,6 +118,7 @@ const PatientTabNavigator = () => {
         name="History"
         component={ExerciseHistoryScreen}
         options={{
+          tabBarLabel: t('navigation.history'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="time-outline" size={size} color={color} />
           ),
@@ -124,6 +128,7 @@ const PatientTabNavigator = () => {
         name="Live Session"
         component={MovellaScreen}
         options={{
+          tabBarLabel: t('navigation.liveSession'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="recording-outline" size={size} color={color} />
           ),
@@ -135,6 +140,7 @@ const PatientTabNavigator = () => {
 
 const DoctorTabNavigator = () => {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -154,6 +160,7 @@ const DoctorTabNavigator = () => {
         name="Patients"
         component={DoctorHomeScreen}
         options={{
+          tabBarLabel: t('navigation.patients'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people-outline" size={size} color={color} />
           ),
@@ -163,6 +170,7 @@ const DoctorTabNavigator = () => {
         name="Live Session"
         component={MovellaScreen}
         options={{
+          tabBarLabel: t('navigation.liveSession'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="recording-outline" size={size} color={color} />
           ),
@@ -175,6 +183,7 @@ const DoctorTabNavigator = () => {
 const AppNavigator = () => {
   const { colors, isDark } = useTheme(); 
   const { user, loading } = useAuth();
+  const { t } = useTranslation();
 
   if (loading) {
     return (
@@ -218,82 +227,95 @@ const AppNavigator = () => {
           <>
             <Stack.Screen
               name="Home"
-              component={user.role === 'doctor' ? DoctorTabNavigator : PatientTabNavigator}
+              component={user.role?.toLowerCase() === 'doctor' ? DoctorTabNavigator : PatientTabNavigator}
               options={{ 
-                headerTitle: user.role === 'doctor' ? 'Clinical Dashboard' : 'My Dashboard'
+                headerTitle: user.role?.toLowerCase() === 'doctor' ? t('navigation.clinicalDashboard') : t('navigation.myDashboard')
               }}
             />
             <Stack.Screen
               name="PatientDetail"
               component={PatientDetailScreen}
               options={{
-                headerTitle: 'Patient Details',
-                headerBackTitle: 'Back',
+                headerTitle: t('navigation.patientDetails'),
+                headerBackTitle: t('common.back'),
+              }}
+            />
+            <Stack.Screen
+              name="SessionDetail"
+              component={SessionDetailScreen}
+              options={{
+                headerTitle: t('navigation.sessionDetails'),
+                headerBackTitle: t('common.back'),
               }}
             />
             <Stack.Screen
               name="ExerciseDetail"
               component={ExerciseDetailScreen}
               options={{
-                headerTitle: 'Exercise',
-                headerBackTitle: 'Back',
+                headerTitle: t('navigation.exercise'),
+                headerBackTitle: t('common.back'),
               }}
             />
             <Stack.Screen
               name="ExerciseHistoryDetail"
               component={ExerciseHistoryDetailScreen}
               options={{
-                headerTitle: 'Session Detail',
-                headerBackTitle: 'Back',
+                headerTitle: t('navigation.sessionDetail'),
+                headerBackTitle: t('common.back'),
               }}
             />
             <Stack.Screen
               name="CreatePatient"
               component={CreatePatientScreen}
               options={{
-                headerTitle: 'Add New Patient',
-                headerBackTitle: 'Back',
+                headerTitle: t('navigation.addNewPatient'),
+                headerBackTitle: t('common.back'),
               }}
             />
             <Stack.Screen
               name="InvitePatient"
-              component={InvitePatientScreen}
+              component={CreateAccountScreen}
               options={{
-                headerTitle: 'Invite Patient',
-                headerBackTitle: 'Back',
+                headerTitle: t('createAccount.title'),
+                headerBackTitle: t('common.back'),
               }}
             />
             <Stack.Screen
               name="ManageInvites"
               component={ManageInvitesScreen}
               options={{
-                headerTitle: 'Manage Invites',
-                headerBackTitle: 'Back',
+                headerTitle: t('navigation.manageInvites'),
+                headerBackTitle: t('common.back'),
               }}
             />
             <Stack.Screen
               name="PatientList"
               component={PatientListScreen}
               options={{
-                headerTitle: 'Patient List',
-                headerBackTitle: 'Back',
+                headerTitle: t('navigation.patientList'),
+                headerBackTitle: t('common.back'),
               }}
             />
             <Stack.Screen
               name="Profile"
               component={ProfileScreen}
               options={{
-                headerTitle: 'Profile',
-                headerBackTitle: 'Back',
+                headerTitle: t('navigation.profile'),
+                headerBackTitle: t('common.back'),
               }}
             />
             <Stack.Screen
               name="BleConnection"
               component={BleConnectionScreen}
               options={{
-                headerTitle: 'Connect Sensors',
-                headerBackTitle: 'Back',
+                headerTitle: t('navigation.connectSensors'),
+                headerBackTitle: t('common.back'),
               }}
+            />
+            <Stack.Screen
+              name="PatientHistory"
+              component={ExerciseHistoryScreen}
+              options={{ headerTitle: t('Exercise History') }}
             />
             {/* Novas Rotas da Task IRHIS-25 */}
             <Stack.Screen 
@@ -330,8 +352,8 @@ const AppNavigator = () => {
               options={{ headerShown: false }}
             />
             <Stack.Screen
-              name="Signup"
-              component={SignupScreen}
+              name="InvitePatient"
+              component={CreateAccountScreen}
               options={{ headerShown: false }}
             />
             {/* NOVAS ROTAS ONBOARDING */}

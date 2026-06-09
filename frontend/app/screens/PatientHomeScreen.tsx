@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList } from 'react-native';
+import React, { useEffect, useCallback, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@theme/ThemeContext';
 import { useAuth } from '@context/AuthContext';
@@ -10,14 +10,32 @@ import ActivityRings from '@components/ActivityRings';
 import ChartCard from '@components/ChartCard';
 import WeeklyFeedbackCard from '@components/WeeklyFeedbackCard';
 import ExerciseCard from '@components/ExerciseCard';
+import { useTranslation } from 'react-i18next';
 
 const PatientHomeScreen = ({ navigation }: any) => {
     const { colors } = useTheme();
+    const { t } = useTranslation();
     const { user } = useAuth();
-    const { patients, assignedExercises, fetchAssignedExercises } = usePatients();
+    const { patients, assignedExercises, loading, patientDashboardError, fetchAssignedExercises, fetchPatients } = usePatients();
     const { healthData, dailyData, isConnected, isLoading, connectDevice, refreshHealthData } = useHealth();
     const patient = user ? patients[user.id] : null;
     const exercises = user ? (assignedExercises[user.id] || []) : [];
+
+    const [refreshing, setRefreshing] = useState(false);
+
+    const refreshDashboard = useCallback(async () => {
+        if (!user?.id) return;
+        setRefreshing(true);
+        try {
+            await fetchPatients();
+            if (refreshHealthData) refreshHealthData();
+        } finally {
+            setRefreshing(false);
+        }
+    }, [user?.id, fetchPatients, refreshHealthData]);
+
+    // Removed useFocusEffect - it was causing race with PatientContext's useEffect.
+    // Data loads via PatientContext when user is set; use pull-to-refresh to refresh.
 
     // Debug logging
     useEffect(() => {
@@ -27,18 +45,38 @@ const PatientHomeScreen = ({ navigation }: any) => {
         console.log('Assigned exercises:', exercises);
     }, [user, patients, patient, exercises]);
 
-    // Fetch assigned exercises when component mounts
-    useEffect(() => {
-        if (user?.id) {
-            fetchAssignedExercises(user.id);
-        }
-    }, [user?.id, fetchAssignedExercises]);
-
     if (!patient) {
+        if (patientDashboardError) {
+            return (
+                <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+                    <View style={[styles.container, styles.errorContainer]}>
+                        <Ionicons name="cloud-offline-outline" size={48} color={colors.textSecondary} />
+                        <Text style={[styles.errorTitle, { color: colors.text }]}>{t('patientHome.loadFailedTitle')}</Text>
+                        <Text style={[styles.errorText, { color: colors.textSecondary }]}>{patientDashboardError}</Text>
+                        <TouchableOpacity
+                            style={[styles.retryButton, { backgroundColor: colors.primary }]}
+                            onPress={() => refreshDashboard()}
+                        >
+                            <Text style={styles.retryButtonText}>{t('patientHome.tryAgain')}</Text>
+                        </TouchableOpacity>
+                    </View>
+                </SafeAreaView>
+            );
+        }
         return (
             <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
                 <View style={styles.container}>
-                    <Text style={[styles.title, { color: colors.text }]}>Loading...</Text>
+                    <Text style={[styles.title, { color: colors.text }]}>
+                        {loading ? t('patientHome.loading') : t('patientHome.loadingDashboard')}
+                    </Text>
+                    {!loading && (
+                        <TouchableOpacity
+                            style={[styles.retryButton, { backgroundColor: colors.primary, marginTop: 16 }]}
+                            onPress={() => fetchPatients()}
+                        >
+                            <Text style={styles.retryButtonText}>{t('patientHome.retry')}</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
             </SafeAreaView>
         );
@@ -98,21 +136,34 @@ const PatientHomeScreen = ({ navigation }: any) => {
     );
 
     return (
-        <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-            <ScrollView style={styles.container}>
+        // Use only bottom safe area, the top is already handled by the navigation header
+        <SafeAreaView
+            style={[styles.safeArea, { backgroundColor: colors.background }]}
+            edges={['bottom']}
+        >
+            <ScrollView
+                style={styles.container}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={refreshDashboard}
+                        tintColor={colors.primary}
+                    />
+                }
+            >
                 <View style={styles.header}>
                     <View>
-                        <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>Welcome back,</Text>
+                        <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>{t('patientHome.welcomeBack')}</Text>
                         <Text style={[styles.title, { color: colors.text }]}>{patient.name}</Text>
                     </View>
                     {/* Botão Connect Watch removido conforme ticket IRHIS-18 */}
                     <TouchableOpacity 
                         style={[styles.refreshButton, { backgroundColor: colors.card }]}
-                        onPress={refreshHealthData}
-                        disabled={isLoading}
+                        onPress={refreshDashboard}
+                        disabled={refreshing || isLoading}
                     >
                         <Ionicons 
-                            name={isLoading ? "sync" : "refresh-outline"} 
+                            name={refreshing || isLoading ? "sync" : "refresh-outline"} 
                             size={24} 
                             color={colors.text} 
                         />
@@ -122,9 +173,9 @@ const PatientHomeScreen = ({ navigation }: any) => {
                 <View style={[styles.progressCard, { backgroundColor: colors.primary, marginBottom: 20 }]}>
                     {/* <ActivityRings data={activityData} size={180} /> */}
                     <View style={styles.progressInfo}>
-                        <Text style={[styles.progressTitle, { color: "#FFF" }]}>Today's Progress</Text>
+                        <Text style={[styles.progressTitle, { color: "#FFF" }]}>{t('patientHome.todaysProgress')}</Text>
                         <Text style={[styles.progressText, { color: "rgba(255,255,255,0.9)" }]}>
-                        {`${completedExercises} of ${totalExercises} exercises completed`}
+                        {t('patientHome.progressSummary', { completed: completedExercises, total: totalExercises })}
                         </Text>
                     </View>
                 </View>
@@ -178,10 +229,10 @@ const PatientHomeScreen = ({ navigation }: any) => {
 
                 <WeeklyFeedbackCard onSubmit={handleWeeklyFeedbackSubmit} />
 
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Your Exercises</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('patientHome.yourExercises')}</Text>
                 {assignedList.length > 0 ? (
                     <>
-                        <Text style={[styles.subsectionTitle, { color: colors.textSecondary }]}>Assigned</Text>
+                        <Text style={[styles.subsectionTitle, { color: colors.textSecondary }]}>{t('patientHome.assigned')}</Text>
                         <FlatList
                             data={assignedList}
                             renderItem={renderExerciseItem}
@@ -193,7 +244,7 @@ const PatientHomeScreen = ({ navigation }: any) => {
                 ) : null}
                 {completedList.length > 0 ? (
                     <>
-                        <Text style={[styles.subsectionTitle, { color: colors.textSecondary }]}>Completed</Text>
+                        <Text style={[styles.subsectionTitle, { color: colors.textSecondary }]}>{t('patientHome.completed')}</Text>
                         <FlatList
                             data={completedList}
                             renderItem={renderExerciseItem}
@@ -206,7 +257,7 @@ const PatientHomeScreen = ({ navigation }: any) => {
                             onPress={() => navigation.navigate('History')}
                         >
                             <Ionicons name="time-outline" size={20} color={colors.primary} />
-                            <Text style={[styles.historyLinkText, { color: colors.primary }]}>View full history</Text>
+                            <Text style={[styles.historyLinkText, { color: colors.primary }]}>{t('patientHome.viewFullHistory')}</Text>
                         </TouchableOpacity>
                     </>
                 ) : null}
@@ -214,10 +265,10 @@ const PatientHomeScreen = ({ navigation }: any) => {
                     <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
                         <Ionicons name="fitness-outline" size={48} color={colors.textSecondary} />
                         <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                            No Exercises Assigned
+                            {t('patientHome.noExercisesAssigned')}
                         </Text>
                         <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                            Your doctor will assign exercises for you to complete.
+                            {t('patientHome.noExercisesDescription')}
                         </Text>
                     </View>
                 ) : null}
@@ -233,6 +284,34 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         padding: 16,
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    errorTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        marginTop: 16,
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    errorText: {
+        fontSize: 14,
+        textAlign: 'center',
+        marginBottom: 24,
+    },
+    retryButton: {
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 12,
+    },
+    retryButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
     },
     header: {
         flexDirection: 'row',
@@ -335,6 +414,7 @@ const styles = StyleSheet.create({
         gap: 8,
         paddingVertical: 12,
         marginTop: 12,
+        marginBottom: 68-16,
         borderRadius: 8,
         borderWidth: 1,
     },

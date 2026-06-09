@@ -8,11 +8,11 @@ export interface DoctorPatientConfirmed {
   email: string;
   nif: string;
   status: "Confirmed";
-  lastSessionAt?: string;
-  lastFeedbackAt?: string;
+  lastSessionAt?: string | null;
+  lastFeedbackAt?: string | null;
   sessionCount?: number;
-  lastAvgROM?: number;
-  lastAvgVelocity?: number;
+  lastAvgROM?: number | null;
+  lastAvgVelocity?: number | null;
 }
 
 /** Pending invite from GET /doctors/me/patients */
@@ -34,146 +34,136 @@ export interface DoctorsMePatientsResponse {
   pending: DoctorPatientPending[];
 }
 
+/** Dashboard KPI shapes (computed from API data where backend does not expose a dedicated endpoint) */
+export interface DashboardKPIs {
+  totalPatients: number;
+  activePatients: number;
+  completedPatients: number;
+  pendingInvites: number;
+  sessionsThisWeek: number;
+  avgProgress?: number;
+}
+
+export interface LatestFeedbackItem {
+  patientId: string;
+  patientName: string;
+  pain: number;
+  fatigue: number;
+  difficulty: number;
+  comments?: string;
+  timestamp: string;
+}
+
+export interface MetricsSummaryItem {
+  label: string;
+  value: number;
+  unit?: string;
+}
+
+export interface RecentActivityItem {
+  id: string;
+  type: string;
+  message: string;
+  timestamp: string;
+}
+
+export interface TrendsData {
+  labels: string[];
+  series: Array<{ name: string; data: number[] }>;
+}
+
 export async function getDoctorsMePatients(params?: {
   search?: string;
   nif?: string;
   sort?: string;
 }): Promise<DoctorsMePatientsResponse> {
-  const response = await api.get<DoctorsMePatientsResponse>(
-    "/doctors/me/patients",
-    { params: params || {} }
-  );
-  return response.data;
+  try {
+    const response = await api.get<DoctorsMePatientsResponse>("/doctors/me/patients", {
+      params,
+    });
+    return response.data;
+  } catch (error: any) {
+    throw error;
+  }
 }
 
-export interface DashboardKPIs {
-  totalPatients: number;
-  activePatients: number;
-  completedPatients: number;
-  avgProgress: number;
+/** Compute KPIs from patients response (no extra API call). */
+export function computeDashboardKpis(patientsRes: DoctorsMePatientsResponse): DashboardKPIs {
+  const confirmed = patientsRes.confirmed ?? patientsRes.items.filter((x): x is DoctorPatientConfirmed => x.type === "patient");
+  const pending = patientsRes.pending ?? patientsRes.items.filter((x): x is DoctorPatientPending => x.type === "pending");
+  const completedPatients = confirmed.filter((p) => (p.sessionCount ?? 0) > 0).length;
+  return {
+    totalPatients: confirmed.length,
+    activePatients: confirmed.length,
+    completedPatients,
+    pendingInvites: pending.length,
+    sessionsThisWeek: 0,
+  };
 }
 
+/** Legacy: fetch patients then compute KPIs. Prefer computeDashboardKpis(patientsRes) when you already have patients. */
 export async function getDoctorsMeDashboard(): Promise<DashboardKPIs> {
-  const response = await api.get<DashboardKPIs>("/doctors/me/dashboard");
-  return response.data;
+  const patientsRes = await getDoctorsMePatients();
+  return computeDashboardKpis(patientsRes);
 }
 
-export interface LatestFeedbackItem {
-  id: string;
-  sessionId: string;
-  patientId: string;
-  patientName: string;
-  pain?: number;
-  fatigue?: number;
-  difficulty?: number;
-  comments?: string;
-  timeCreated: string;
-}
+/** Fetch latest feedback for patients. Pass patientsRes to avoid redundant getDoctorsMePatients call. */
+export async function getDoctorsMeLatestFeedback(
+  limit: number = 5,
+  patientsRes?: DoctorsMePatientsResponse
+): Promise<LatestFeedbackItem[]> {
+  const resolved = patientsRes ?? await getDoctorsMePatients();
+  const confirmed = resolved.confirmed ?? resolved.items.filter((x): x is DoctorPatientConfirmed => x.type === "patient");
+  const slice = confirmed.slice(0, Math.max(0, limit));
 
-export interface DoctorsMeLatestFeedbackResponse {
-  items: LatestFeedbackItem[];
-}
+  const results = await Promise.all(
+    slice.map(async (p) => {
+      try {
+        const patientRes = await api.get<{ feedback?: Array<any> }>(`/patients/${p.id}`);
+        const feedbackArr = Array.isArray(patientRes.data.feedback) ? patientRes.data.feedback : [];
+        if (!feedbackArr.length) return null;
 
-export async function getDoctorsMeLatestFeedback(): Promise<LatestFeedbackItem[]> {
-  const response = await api.get<DoctorsMeLatestFeedbackResponse>(
-    "/doctors/me/latest-feedback"
+        const latest = feedbackArr
+          .slice()
+          .sort((a, b) => String(b.timestamp ?? "").localeCompare(String(a.timestamp ?? "")))[0];
+
+        if (!latest) return null;
+
+        return {
+          patientId: p.id,
+          patientName: p.name,
+          pain: Number(latest.pain ?? 0),
+          fatigue: Number(latest.fatigue ?? 0),
+          difficulty: Number(latest.difficulty ?? 0),
+          comments: typeof latest.comments === "string" ? latest.comments : undefined,
+          timestamp: String(latest.timestamp ?? new Date().toISOString()),
+        } satisfies LatestFeedbackItem;
+      } catch {
+        return null;
+      }
+    })
   );
-  return response.data.items;
-}
 
-export interface InviteListItem {
-  id: string;
-  token: string;
-  email: string;
-  inviteeName: string;
-  role: string;
-  status: string;
-  expiresAt?: string;
-  timeCreated: string;
-}
-
-export async function getDoctorInvites(doctorId: string): Promise<{
-  items: InviteListItem[];
-}> {
-  const response = await api.get<InviteListItem[] | { items: InviteListItem[] }>(
-    `/doctors/${doctorId}/invites`
+  return results.filter(
+    (x): x is NonNullable<typeof x> => x !== null
   );
-  const data = response.data;
-  const items = Array.isArray(data) ? data : (data?.items ?? []);
-  return { items };
-}
-
-export interface CreateInvitePayload {
-  email: string;
-  inviteeName: string;
-  role: "Patient" | "Doctor";
-}
-
-export interface CreateInviteResponse {
-  id: string;
-  token: string;
-  email: string;
-  inviteeName: string;
-  role: string;
-  status: string;
-  expiresAt: string;
-}
-
-export async function createInvite(
-  payload: CreateInvitePayload
-): Promise<CreateInviteResponse> {
-  const response = await api.post<CreateInviteResponse>("/invites", payload);
-  return response.data;
-}
-
-export async function resendInvite(inviteId: string): Promise<{ token: string }> {
-  const response = await api.post<{ token: string }>(
-    `/invites/${inviteId}/resend`
-  );
-  return response.data;
-}
-
-export async function revokeInvite(inviteId: string): Promise<void> {
-  await api.post(`/invites/${inviteId}/revoke`);
-}
-
-export interface MetricsSummaryItem {
-  patientId: string;
-  patientName: string;
-  joint: string;
-  side: string;
-  avgROM?: number;
-  avgVelocity?: number;
-  date: string;
-  exerciseType: string;
 }
 
 export async function getDoctorsMeMetricsSummary(): Promise<MetricsSummaryItem[]> {
   const response = await api.get<MetricsSummaryItem[]>("/doctors/me/metrics-summary");
-  return response.data;
-}
-
-export interface RecentActivityItem {
-  type: "session" | "feedback";
-  patientId: string;
-  patientName: string;
-  label: string;
-  date: string;
-  sessionId?: string;
+  return Array.isArray(response.data) ? response.data : [];
 }
 
 export async function getDoctorsMeRecentActivity(): Promise<RecentActivityItem[]> {
   const response = await api.get<RecentActivityItem[]>("/doctors/me/recent-activity");
-  return response.data;
+  return Array.isArray(response.data) ? response.data : [];
 }
 
-export interface TrendsData {
-  avgPain: number;
-  avgFatigue: number;
-  avgDifficulty: number;
-}
-
-export async function getDoctorsMeTrends(): Promise<TrendsData> {
-  const response = await api.get<TrendsData>("/doctors/me/trends");
-  return response.data;
+export async function getDoctorsMeTrends(): Promise<TrendsData | null> {
+  try {
+    const response = await api.get<TrendsData>("/doctors/me/trends");
+    return response.data;
+  } catch {
+    return null;
+  }
 }

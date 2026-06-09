@@ -2,6 +2,8 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  accessCode?: string;
+  patientCode?: string;
   role: "patient" | "doctor";
 }
 
@@ -76,6 +78,7 @@ export interface Medication {
 
 export interface PatientDetails {
   age: number;
+  birthDate?: string;
   sex: "Male" | "Female" | "Other";
   height: number; // in meters
   weight: number; // in kg
@@ -143,6 +146,8 @@ export interface PatientFeedback {
 export interface Patient {
   id: string;
   name: string;
+  accessCode?: string;
+  patientCode?: string;
   details?: PatientDetails;
   recovery_process: RecoveryProcess[];
   doctor?: {
@@ -248,9 +253,9 @@ export interface AnalysisResult {
 export type RootStackParamList = {
   Home: undefined;
   Login: undefined;
-  Signup: undefined;
 
-  PatientDetail: { patient: Patient };
+  PatientDetail: { patientId: string; role: string };
+  SessionDetail: { sessionId: string; patientId: string };
   CreatePatient: undefined;
   InvitePatient: undefined;
   ManageInvites: undefined;
@@ -258,7 +263,7 @@ export type RootStackParamList = {
   
   Profile: { twoFactorEnabled?: boolean } | undefined;
   
-  BleConnection: undefined;
+  BleConnection: { patientId?: string; exerciseTypeId?: string; exerciseName?: string } | undefined;
   
   ExerciseDetail: { exercise: any };
   ExerciseHistory: undefined;

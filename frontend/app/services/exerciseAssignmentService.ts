@@ -1,120 +1,138 @@
-import {
-  AssignedExercisesRepository,
-  ExerciseTypesRepository,
-  AssignedExerciseRecord,
-  ExerciseTypeRecord,
-} from "../storage/repositories";
+import api from "./api";
 
-export interface AssignedExerciseWithDetails extends AssignedExerciseRecord {
+export interface ExerciseTypeRecord {
+  id: string;
+  name: string;
+  description?: string;
+  targetReps?: number;
+  targetSets?: number;
+  instructions?: string;
+  category: "knee" | "hip" | "ankle" | "general";
+}
+
+export interface AssignSessionPayload {
+  exerciseId: string;
+  startDate: string;   
+  endDate: string;     
+  frequency: number;
+  notes?: string;
+}
+
+export interface AssignedExerciseWithDetails {
+  id: string;
+  patientId: string;
+  exerciseTypeId: string;
+  assignedDate?: string;
+  completed: 0 | 1;
+  targetReps?: number | null;
+  targetSets?: number | null;
   exerciseType?: ExerciseTypeRecord;
 }
 
-/**
- * Assign an exercise to a patient
- */
+export async function assignPatientSession(
+  patientId: string,
+  payload: AssignSessionPayload
+): Promise<void> {
+  await api.post(`/patients/${patientId}/sessions`, {
+    exercise_id: payload.exerciseId,
+    start_date: payload.startDate,
+    end_date: payload.endDate,
+    frequency: payload.frequency,
+    notes: payload.notes ?? ""
+  });
+}
+
+export async function getAvailableExercises(): Promise<ExerciseTypeRecord[]> {
+  try {
+    const res = await api.get<ExerciseTypeRecord[]>("/exercise-types");
+    return res.data;
+  } catch (error) {
+    console.error("Failed to fetch available exercises:", error);
+    return [];
+  }
+}
+
+export async function getOrCreateExerciseTypeByName(
+  availableExerciseTypes: ExerciseTypeRecord[],
+  draft: {
+    name: string;
+    instructions?: string;
+    targetRepetitions?: number;
+    targetSets?: number;
+  }
+): Promise<ExerciseTypeRecord> {
+  const normalizedName = draft.name.trim().toLowerCase();
+  const existingExerciseType = availableExerciseTypes.find(
+    (exerciseType) => exerciseType.name.trim().toLowerCase() === normalizedName
+  );
+
+  if (existingExerciseType) {
+    return existingExerciseType;
+  }
+
+  const slug = draft.name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  return {
+    id: slug || `custom_exercise_${Date.now()}`,
+    name: draft.name,
+    description: draft.instructions || undefined,
+    targetReps: draft.targetRepetitions || undefined,
+    targetSets: draft.targetSets || undefined,
+    instructions: draft.instructions || undefined,
+    category: "general",
+  };
+}
+
 export async function assignExerciseToPatient(
   patientId: string,
   exerciseTypeId: string,
   targetReps?: number,
-  targetSets?: number
-): Promise<AssignedExerciseRecord> {
-  // Get exercise type to use defaults if not provided
-  const exerciseType = await ExerciseTypesRepository.getById(exerciseTypeId);
-  if (!exerciseType) {
-    throw new Error(`Exercise type ${exerciseTypeId} not found`);
+  targetSets?: number,
+  exerciseTypeName?: string
+): Promise<void> {
+  await api.post(`/patients/${patientId}/exercises`, {
+    exercise_type_id: exerciseTypeId,
+    exercise_type_name: exerciseTypeName,
+    target_reps: targetReps,
+    target_sets: targetSets,
+  });
+}
+
+export async function updateAssignedExercise(
+  patientId: string,
+  assignedExerciseId: string,
+  targetReps: number,
+  exerciseTypeName: string
+): Promise<void> {
+  await api.put(`/patients/${patientId}/exercises/${assignedExerciseId}`, {
+    exercise_type_name: exerciseTypeName,
+    target_reps: targetReps,
+  });
+}
+
+export async function getAssignedExercises(patientId: string): Promise<AssignedExerciseWithDetails[]> {
+  try {
+    const res = await api.get<AssignedExerciseWithDetails[]>(`/patients/${patientId}/exercises`);
+    return res.data;
+  } catch (error) {
+    console.error("Failed to fetch assigned exercises:", error);
+    return [];
   }
-
-  const assignment: AssignedExerciseRecord = {
-    id: `assign_${Date.now()}_${Math.floor(Math.random() * 1e6)}`,
-    patientId,
-    exerciseTypeId,
-    assignedDate: new Date().toISOString(),
-    completed: 0,
-    targetReps: targetReps ?? exerciseType.targetReps ?? null,
-    targetSets: targetSets ?? exerciseType.targetSets ?? null,
-  };
-
-  await AssignedExercisesRepository.create(assignment);
-  return assignment;
 }
 
-/**
- * Get all assigned exercises for a patient
- */
-export async function getAssignedExercises(
-  patientId: string
-): Promise<AssignedExerciseWithDetails[]> {
-  const assignments = await AssignedExercisesRepository.listByPatient(patientId);
-  
-  // Enrich with exercise type details
-  const enriched = await Promise.all(
-    assignments.map(async (assignment) => {
-      const exerciseType = await ExerciseTypesRepository.getById(
-        assignment.exerciseTypeId
-      );
-      return {
-        ...assignment,
-        exerciseType: exerciseType ?? undefined,
-      };
-    })
-  );
-
-  return enriched;
+export async function getCurrentExercise(patientId: string): Promise<AssignedExerciseWithDetails | null> {
+  try {
+    const assigned = await getAssignedExercises(patientId);
+    // Return the first incomplete exercise, or the most recent one
+    const incomplete = assigned.find(e => e.completed === 0);
+    if (incomplete) return incomplete;
+    return assigned.length > 0 ? assigned[0] : null;
+  } catch (error) {
+    console.error("Failed to get current exercise:", error);
+    return null;
+  }
 }
-
-/**
- * Get the current active (incomplete) exercise for a patient
- */
-export async function getCurrentExercise(
-  patientId: string
-): Promise<AssignedExerciseWithDetails | null> {
-  const assignments = await AssignedExercisesRepository.listByPatient(patientId);
-  const incomplete = assignments.find((a) => a.completed === 0);
-  
-  if (!incomplete) return null;
-
-  const exerciseType = await ExerciseTypesRepository.getById(
-    incomplete.exerciseTypeId
-  );
-
-  return {
-    ...incomplete,
-    exerciseType: exerciseType ?? undefined,
-  };
-}
-
-/**
- * Mark an exercise as completed
- */
-export async function markExerciseCompleted(
-  assignmentId: string
-): Promise<void> {
-  await AssignedExercisesRepository.markCompleted(assignmentId);
-}
-
-/**
- * Update exercise assignment (targets, etc.)
- */
-export async function updateExerciseAssignment(
-  assignmentId: string,
-  updates: Partial<Pick<AssignedExerciseRecord, "targetReps" | "targetSets">>
-): Promise<void> {
-  await AssignedExercisesRepository.update(assignmentId, updates);
-}
-
-/**
- * Get all available exercise types
- */
-export async function getAvailableExercises(): Promise<ExerciseTypeRecord[]> {
-  return await ExerciseTypesRepository.list();
-}
-
-/**
- * Get exercises by category
- */
-export async function getExercisesByCategory(
-  category: "knee" | "hip" | "ankle" | "general"
-): Promise<ExerciseTypeRecord[]> {
-  return await ExerciseTypesRepository.listByCategory(category);
-}
-

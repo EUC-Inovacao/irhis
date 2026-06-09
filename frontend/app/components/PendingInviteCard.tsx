@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import type { DoctorPatientPending } from '../services/doctorService';
+import { useTranslation } from 'react-i18next';
 
 const PendingInviteCard = ({
   item,
@@ -12,6 +13,7 @@ const PendingInviteCard = ({
   onPress: () => void;
 }) => {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   return (
     <TouchableOpacity
       style={[styles.card, { backgroundColor: colors.card }]}
@@ -24,14 +26,16 @@ const PendingInviteCard = ({
         </View>
         <View style={styles.info}>
           <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
-            {item.inviteeName || item.email || 'Invite'}
+            {item.inviteeName || item.email || t('pendingInviteCard.invite')}
           </Text>
           <Text style={[styles.email, { color: colors.textSecondary }]} numberOfLines={1}>
             {item.email}
           </Text>
         </View>
         <View style={[styles.badge, { backgroundColor: colors.warning + '25' }]}>
-          <Text style={[styles.badgeText, { color: colors.warning }]}>Pending invite</Text>
+          <Text style={[styles.badgeText, { color: colors.warning }]}>
+            {t('pendingInviteCard.pendingInvite')}
+          </Text>
         </View>
       </View>
     </TouchableOpacity>

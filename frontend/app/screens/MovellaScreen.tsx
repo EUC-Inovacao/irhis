@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "@theme/ThemeContext";
 import { useAuth } from "@context/AuthContext";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import Slider from "@react-native-community/slider";
 import * as DocumentPicker from "expo-document-picker";
@@ -38,11 +38,11 @@ import JSZip from "jszip";
 import Papa from "papaparse";
 import PatientPickerModal from "@components/PatientPickerModal";
 import ExercisePickerModal from "@components/ExercisePickerModal";
+import SessionFeedbackModal from "@components/SessionFeedbackModal";
 import { usePatients } from "@context/PatientContext";
 import { getCurrentExercise } from "@services/exerciseAssignmentService";
-import { ExerciseTypesRepository } from "@storage/repositories";
-import { createSession } from "@services/localSessionService";
-import { assignExerciseToPatient } from "@services/exerciseAssignmentService";
+import { createSessionFromAnalysisResult } from "@services/sessionService";
+import { useTranslation } from "react-i18next";
 
 interface SensorData {
   Quat_W?: number;
@@ -64,9 +64,10 @@ interface RealtimeData {
 
 const MovellaScreen = () => {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { user } = useAuth();
   const navigation = useNavigation();
-  const { patients, fetchAssignedExercises } = usePatients();
+  const { patients, fetchAssignedExercises, fetchPatients } = usePatients();
   const [currentFile, setCurrentFile] = useState<string | null>(null);
   const [currentFrame, setCurrentFrame] = useState(0);
   const [maxFramesValue, setMaxFramesValue] = useState(0);
@@ -99,7 +100,15 @@ const MovellaScreen = () => {
   const [currentExercise, setCurrentExercise] = useState<any>(null);
   const [selectedExerciseName, setSelectedExerciseName] = useState<string | null>(null);
   const [dataSourceMode, setDataSourceMode] = useState<"zip" | "ble">("zip"); // ZIP or BLE
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [lastCreatedSessionId, setLastCreatedSessionId] = useState<string | null>(null);
   // External API is the only analysis mode now
+
+  const refreshPatientProgress = useCallback(async () => {
+    await fetchPatients();
+    const pid = user?.role === "patient" ? user?.id : selectedPatientId;
+    if (pid) await fetchAssignedExercises(pid);
+  }, [fetchPatients, fetchAssignedExercises, user?.role, user?.id, selectedPatientId]);
 
   const createSegmentOrientation = (
     qx: number,
@@ -208,7 +217,7 @@ const MovellaScreen = () => {
       try {
         // For doctors, show data for selected patient or first patient
         // For patients, show their own data
-        const patientId = user.role === "patient" ? user.id : selectedPatientId;
+        const patientId = user.role?.toLowerCase() === "patient" ? user.id : selectedPatientId;
         
         if (patientId) {
           // Get current session metrics if available
@@ -224,49 +233,49 @@ const MovellaScreen = () => {
           const data = await getHistoricalSessionData(patientId, currentRom, currentReps);
           setHistoricalData(data);
         } else {
-          // For doctors, generate mock data for showcase
-          const mockData = await getHistoricalSessionData("mock-patient", 75, 12);
-          setHistoricalData(mockData);
+          // For doctors without patient selected, no historical data
+          setHistoricalData([]);
         }
       } catch (error) {
         console.error("Error loading historical data:", error);
-        // Generate mock data on error
-        const mockData = await getHistoricalSessionData("mock-patient", 75, 12);
-        setHistoricalData(mockData);
+        // No mock data - return empty
+        setHistoricalData([]);
       }
     };
 
     loadHistoricalData();
   }, [user, localAnalysisResult, selectedPatientId]);
 
-  // Load exercise name when selectedExerciseId changes
-  useEffect(() => {
-    const loadExerciseName = async () => {
-      if (selectedExerciseId) {
-        try {
-          const exercise = await ExerciseTypesRepository.getById(selectedExerciseId);
-          setSelectedExerciseName(exercise?.name || null);
-        } catch (error) {
-          console.error("Error loading exercise name:", error);
-          setSelectedExerciseName(null);
-        }
-      } else {
-        setSelectedExerciseName(null);
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      // Refresh patients list
+      if (user?.role?.toLowerCase() === "doctor") {
+        fetchPatients();
       }
-    };
+      // Refresh assigned exercises if patient is selected (for doctors) or if user is a patient
+      if (user?.role?.toLowerCase() === "patient" && user.id) {
+        fetchAssignedExercises(user.id);
+        // Set selectedPatientId to user.id for patients
+        setSelectedPatientId(user.id);
+      } else if (selectedPatientId) {
+        fetchAssignedExercises(selectedPatientId);
+      }
+    }, [user?.role, user?.id, selectedPatientId, fetchPatients, fetchAssignedExercises])
+  );
 
-    loadExerciseName();
-  }, [selectedExerciseId]);
+  // selectedExerciseName is set by handleExerciseSelect when picking; no ExerciseTypesRepository lookup needed
 
   // Load current exercise for patients
   useEffect(() => {
     const loadCurrentExercise = async () => {
-      if (user?.role === "patient" && user.id) {
+      if (user?.role?.toLowerCase() === "patient" && user.id) {
         try {
           const exercise = await getCurrentExercise(user.id);
           if (exercise) {
             setCurrentExercise(exercise);
             setSelectedExerciseId(exercise.exerciseTypeId);
+            setSelectedExerciseName(exercise.exerciseType?.name || null);
           }
         } catch (error) {
           console.error("Error loading current exercise:", error);
@@ -278,6 +287,24 @@ const MovellaScreen = () => {
   }, [user]);
 
   const handleFileUpload = async () => {
+    // Require patient & exercise selection for doctors before analysis
+    if (user?.role?.toLowerCase() === "doctor") {
+      if (!selectedPatientId) {
+        Alert.alert(
+          t("movella.selectPatient"),
+          t("movella.selectPatientBeforeUpload")
+        );
+        return;
+      }
+      if (!selectedExerciseId && !currentExercise) {
+        Alert.alert(
+          t("movella.selectExercise"),
+          t("movella.selectExerciseBeforeUpload")
+        );
+        return;
+      }
+    }
+
     setIsPlaying(false);
     setCurrentFile(null);
     setSensorData({});
@@ -305,69 +332,47 @@ const MovellaScreen = () => {
       }
     } catch (error) {
       console.error("Error picking document:", error);
-      Alert.alert("Error", "Failed to pick the document.");
+      Alert.alert(t("common.error"), t("movella.failedPickDocument"));
     }
   };
 
-  // Create session from analysis results
+  // Create session from analysis results (ZIP flow)
   const createSessionFromAnalysis = async (result: AnalysisResult) => {
     if (!user) return;
 
-    try {
-      const patientId = user.role === "patient" ? user.id : selectedPatientId;
-      if (!patientId) {
-        console.log("No patient selected, skipping session creation");
-        return;
-      }
-
-      // Get exercise type ID
-      const exerciseTypeId = selectedExerciseId || currentExercise?.exerciseTypeId;
-      if (!exerciseTypeId) {
-        console.log("No exercise selected, skipping session creation");
-        return;
-      }
-
-      // Calculate metrics from analysis result
-      const leftRom = result.knee.left?.rom || 0;
-      const rightRom = result.knee.right?.rom || 0;
-      const avgRom = (leftRom + rightRom) / 2 || leftRom || rightRom || 0;
-      
-      const leftMaxFlexion = result.knee.left?.maxFlexion || 0;
-      const rightMaxFlexion = result.knee.right?.maxFlexion || 0;
-      const avgMaxFlexion = (leftMaxFlexion + rightMaxFlexion) / 2 || leftMaxFlexion || rightMaxFlexion || 0;
-      
-      const leftMaxExtension = result.knee.left?.maxExtension || 0;
-      const rightMaxExtension = result.knee.right?.maxExtension || 0;
-      const avgMaxExtension = (leftMaxExtension + rightMaxExtension) / 2 || leftMaxExtension || rightMaxExtension || 0;
-
-      // Estimate reps from analysis (if available)
-      const reps = result.knee.left?.repetitions || result.knee.right?.repetitions || 0;
-      
-      // Calculate score based on ROM and consistency
-      const score = Math.min(100, Math.max(0, 60 + (avgRom / 90) * 35));
-
-      const startTime = new Date().toISOString();
-      const endTime = new Date(Date.now() + 15 * 60000).toISOString(); // Assume 15 min session
-
-      await createSession({
-        patientId,
-        exerciseTypeId,
-        startTime,
-        endTime,
-        metrics: {
-          rom: Math.round(avgRom),
-          maxFlexion: Math.round(avgMaxFlexion),
-          maxExtension: Math.round(avgMaxExtension),
-          reps: Math.round(reps),
-          score: Math.round(score),
-        },
-      });
-
-      console.log("Session created successfully");
-    } catch (error) {
-      console.error("Error creating session:", error);
-      // Don't show error to user - session creation is secondary
+    const patientId = user.role === "patient" ? user.id : selectedPatientId;
+    if (!patientId) {
+      console.log("No patient selected, skipping session creation");
+      return;
     }
+
+    const exerciseTypeId = selectedExerciseId || currentExercise?.exerciseTypeId;
+    if (!exerciseTypeId) {
+      console.log("No exercise selected, skipping session creation");
+      return;
+    }
+
+    const startTime = new Date();
+    const endTime = new Date(Date.now() + 15 * 60000);
+
+    const session = await createSessionFromAnalysisResult(result, {
+      patientId,
+      exerciseTypeId,
+      exerciseName: selectedExerciseName ?? currentExercise?.name,
+      startTime,
+      endTime,
+    });
+
+    if (session) {
+      console.log("Session created successfully:", session.id);
+      await refreshPatientProgress();
+      if (user.role?.toLowerCase() === "patient" && session.id) {
+        setLastCreatedSessionId(session.id);
+        setShowFeedbackModal(true);
+      }
+      return session.id;
+    }
+    return null;
   };
 
   const analyzeWithLocalApi = async (fileUri: string, fileName: string) => {
@@ -404,14 +409,19 @@ const MovellaScreen = () => {
       await createSessionFromAnalysis(result);
 
       Alert.alert(
-        "Analysis Complete",
-        `Local analysis completed successfully!\n\nMissing sensors: ${result.missingSensors.length > 0 ? result.missingSensors.join(", ") : "None"}\n\nScroll down to view detailed results.`
+        t("movella.analysisCompleteTitle"),
+        t("movella.localAnalysisCompleteMessage", {
+          missingSensors:
+            result.missingSensors.length > 0
+              ? result.missingSensors.join(", ")
+              : t("movella.none"),
+        })
       );
     } catch (error) {
       console.error("Local analysis failed:", error);
       Alert.alert(
-        "Analysis Error",
-        `Failed to analyze movement data locally: ${error}`
+        t("movella.analysisErrorTitle"),
+        t("movella.localAnalysisFailedMessage", { error: String(error) })
       );
     } finally {
       setIsAnalyzing(false);
@@ -458,8 +468,8 @@ const MovellaScreen = () => {
     } catch (error) {
       console.error("Error processing ZIP file:", error);
       Alert.alert(
-        "Error",
-        "Failed to process the ZIP file. It might be corrupted or in an unexpected format."
+        t("common.error"),
+        t("movella.failedProcessZip")
       );
     }
   };
@@ -479,20 +489,20 @@ const MovellaScreen = () => {
         // TODO: Implement per-knee analysis with the parsed data
         // For now, we'll show a message about the new capability
         Alert.alert(
-          "Analysis Complete",
-          "Data processed successfully. Per-knee analysis will be available in the next update."
+          t("movella.analysisCompleteTitle"),
+          t("movella.processDataCompleteMessage")
         );
       } else {
         Alert.alert(
-          "Not Enough Data",
-          "At least two sensor data files are needed to calculate joint angles."
+          t("movella.notEnoughDataTitle"),
+          t("movella.notEnoughDataMessage")
         );
       }
     } catch (error) {
       console.error("Error processing data:", error);
       Alert.alert(
-        "Analysis Error",
-        "Failed to analyze movement data. Please check the file format."
+        t("movella.analysisErrorTitle"),
+        t("movella.analysisFileFormatFailed")
       );
     }
   };
@@ -505,10 +515,12 @@ const MovellaScreen = () => {
     return (
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Parsed Data
+          {t("movella.parsedData")}
         </Text>
         {Object.entries(sensorData).map(([fileName, data]) => {
-          const mapping = `Sensor ${Object.keys(sensorData).indexOf(fileName) + 1}`;
+          const mapping = t("movella.sensorLabel", {
+            index: Object.keys(sensorData).indexOf(fileName) + 1,
+          });
           return (
             <View
               key={fileName}
@@ -518,7 +530,7 @@ const MovellaScreen = () => {
                 {mapping}
               </Text>
               <Text style={[styles.dataValue, { color: colors.textSecondary }]}>
-                {`${data.length} frames`}
+                {t("movella.framesCount", { count: data.length })}
               </Text>
             </View>
           );
@@ -551,7 +563,7 @@ const MovellaScreen = () => {
         <Text
           style={[styles.sectionTitle, { color: colors.text, marginTop: 10 }]}
         >
-          Digital Twin
+          {t("movella.digitalTwin")}
         </Text>
         <View style={[styles.card, { backgroundColor: colors.card }]}>
           <Avatar
@@ -1009,33 +1021,32 @@ const MovellaScreen = () => {
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
           <Text style={[styles.loadingText, { color: colors.text }]}>
-            Analyzing Movement Data...
+            {t("movella.loadingTitle")}
           </Text>
           <Text
             style={[styles.loadingSubtext, { color: colors.textSecondary }]}
           >
-            This may take a few moments
+            {t("movella.loadingSubtitle")}
           </Text>
         </View>
       </View>
     );
   };
 
-  const handleExerciseSelect = async (exerciseTypeId: string) => {
+  const handleExerciseSelect = (exerciseTypeId: string, exerciseName?: string) => {
     setSelectedExerciseId(exerciseTypeId);
-    
-    // If doctor selected patient and exercise, assign it automatically
-    if (user?.role === "doctor" && selectedPatientId && exerciseTypeId) {
-      try {
-        await assignExerciseToPatient(selectedPatientId, exerciseTypeId);
-        // Refresh exercises for the patient
-        await fetchAssignedExercises(selectedPatientId);
-        Alert.alert("Success", "Exercise assigned to patient");
-      } catch (error) {
-        console.error("Error assigning exercise:", error);
-        Alert.alert("Error", "Failed to assign exercise to patient");
-      }
-    }
+    setSelectedExerciseName(exerciseName || null);
+    // No longer auto-assigning - just selecting from assigned exercises
+  };
+  
+  const handleCreateNewExercise = () => {
+    // Navigate to exercise management or show create exercise modal
+    // For now, show an alert suggesting to assign exercise from patient detail screen
+    Alert.alert(
+      t("movella.assignExerciseTitle"),
+      t("movella.assignExerciseMessage"),
+      [{ text: t("common.ok") }]
+    );
   };
 
   const renderProgressionCharts = () => {
@@ -1117,7 +1128,7 @@ const MovellaScreen = () => {
     return (
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Progression Over Time
+          {t("movella.progressionTitle")}
         </Text>
         <Text
           style={[
@@ -1125,7 +1136,7 @@ const MovellaScreen = () => {
             { color: colors.textSecondary, marginBottom: 16 },
           ]}
         >
-          Last 8 sessions - showing improvement trends
+          {t("movella.progressionSubtitle")}
         </Text>
 
         {/* ROM Chart */}
@@ -1134,7 +1145,7 @@ const MovellaScreen = () => {
             <View style={styles.chartHeaderLeft}>
               <Ionicons name="trending-up" size={20} color={colors.primary} />
               <Text style={[styles.chartTitle, { color: colors.text }]}>
-                Range of Motion (ROM)
+                {t("movella.romChartTitle")}
               </Text>
             </View>
             <Text style={[styles.chartValue, { color: colors.text }]}>
@@ -1162,7 +1173,7 @@ const MovellaScreen = () => {
             <View style={styles.chartHeaderLeft}>
               <Ionicons name="repeat" size={20} color={colors.success || "#4CAF50"} />
               <Text style={[styles.chartTitle, { color: colors.text }]}>
-                Repetitions
+                {t("movella.repetitions")}
               </Text>
             </View>
             <Text style={[styles.chartValue, { color: colors.text }]}>
@@ -1193,7 +1204,7 @@ const MovellaScreen = () => {
             <View style={styles.chartHeaderLeft}>
               <Ionicons name="speedometer" size={20} color={colors.info || "#2196F3"} />
               <Text style={[styles.chartTitle, { color: colors.text }]}>
-                Average Velocity
+                {t("movella.averageVelocity")}
               </Text>
             </View>
             <Text style={[styles.chartValue, { color: colors.text }]}>
@@ -1224,7 +1235,7 @@ const MovellaScreen = () => {
             <View style={styles.chartHeaderLeft}>
               <Ionicons name="star" size={20} color={colors.warning || "#FF9800"} />
               <Text style={[styles.chartTitle, { color: colors.text }]}>
-                Session Score
+                {t("movella.sessionScore")}
               </Text>
             </View>
             <Text style={[styles.chartValue, { color: colors.text }]}>
@@ -1262,18 +1273,18 @@ const MovellaScreen = () => {
       >
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.text }]}>
-            Live Session
+            {t("navigation.liveSession")}
           </Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Upload and analyze your movement data
+            {t("movella.subtitle")}
           </Text>
         </View>
 
         {/* Patient/Exercise Selection - For Doctors */}
-        {user?.role === "doctor" && (
+        {user?.role?.toLowerCase() === "doctor" && (
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Select Patient & Exercise
+              {t("movella.selectPatientExercise")}
             </Text>
             
             <TouchableOpacity
@@ -1287,7 +1298,7 @@ const MovellaScreen = () => {
               <Text style={[styles.pickerText, { color: colors.text }]}>
                 {selectedPatientId
                   ? patients[selectedPatientId]?.name
-                  : "Select Patient"}
+                  : t("movella.selectPatient")}
               </Text>
               <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
@@ -1302,55 +1313,77 @@ const MovellaScreen = () => {
                   opacity: selectedPatientId ? 1 : 0.5,
                 },
               ]}
-              onPress={() => setShowExercisePicker(true)}
+              onPress={async () => {
+                if (!selectedPatientId) {
+                  Alert.alert(
+                    t("movella.selectPatientFirst"),
+                    t("movella.selectPatientBeforeChooseExercise")
+                  );
+                  return;
+                }
+                // Force refresh assigned exercises before opening the picker
+                console.log(`[MovellaScreen] Opening exercise picker for patient: ${selectedPatientId}`);
+                try {
+                  // Force a fresh fetch from database
+                  await fetchAssignedExercises(selectedPatientId);
+                  // Small delay to ensure state is updated
+                  await new Promise(resolve => setTimeout(resolve, 100));
+                } catch (error) {
+                  console.error("Error refreshing assigned exercises:", error);
+                }
+                setShowExercisePicker(true);
+              }}
               disabled={!selectedPatientId}
             >
               <Ionicons name="fitness-outline" size={20} color={colors.textSecondary} />
               <Text style={[styles.pickerText, { color: colors.text }]}>
-                {selectedExerciseName || "Select Exercise"}
+                {selectedExerciseName || t("movella.selectExercise")}
               </Text>
               <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Current Exercise Display - For Patients */}
-        {user?.role === "patient" && (
+        {/* Exercise Selection - For Patients */}
+        {user?.role?.toLowerCase() === "patient" && (
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Current Exercise
+              {t("movella.selectExercise")}
             </Text>
-            {currentExercise?.exerciseType ? (
-              <View style={styles.currentExerciseContainer}>
-                <Ionicons
-                  name="fitness-outline"
-                  size={24}
-                  color={colors.primary}
-                />
-                <View style={styles.currentExerciseInfo}>
-                  <Text style={[styles.currentExerciseName, { color: colors.text }]}>
-                    {currentExercise.exerciseType.name}
-                  </Text>
-                  {currentExercise.exerciseType.description && (
-                    <Text
-                      style={[
-                        styles.currentExerciseDescription,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      {currentExercise.exerciseType.description}
-                    </Text>
-                  )}
-                </View>
-              </View>
-            ) : (
+            <TouchableOpacity
+              style={[
+                styles.pickerButton,
+                { backgroundColor: colors.background, borderColor: colors.mediumGray },
+              ]}
+              onPress={async () => {
+                if (!user?.id) {
+                  Alert.alert(t("common.error"), t("movella.userNotLoggedIn"));
+                  return;
+                }
+                // Force refresh assigned exercises before opening the picker
+                try {
+                  await fetchAssignedExercises(user.id);
+                  await new Promise(resolve => setTimeout(resolve, 100));
+                } catch (error) {
+                  console.error("Error refreshing assigned exercises:", error);
+                }
+                setShowExercisePicker(true);
+              }}
+            >
+              <Ionicons name="fitness-outline" size={20} color={colors.textSecondary} />
+              <Text style={[styles.pickerText, { color: colors.text }]}>
+                {selectedExerciseName || currentExercise?.exerciseType?.name || t("movella.selectExercise")}
+              </Text>
+              <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+            {!selectedExerciseId && !currentExercise && (
               <Text
                 style={[
                   styles.currentExerciseText,
-                  { color: colors.textSecondary },
+                  { color: colors.textSecondary, marginTop: 8 },
                 ]}
               >
-                No exercise assigned
+                {t("movella.noExerciseAssigned")}
               </Text>
             )}
           </View>
@@ -1359,13 +1392,13 @@ const MovellaScreen = () => {
         <View style={[styles.section, { backgroundColor: colors.card }]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Movement Data
+              {t("movella.movementData")}
             </Text>
           </View>
 
           {/* Data Source Mode Toggle */}
           <View style={styles.modeToggleContainer}>
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={[
                 styles.modeButton,
                 {
@@ -1391,7 +1424,7 @@ const MovellaScreen = () => {
               >
                 ZIP File
               </Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
             <TouchableOpacity
               style={[
                 styles.modeButton,
@@ -1401,10 +1434,40 @@ const MovellaScreen = () => {
                 },
               ]}
               onPress={() => {
+                // Require patient & exercise selection before BLE (same as ZIP upload)
+                if (user?.role?.toLowerCase() === "doctor") {
+                  if (!selectedPatientId) {
+                    Alert.alert(
+                      t("movella.selectPatient"),
+                      t("movella.selectPatientBeforeLiveSession")
+                    );
+                    return;
+                  }
+                  if (!selectedExerciseId && !currentExercise) {
+                    Alert.alert(
+                      t("movella.selectExercise"),
+                      t("movella.selectExerciseBeforeLiveSession")
+                    );
+                    return;
+                  }
+                } else if (user?.role?.toLowerCase() === "patient") {
+                  if (!selectedExerciseId && !currentExercise) {
+                    Alert.alert(
+                      t("movella.selectExercise"),
+                      t("movella.selectExerciseBeforeLiveSession")
+                    );
+                    return;
+                  }
+                }
+
                 setDataSourceMode("ble");
-                // Navigate to BLE connection screen
+                // Navigate to BLE connection screen with patient/exercise context for saving results
                 if (navigation) {
-                  navigation.navigate("BleConnection");
+                  navigation.navigate("BleConnection", {
+                    patientId: selectedPatientId ?? (user?.role === "patient" ? user.id : undefined),
+                    exerciseTypeId: selectedExerciseId ?? currentExercise?.exerciseTypeId,
+                    exerciseName: selectedExerciseName ?? currentExercise?.name,
+                  });
                 }
               }}
             >
@@ -1422,7 +1485,7 @@ const MovellaScreen = () => {
                   },
                 ]}
               >
-                BLE Stream
+                {t("movella.bleStream")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -1444,7 +1507,7 @@ const MovellaScreen = () => {
                 color={colors.white}
               />
               <Text style={[styles.buttonText, { color: colors.white }]}>
-                {isAnalyzing ? "Analyzing..." : "Upload Data"}
+                {isAnalyzing ? t("movella.analyzing") : t("movella.uploadData")}
               </Text>
             </TouchableOpacity>
           )}
@@ -1457,7 +1520,7 @@ const MovellaScreen = () => {
                 color={colors.info}
               />
               <Text style={[styles.bleInfoText, { color: colors.textSecondary }]}>
-                Connect to Movella DOT sensors via Bluetooth to stream real-time data
+                {t("movella.bleInfo")}
               </Text>
             </View>
           )}
@@ -1465,7 +1528,7 @@ const MovellaScreen = () => {
           {/* Analysis Mode Toggle removed: External API only */}
 
           {/* API Status Indicator */}
-          <View style={styles.apiStatusContainer}>
+          {/* <View style={styles.apiStatusContainer}>
             <View
               style={[
                 styles.apiStatusIndicator,
@@ -1489,7 +1552,7 @@ const MovellaScreen = () => {
                   ? "Unavailable"
                   : "Checking..."}
             </Text>
-          </View>
+          </View> */}
 
           {currentFile ? (
             <>{renderDataPreview()}</>
@@ -1506,7 +1569,7 @@ const MovellaScreen = () => {
                   { color: colors.textSecondary },
                 ]}
               >
-                Upload a movement data file to begin analysis
+                {t("movella.uploadPlaceholder")}
               </Text>
             </View>
           )}
@@ -1523,7 +1586,7 @@ const MovellaScreen = () => {
         {analysisResult && (
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              External API Analysis
+              {t("movella.externalApiAnalysis")}
             </Text>
             <View style={styles.analysisResultContainer}>
               <View style={styles.analysisMetric}>
@@ -1533,7 +1596,7 @@ const MovellaScreen = () => {
                     { color: colors.textSecondary },
                   ]}
                 >
-                  Status
+                  {t("movella.status")}
                 </Text>
                 <Text
                   style={[
@@ -1541,7 +1604,7 @@ const MovellaScreen = () => {
                     { color: analysisResult.success ? "#4CAF50" : "#F44336" },
                   ]}
                 >
-                  {analysisResult.success ? "Success" : "Failed"}
+                  {analysisResult.success ? t("common.success") : t("movella.failed")}
                 </Text>
               </View>
 
@@ -1557,12 +1620,12 @@ const MovellaScreen = () => {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        Joints Detected
+                        {t("movella.jointsDetected")}
                       </Text>
                       <Text
                         style={[styles.analysisValue, { color: colors.text }]}
                       >
-                        {getBasicData(analysisResult).jointsDetected || "N/A"}
+                        {getBasicData(analysisResult).jointsDetected || t("common.na")}
                       </Text>
                     </View>
 
@@ -1573,12 +1636,12 @@ const MovellaScreen = () => {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        Frames Analyzed
+                        {t("movella.framesAnalyzed")}
                       </Text>
                       <Text
                         style={[styles.analysisValue, { color: colors.text }]}
                       >
-                        {getBasicData(analysisResult).framesAnalyzed || "N/A"}
+                        {getBasicData(analysisResult).framesAnalyzed || t("common.na")}
                       </Text>
                     </View>
                   </>
@@ -1596,7 +1659,7 @@ const MovellaScreen = () => {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        Repetitions
+                        {t("movella.repetitions")}
                       </Text>
                       <Text
                         style={[styles.analysisValue, { color: colors.text }]}
@@ -1612,7 +1675,7 @@ const MovellaScreen = () => {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        Average ROM
+                        {t("movella.averageRom")}
                       </Text>
                       <Text
                         style={[styles.analysisValue, { color: colors.text }]}
@@ -1631,7 +1694,7 @@ const MovellaScreen = () => {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        Dominant Side
+                        {t("movella.dominantSide")}
                       </Text>
                       <Text
                         style={[styles.analysisValue, { color: colors.text }]}
@@ -1647,7 +1710,7 @@ const MovellaScreen = () => {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        Reps/Min
+                        {t("movella.repsPerMin")}
                       </Text>
                       <Text
                         style={[styles.analysisValue, { color: colors.text }]}
@@ -1665,7 +1728,7 @@ const MovellaScreen = () => {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        Left Side Weight
+                        {t("movella.leftSideWeight")}
                       </Text>
                       <Text
                         style={[styles.analysisValue, { color: colors.text }]}
@@ -1684,7 +1747,7 @@ const MovellaScreen = () => {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        Right Side Weight
+                        {t("movella.rightSideWeight")}
                       </Text>
                       <Text
                         style={[styles.analysisValue, { color: colors.text }]}
@@ -1708,7 +1771,7 @@ const MovellaScreen = () => {
                                 { color: colors.textSecondary },
                               ]}
                             >
-                              Max Velocity
+                              {t("movella.maxVelocity")}
                             </Text>
                             <Text
                               style={[
@@ -1730,7 +1793,7 @@ const MovellaScreen = () => {
                                 { color: colors.textSecondary },
                               ]}
                             >
-                              Min Velocity
+                              {t("movella.minVelocity")}
                             </Text>
                             <Text
                               style={[
@@ -1752,7 +1815,7 @@ const MovellaScreen = () => {
                                 { color: colors.textSecondary },
                               ]}
                             >
-                              Average Velocity
+                              {t("movella.averageVelocity")}
                             </Text>
                             <Text
                               style={[
@@ -1781,7 +1844,7 @@ const MovellaScreen = () => {
                                 { color: colors.textSecondary },
                               ]}
                             >
-                              Time per Rep
+                              {t("movella.timePerRep")}
                             </Text>
                             <Text
                               style={[
@@ -1803,7 +1866,7 @@ const MovellaScreen = () => {
                                 { color: colors.textSecondary },
                               ]}
                             >
-                              Sets
+                              {t("movella.sets")}
                             </Text>
                             <Text
                               style={[
@@ -1828,7 +1891,7 @@ const MovellaScreen = () => {
                                 { color: colors.textSecondary },
                               ]}
                             >
-                              Stride Length
+                              {t("movella.strideLength")}
                             </Text>
                             <Text
                               style={[
@@ -1850,7 +1913,7 @@ const MovellaScreen = () => {
                                 { color: colors.textSecondary },
                               ]}
                             >
-                              Stride Speed
+                              {t("movella.strideSpeed")}
                             </Text>
                             <Text
                               style={[
@@ -1872,7 +1935,7 @@ const MovellaScreen = () => {
                                 { color: colors.textSecondary },
                               ]}
                             >
-                              Asymmetry
+                              {t("movella.asymmetry")}
                             </Text>
                             <Text
                               style={[
@@ -1902,12 +1965,12 @@ const MovellaScreen = () => {
                         { color: colors.textSecondary },
                       ]}
                     >
-                      No movement data available
+                      {t("movella.noMovementData")}
                     </Text>
                     <Text
                       style={[styles.analysisValue, { color: colors.text }]}
                     >
-                      Please try with a different file
+                      {t("movella.tryDifferentFile")}
                     </Text>
                   </View>
                 )}
@@ -1920,7 +1983,7 @@ const MovellaScreen = () => {
                       { color: colors.textSecondary },
                     ]}
                   >
-                    Error Message
+                    {t("movella.errorMessage")}
                   </Text>
                   <Text style={[styles.analysisValue, { color: "#F44336" }]}>
                     {analysisResult.message}
@@ -1943,7 +2006,7 @@ const MovellaScreen = () => {
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <View style={{ marginTop: 20 }}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Per-Knee Analysis
+                {t("movella.perKneeAnalysis")}
               </Text>
               <Text
                 style={{
@@ -1953,8 +2016,11 @@ const MovellaScreen = () => {
                 }}
               >
                 {perKneeAnalysisResult
-                  ? `Left: ${perKneeAnalysisResult.leftKnee.metrics.rangeOfMotion.toFixed(1)}°, Right: ${perKneeAnalysisResult.rightKnee.metrics.rangeOfMotion.toFixed(1)}°`
-                  : "No per-knee data available"}
+                  ? t("movella.perKneeSummary", {
+                      left: perKneeAnalysisResult.leftKnee.metrics.rangeOfMotion.toFixed(1),
+                      right: perKneeAnalysisResult.rightKnee.metrics.rangeOfMotion.toFixed(1),
+                    })
+                  : t("movella.noPerKneeData")}
               </Text>
 
               {perKneeAnalysisResult && (
@@ -1971,7 +2037,7 @@ const MovellaScreen = () => {
                             { color: colors.primary },
                           ]}
                         >
-                          Left Knee
+                          {t("movella.leftKnee")}
                         </Text>
                       </View>
 
@@ -1982,7 +2048,7 @@ const MovellaScreen = () => {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          Repetitions
+                          {t("movella.repetitions")}
                         </Text>
                         <Text
                           style={[styles.analysisValue, { color: colors.text }]}
@@ -2001,7 +2067,7 @@ const MovellaScreen = () => {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          ROM
+                          {t("movella.rom")}
                         </Text>
                         <Text
                           style={[styles.analysisValue, { color: colors.text }]}
@@ -2020,7 +2086,7 @@ const MovellaScreen = () => {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          Max Flexion
+                          {t("movella.maxFlexion")}
                         </Text>
                         <Text
                           style={[styles.analysisValue, { color: colors.text }]}
@@ -2039,7 +2105,7 @@ const MovellaScreen = () => {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          Max Extension
+                          {t("movella.maxExtension")}
                         </Text>
                         <Text
                           style={[styles.analysisValue, { color: colors.text }]}
@@ -2058,7 +2124,7 @@ const MovellaScreen = () => {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          Avg Velocity
+                          {t("movella.avgVelocity")}
                         </Text>
                         <Text
                           style={[styles.analysisValue, { color: colors.text }]}
@@ -2082,7 +2148,7 @@ const MovellaScreen = () => {
                             { color: colors.primary },
                           ]}
                         >
-                          Right Knee
+                          {t("movella.rightKnee")}
                         </Text>
                       </View>
 
@@ -2093,7 +2159,7 @@ const MovellaScreen = () => {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          Repetitions
+                          {t("movella.repetitions")}
                         </Text>
                         <Text
                           style={[styles.analysisValue, { color: colors.text }]}
@@ -2112,7 +2178,7 @@ const MovellaScreen = () => {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          ROM
+                          {t("movella.rom")}
                         </Text>
                         <Text
                           style={[styles.analysisValue, { color: colors.text }]}
@@ -2131,7 +2197,7 @@ const MovellaScreen = () => {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          Max Flexion
+                          {t("movella.maxFlexion")}
                         </Text>
                         <Text
                           style={[styles.analysisValue, { color: colors.text }]}
@@ -2150,7 +2216,7 @@ const MovellaScreen = () => {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          Max Extension
+                          {t("movella.maxExtension")}
                         </Text>
                         <Text
                           style={[styles.analysisValue, { color: colors.text }]}
@@ -2169,7 +2235,7 @@ const MovellaScreen = () => {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          Avg Velocity
+                          {t("movella.avgVelocity")}
                         </Text>
                         <Text
                           style={[styles.analysisValue, { color: colors.text }]}
@@ -2194,7 +2260,7 @@ const MovellaScreen = () => {
                               { color: colors.text },
                             ]}
                           >
-                            Asymmetry Analysis
+                            {t("movella.asymmetryAnalysis")}
                           </Text>
                         </View>
 
@@ -2205,7 +2271,7 @@ const MovellaScreen = () => {
                               { color: colors.textSecondary },
                             ]}
                           >
-                            ROM Difference
+                            {t("movella.romDifference")}
                           </Text>
                           <Text
                             style={[
@@ -2227,7 +2293,7 @@ const MovellaScreen = () => {
                               { color: colors.textSecondary },
                             ]}
                           >
-                            Repetition Difference
+                            {t("movella.repetitionDifference")}
                           </Text>
                           <Text
                             style={[
@@ -2249,7 +2315,7 @@ const MovellaScreen = () => {
                               { color: colors.textSecondary },
                             ]}
                           >
-                            Dominant Side
+                            {t("movella.dominantSide")}
                           </Text>
                           <Text
                             style={[
@@ -2269,7 +2335,7 @@ const MovellaScreen = () => {
         )}
 
         {/* Progression Charts - Show for doctors or when analysis is complete */}
-        {(user?.role === "doctor" || localAnalysisResult || perKneeAnalysisResult) &&
+        {(user?.role?.toLowerCase() === "doctor" || localAnalysisResult || perKneeAnalysisResult) &&
           renderProgressionCharts()}
 
         {/* Add bottom padding to account for tab bar */}
@@ -2290,11 +2356,34 @@ const MovellaScreen = () => {
 
       {/* Exercise Picker Modal */}
       <ExercisePickerModal
+        key={`exercise-picker-${user?.role === 'patient' ? user.id : selectedPatientId || 'no-patient'}-${showExercisePicker}`}
         visible={showExercisePicker}
         onClose={() => setShowExercisePicker(false)}
         onSelect={handleExerciseSelect}
         selectedExerciseId={selectedExerciseId}
+        patientId={user?.role === 'patient' ? user.id : selectedPatientId}
+        showCreateOption={user?.role === 'doctor'}
+        onCreateNew={handleCreateNewExercise}
       />
+
+      {/* Feedback Modal - For Patients */}
+      {user?.role?.toLowerCase() === 'patient' && user.id && lastCreatedSessionId && (
+        <SessionFeedbackModal
+          visible={showFeedbackModal}
+          onClose={() => {
+            setShowFeedbackModal(false);
+            setLastCreatedSessionId(null);
+          }}
+          onSubmit={() => {
+            // Refresh patient sessions after feedback submission
+            if (user.id) {
+              // Feedback is saved, modal will close automatically
+            }
+          }}
+          sessionId={lastCreatedSessionId}
+          patientId={user.id}
+        />
+      )}
     </View>
   );
 };

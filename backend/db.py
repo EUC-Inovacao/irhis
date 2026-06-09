@@ -1,6 +1,8 @@
 import os
 import ssl
 import uuid
+import re
+from pathlib import Path
 from typing import Any, Optional
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
@@ -9,7 +11,8 @@ from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
 
-load_dotenv()
+env_path = Path(__file__).parent / '.env'
+load_dotenv(dotenv_path=env_path)
 
 _raw_database_url = (os.getenv("DATABASE_URL") or "").strip()
 
@@ -42,6 +45,30 @@ _engine: Optional[Engine] = (
     else None
 )
 
+# TEMPORARY clinical-study login compatibility layer.
+# Reuses the existing users columns without changing the schema so patients
+# can authenticate with non-sensitive internal codes until a dedicated
+# identity model is introduced.
+TEMPORARY_ACCESS_CODE_EMAIL_DOMAIN = "irhis.local"
+TEMPORARY_BIRTH_DATE_PLACEHOLDER = "1900-01-01"
+TEMPORARY_ACCESS_CODE_PREFIXES = {
+    "Patient": "IRHIS",
+    "Doctor": "IRHIS-D",
+}
+TEMPORARY_ACCESS_CODE_PATTERNS = (
+    ("Patient", re.compile(r"^IRHIS-(\d{6})$", re.IGNORECASE)),
+    ("Patient", re.compile(r"^IRHIS-P-(\d{6})$", re.IGNORECASE)),
+    ("Doctor", re.compile(r"^IRHIS-D-(\d{6})$", re.IGNORECASE)),
+)
+TEMPORARY_ACCESS_CODE_EMAIL_PATTERN = re.compile(
+    r"^(irhis-(?:p|d)-\d{6}|irhis-\d{6})@irhis\.local$",
+    re.IGNORECASE,
+)
+TEMPORARY_ACCESS_CODE_LABEL_PATTERN = re.compile(
+    r"(IRHIS-(?:P|D)-\d{6}|IRHIS-\d{6})",
+    re.IGNORECASE,
+)
+
 
 def is_db_enabled() -> bool:
     return _engine is not None
@@ -66,56 +93,160 @@ def execute(sql: str, params: Optional[dict[str, Any]] = None) -> None:
     with _engine.begin() as connection:
         connection.execute(text(sql), params or {})
 
-def create_user_signup(data):
-    user_id = str(uuid.uuid4())
-    now = datetime.now(timezone.utc)
-    role = data.get('role', 'Patient').capitalize()
-    
-    hashed_pw = generate_password_hash(data['password'])
-    
-    execute(
+
+def execute_and_return_id(sql: str, params: Optional[dict[str, Any]] = None) -> Optional[str]:
+    """Execute INSERT and return LAST_INSERT_ID() from the same connection."""
+    if _engine is None:
+        raise RuntimeError("DATABASE_URL not configured")
+    with _engine.begin() as connection:
+        connection.execute(text(sql), params or {})
+        row = connection.execute(text("SELECT LAST_INSERT_ID() AS id")).fetchone()
+        return str(row[0]) if row and row[0] else None
+
+def normalize_temporary_access_code(value: Optional[str]) -> Optional[str]:
+    cleaned = str(value or "").strip().upper()
+    if not cleaned:
+        return None
+
+    for role, pattern in TEMPORARY_ACCESS_CODE_PATTERNS:
+        code_match = pattern.match(cleaned)
+        if code_match:
+            return f"{TEMPORARY_ACCESS_CODE_PREFIXES[role]}-{code_match.group(1)}"
+
+    email_match = TEMPORARY_ACCESS_CODE_EMAIL_PATTERN.match(cleaned.lower())
+    if email_match:
+        return email_match.group(1).upper()
+
+    label_match = TEMPORARY_ACCESS_CODE_LABEL_PATTERN.search(cleaned)
+    if label_match:
+        return label_match.group(1).upper()
+
+    return None
+
+def get_temporary_role_from_access_code(access_code: Optional[str]) -> Optional[str]:
+    normalized_code = normalize_temporary_access_code(access_code)
+    if not normalized_code:
+        return None
+    if normalized_code.startswith(TEMPORARY_ACCESS_CODE_PREFIXES["Doctor"]):
+        return "Doctor"
+    return "Patient"
+
+def build_temporary_access_email(access_code: str) -> str:
+    normalized_code = normalize_temporary_access_code(access_code)
+    if not normalized_code:
+        raise ValueError("Invalid temporary access code")
+    return f"{normalized_code.lower()}@{TEMPORARY_ACCESS_CODE_EMAIL_DOMAIN}"
+
+def build_legacy_temporary_access_email(access_code: str) -> Optional[str]:
+    normalized_code = normalize_temporary_access_code(access_code)
+    if not normalized_code or get_temporary_role_from_access_code(normalized_code) != "Patient":
+        return None
+
+    # TEMPORARY: keep older study accounts that were stored as
+    # irhis-p-000001@irhis.local working while new registrations use the
+    # simplified IRHIS-000001 code format.
+    return f"irhis-p-{normalized_code.split('-')[-1].lower()}@{TEMPORARY_ACCESS_CODE_EMAIL_DOMAIN}"
+
+def build_temporary_access_label(role: str, access_code: str) -> str:
+    normalized_role = "Doctor" if str(role).lower() == "doctor" else "Patient"
+    normalized_code = normalize_temporary_access_code(access_code)
+    if not normalized_code:
+        raise ValueError("Invalid temporary access code")
+    return f"{normalized_role} {normalized_code}"
+
+def extract_temporary_access_code(
+    email: Optional[str] = None,
+    first_name: Optional[str] = None,
+    last_name: Optional[str] = None,
+) -> Optional[str]:
+    for candidate in (email, f"{first_name or ''} {last_name or ''}".strip(), first_name, last_name):
+        code = normalize_temporary_access_code(candidate)
+        if code:
+            return code
+    return None
+
+def generate_next_temporary_access_code(role: str) -> str:
+    normalized_role = "Doctor" if str(role).lower() == "doctor" else "Patient"
+    rows = fetch_all(
         """
-        INSERT INTO users (ID, Email, Password, FirstName, LastName, Role, Active, Deleted, TimeCreated)
-        VALUES (:id, :email, :password, :fname, :lname, :role, 1, 0, :now)
+        SELECT Email, FirstName, LastName
+        FROM users
+        WHERE Role = :role
+          AND COALESCE(Deleted, 0) = 0
         """,
-        {
-            "id": user_id,
-            "email": data['email'],
-            "password": hashed_pw,
-            "fname": data['first_name'],
-            "lname": data['last_name'],
-            "role": role,
-            "now": now
-        }
+        {"role": normalized_role},
     )
 
-    if role == 'Patient':
-        execute(
-            "INSERT INTO patient (UserID) VALUES (:user_id)",
-            {"user_id": user_id}
+    max_sequence = 0
+    for row in rows:
+        code = extract_temporary_access_code(
+            row.get("Email"),
+            row.get("FirstName"),
+            row.get("LastName"),
         )
-    
-    return user_id, role
+        if not code:
+            continue
+        try:
+            max_sequence = max(max_sequence, int(code.split("-")[1]))
+        except (IndexError, ValueError):
+            try:
+                max_sequence = max(max_sequence, int(code.split("-")[2]))
+            except (IndexError, ValueError):
+                continue
 
-def create_manual_patient(user_data, patient_data, doctor_id):
-    user_id = str(uuid.uuid4())
-    temp_email = f"paciente_{user_id[:8]}@irhis_sistema.com"
-    
-    execute(
-        """
-        INSERT INTO users (ID, Email, Password, FirstName, LastName, Role, Active, Deleted)
-        VALUES (:id, :email, :password, :fname, :lname, 'Patient', 1, 0)
-        """,
-        {
-            "id": user_id,
-            "email": temp_email,
-            "password": "Mudar123!", 
-            "fname": user_data.get('first_name'),
-            "lname": user_data.get('last_name', '')
-        }
+    next_sequence = max_sequence + 1
+    while True:
+        candidate = f"{TEMPORARY_ACCESS_CODE_PREFIXES[normalized_role]}-{next_sequence:06d}"
+        if not user_exists(build_temporary_access_email(candidate)):
+            return candidate
+        next_sequence += 1
+
+def create_temporary_user(role: str, password_hash: str) -> dict[str, str]:
+    normalized_role = "Doctor" if str(role).lower() == "doctor" else "Patient"
+    access_code = generate_next_temporary_access_code(normalized_role)
+    label = build_temporary_access_label(normalized_role, access_code)
+    user_id = create_user(
+        build_temporary_access_email(access_code),
+        password_hash,
+        normalized_role,
+        access_code,
+        normalized_role,
     )
+    return {
+        "user_id": user_id,
+        "access_code": access_code,
+        "patient_code": access_code,
+        "label": label,
+        "email": build_temporary_access_email(access_code),
+        "role": normalized_role,
+    }
 
-    execute(
+def _execute_patient_insert_with_temporary_birthdate_fallback(
+    sql: str,
+    params: dict[str, Any],
+) -> None:
+    try:
+        execute(sql, params)
+    except Exception:
+        if params.get("birth_date") is not None:
+            raise
+
+        # TEMPORARY: if the current DB rejects NULL birth dates, store a
+        # technical placeholder without changing the schema. Public responses
+        # already suppress this value and study logic must not rely on it.
+        execute(
+            sql,
+            {
+                **params,
+                "birth_date": TEMPORARY_BIRTH_DATE_PLACEHOLDER,
+            },
+        )
+
+def create_manual_patient(patient_data, doctor_id, password_hash):
+    temp_user = create_temporary_user("Patient", password_hash)
+    user_id = temp_user["user_id"]
+
+    _execute_patient_insert_with_temporary_birthdate_fallback(
         """
         INSERT INTO patient (
             UserID, BirthDate, Sex, Weight, Height, BMI, Occupation, Education,
@@ -149,7 +280,13 @@ def create_manual_patient(user_data, patient_data, doctor_id):
 
     assign_patient_to_doctor(patient_id=user_id, doctor_id=doctor_id)
 
-    return user_id, temp_email
+    return {
+        "user_id": user_id,
+        "access_code": temp_user["access_code"],
+        "patient_code": temp_user["patient_code"],
+        "label": temp_user["label"],
+        "email": temp_user["email"],
+    }
 
 def get_doctor_patient_ids(doctor_id: str) -> list[str]:
     rows = fetch_all(
@@ -278,6 +415,40 @@ def get_user_for_login(email: str, role: str) -> Optional[dict[str, Any]]:
     )
 
 
+def user_exists(email: str) -> bool:
+    """Check if a user with the given email already exists."""
+    result = fetch_one(
+        """
+        SELECT ID
+        FROM users
+        WHERE Email = :email
+        LIMIT 1
+        """,
+        {"email": email},
+    )
+    return result is not None
+
+
+def create_user(email: str, password_hash: str, first_name: str, last_name: str, role: str) -> str:
+    """Create a new user in the database and return the user ID."""
+    user_id = str(uuid.uuid4())
+    execute(
+        """
+        INSERT INTO users (ID, Email, Password, FirstName, LastName, Role, Active, Deleted)
+        VALUES (:id, :email, :password, :fname, :lname, :role, 1, 0)
+        """,
+        {
+            "id": user_id,
+            "email": email,
+            "password": password_hash,
+            "fname": first_name,
+            "lname": last_name,
+            "role": role,
+        },
+    )
+    return user_id
+
+
 def get_user_by_id(user_id: str) -> Optional[dict[str, Any]]:
     return fetch_one(
         """
@@ -295,14 +466,77 @@ def get_user_by_id(user_id: str) -> Optional[dict[str, Any]]:
         {"id": user_id},
     )
 
+
+def update_user_password(user_id: str, password_hash: str) -> None:
+    execute(
+        """
+        UPDATE users
+        SET Password = :password
+        WHERE ID = :id
+          AND Active = 1
+          AND COALESCE(Deleted, 0) = 0
+        """,
+        {"id": user_id, "password": password_hash},
+    )
+
+def get_patient_by_id(patient_id: str) -> Optional[dict[str, Any]]:
+    """Get patient data by joining users and patient tables."""
+    return fetch_one(
+        """
+        SELECT
+          u.ID,
+          u.Email,
+          u.FirstName,
+          u.LastName,
+          u.Role,
+          p.BirthDate,
+          p.Sex,
+          p.Weight,
+          p.Height,
+          p.BMI,
+          p.Occupation,
+          p.Education,
+          p.MedicalHistory,
+          p.TimeAfterSymptoms,
+          p.LegDominance,
+          p.PhysicallyActive
+        FROM users u
+        LEFT JOIN patient p ON p.UserID = u.ID
+        WHERE u.ID = :id
+          AND u.Active = 1
+          AND COALESCE(u.Deleted, 0) = 0
+        LIMIT 1
+        """,
+        {"id": patient_id},
+    )
+
+def create_patient_record(user_id: str, birth_date: Optional[str] = None) -> None:
+    """Create a minimal patient record in the patient table. Sex is required (DB enum: male, female)."""
+    _execute_patient_insert_with_temporary_birthdate_fallback(
+        """
+        INSERT INTO patient (
+            UserID, BirthDate, Sex, Weight, Height, BMI, Occupation, Education,
+            AffectedRightKnee, AffectedLeftKnee, AffectedRightHip, AffectedLeftHip,
+            MedicalHistory, TimeAfterSymptoms, LegDominance, PhysicallyActive
+        )
+        VALUES (
+            :user_id, :birth_date, 'male', NULL, NULL, NULL, NULL, NULL,
+            0, 0, 0, 0, NULL, NULL, 'dominant', 0
+        )
+        """,
+        {
+            "user_id": user_id,
+            "birth_date": birth_date,
+        },
+    )
+
 def get_patient_sessions(patient_id: str):
     rows = fetch_all(
         """
         SELECT S.*, pd.PatientID
         FROM session s
         INNER JOIN patientdoctor pd ON pd.ID = s.RelationID
-        WHERE pd.PatientID = :patientID 
-          AND s.Active = 1;
+        WHERE pd.PatientID = :patientID;
         """,
         {"patientID": patient_id}
     )
@@ -319,7 +553,7 @@ def get_session_by_id(session_id: str):
         SELECT s.*, pd.PatientID 
         FROM session s
         JOIN patientdoctor pd ON s.RelationID = pd.ID
-        WHERE s.ID = :session_id and s.Active = 1
+        WHERE s.ID = :session_id
         """,
         {"session_id": session_id}
     )
@@ -331,24 +565,25 @@ def get_session_by_id(session_id: str):
     return session
 
 def assign_session_to_patient(relation_id: str, exercise_type, exercise_description, repetitions, duration):
+    """Create session. Deployed Session table requires explicit ID (no AUTO_INCREMENT default)."""
     now = datetime.now(timezone.utc)
-    new_entry_id = str(uuid.uuid4())
-
+    sid = str(uuid.uuid4())
     execute(
         """
-        INSERT INTO session (ID, RelationID, ExerciseType, ExerciseDescription, Repetitions, Duration, TimeCreated, Active)
-        VALUES (:id, :relation_id, :exercise_type, :exercise_description, :repetitions, :duration, :now, 1)
+        INSERT INTO session (ID, RelationID, ExerciseType, ExerciseDescription, Repetitions, Duration, TimeCreated)
+        VALUES (:id, :relation_id, :exercise_type, :exercise_description, :repetitions, :duration, :now)
         """,
         {
-            "id": new_entry_id, 
-            "relation_id": relation_id, 
+            "id": sid,
+            "relation_id": relation_id,
             "exercise_type": exercise_type,
             "exercise_description": exercise_description,
             "repetitions": repetitions,
-            "duration": duration, 
+            "duration": duration,
             "now": now
         },
     )
+    return sid
 
 def update_session_details(session_id, exercise_type, exercise_description, repetitions, duration):
     execute(
@@ -358,7 +593,7 @@ def update_session_details(session_id, exercise_type, exercise_description, repe
             ExerciseDescription = :exercise_description, 
             Repetitions = :repetitions, 
             Duration = :duration
-        WHERE ID = :session_id AND Active = 1
+        WHERE ID = :session_id
         """,
         {
             "session_id": session_id,
@@ -369,55 +604,87 @@ def update_session_details(session_id, exercise_type, exercise_description, repe
         }
     )
 
-def delete_patient_session(session_id):
+def update_session_exercise_details(session_id, exercise_description=None, repetitions=None):
+    updates = []
+    params = {"session_id": session_id}
+
+    if exercise_description is not None:
+        updates.append("ExerciseDescription = :exercise_description")
+        params["exercise_description"] = exercise_description
+
+    if repetitions is not None:
+        updates.append("Repetitions = :repetitions")
+        params["repetitions"] = repetitions
+
+    if not updates:
+        return False
+
     execute(
-        """
-        UPDATE session 
-        SET Active = 0, 
-            TimeDeleted = :now 
+        f"""
+        UPDATE session
+        SET {", ".join(updates)}
         WHERE ID = :session_id
         """,
-        {
-            "session_id": session_id,
-            "now": datetime.now(timezone.utc)
-        }
+        params
     )
+    return True
+
+def delete_patient_session(session_id):
+    """Delete session. Azure schema: remove metrics and feedback first (FKs), then session."""
+    execute("DELETE FROM metrics WHERE SessionID = :sid", {"sid": session_id})
+    execute("DELETE FROM PatientFeedback WHERE SessionID = :sid", {"sid": session_id})
+    execute("DELETE FROM session WHERE ID = :session_id", {"session_id": session_id})
 
 def insert_session_metrics(session_id, data):
-    new_id = str(uuid.uuid4())
+    # Deployed Metrics table requires explicit ID (no AUTO_INCREMENT default)
+    joint = (data.get('joint') or 'knee').lower()
+    if joint not in ('knee', 'hip'):
+        return None  # Skip COM and other invalid joints
+    mid = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
-    
+    raw_side = (data.get('side') or 'both').lower()
+    side = raw_side if raw_side in ('left', 'right') else 'left'
+    repetition = int(data.get('repetition') or 0)
+    min_v = float(data.get('min_velocity') or 0)
+    max_v = float(data.get('max_velocity') or 0)
+    avg_v = float(data.get('avg_velocity') or 0)
+    p95_v = float(data.get('p95_velocity') or 0)
+    min_rom = float(data.get('min_rom') or 0)
+    max_rom = float(data.get('max_rom') or 0)
+    avg_rom = float(data.get('avg_rom') or 0)
+    cmd = float(data.get('center_mass_displacement') or 0)
+
     execute(
         """
         INSERT INTO metrics (
-            ID, SessionID, Joint, Side, Repetitions, -- Ajustado de Repetition para Repetitions
-            MinVelocity, MaxVelocity, AvgVelocity, P95Velocity, 
+            ID, SessionID, Joint, Side, Repetitions,
+            MinVelocity, MaxVelocity, AvgVelocity, P95Velocity,
             MinROM, MaxROM, AvgROM, CenterMassDisplacement, TimeCreated
         )
         VALUES (
-            :id, :session_id, :joint, :side, :repetition, 
-            :min_v, :max_v, :avg_v, :p95_v, 
+            :id, :session_id, :joint, :side, :repetition,
+            :min_v, :max_v, :avg_v, :p95_v,
             :min_rom, :max_rom, :avg_rom, :cmd, :now
         )
         """,
         {
-            "id": new_id, 
+            "id": mid,
             "session_id": session_id,
-            "joint": data.get('joint'), 
-            "side": data.get('side'),
-            "repetition": data.get('repetition'), 
-            "min_v": data.get('min_velocity'), 
-            "max_v": data.get('max_velocity'),
-            "avg_v": data.get('avg_velocity'), 
-            "p95_v": data.get('p95_velocity'),
-            "min_rom": data.get('min_rom'), 
-            "max_rom": data.get('max_rom'),
-            "avg_rom": data.get('avg_rom'), 
-            "cmd": data.get('center_mass_displacement'),
+            "joint": joint,
+            "side": side,
+            "repetition": repetition,
+            "min_v": min_v,
+            "max_v": max_v,
+            "avg_v": avg_v,
+            "p95_v": p95_v,
+            "min_rom": min_rom,
+            "max_rom": max_rom,
+            "avg_rom": avg_rom,
+            "cmd": cmd,
             "now": now
         }
     )
-    return new_id
+    return mid
 
 def get_metrics_by_patient(patient_id, limit=10):
     rows = fetch_all(
@@ -452,60 +719,122 @@ def get_metrics_by_session(session_id: str):
     for row in rows:
         if row.get('TimeCreated'):
             row['TimeCreated'] = str(row['TimeCreated'])
-            
+
     return rows
 
-def check_session_patient(session_id, patient_id):
 
-    result = fetch_one(
-        """
-        SELECT s.ID 
-        FROM session s
-        JOIN patientdoctor pd ON s.RelationID = pd.ID
-        WHERE s.ID = :session_id AND pd.PatientID = :patient_id
-        """,
-        {"session_id": session_id, "patient_id": patient_id}
+def update_patient_details(patient_id: str, details: dict) -> None:
+    """Update patient record. patient_id is UserID. Details: weight, height, bmi, sex, medical_history."""
+    if not details:
+        return
+    # Ensure patient row exists (create if missing)
+    existing = fetch_one(
+        "SELECT UserID FROM patient WHERE UserID = :pid LIMIT 1",
+        {"pid": patient_id},
     )
-    return result is not None
+    if not existing:
+        try:
+            create_patient_record(patient_id, birth_date=None)
+        except Exception:
+            pass
 
-def insert_patient_feedback(user_id, session_id, data):
-    new_id = str(uuid.uuid4())
+    updates = []
+    params = {}
+    if "weight" in details and details["weight"] is not None:
+        updates.append("Weight = :weight")
+        params["weight"] = float(details["weight"])
+    if "height" in details and details["height"] is not None:
+        updates.append("Height = :height")
+        params["height"] = float(details["height"]) * 100  # m to cm
+    if "bmi" in details and details["bmi"] is not None:
+        updates.append("BMI = :bmi")
+        params["bmi"] = float(details["bmi"])
+    elif "weight" in details and "height" in details:
+        w, h = float(details.get("weight", 0)), float(details.get("height", 0))
+        if h > 0 and w > 0:
+            updates.append("BMI = :bmi")
+            params["bmi"] = w / (h * h)
+    if "sex" in details and details["sex"] is not None:
+        raw = str(details["sex"]).strip().lower()
+        if raw in ("male", "female"):
+            updates.append("Sex = :sex")
+            params["sex"] = raw
+    if "clinicalInfo" in details:
+        updates.append("MedicalHistory = :medical_history")
+        params["medical_history"] = str(details["clinicalInfo"])[:4096]
+    if "medicalHistory" in details:
+        updates.append("MedicalHistory = :medical_history")
+        params["medical_history"] = str(details["medicalHistory"])[:4096]
+    birth_date_val = details.get("birthDate") or details.get("BirthDate")
+    if birth_date_val:
+        birth_date_str = str(birth_date_val).strip()
+        try:
+            from datetime import datetime
+            parsed_birth_date = datetime.strptime(birth_date_str, "%Y-%m-%d")
+            updates.append("BirthDate = :birth_date")
+            params["birth_date"] = parsed_birth_date.strftime("%Y-%m-%d")
+        except ValueError:
+            pass
+
+    age_val = details.get("age") or details.get("Age")
+    if age_val is not None and "birth_date" not in params:
+        try:
+            age_int = int(float(age_val))
+            if 0 <= age_int <= 120:
+                from datetime import date
+                today = date.today()
+                birth_date = date(today.year - age_int, today.month, today.day)
+                updates.append("BirthDate = :birth_date")
+                params["birth_date"] = birth_date.strftime("%Y-%m-%d")
+        except (ValueError, TypeError):
+            pass
+
+    if not updates:
+        return
+    params["pid"] = patient_id
+    execute(
+        f"UPDATE patient SET {', '.join(updates)} WHERE UserID = :pid",
+        params,
+    )
+
+
+def insert_feedback(patient_id: str, feedback: dict) -> str:
+    """Insert a feedback record into PatientFeedback. Returns feedback ID."""
+    pain = int(feedback.get("pain", 0))
+    fatigue = int(feedback.get("fatigue", 0))
+    difficulty = int(feedback.get("difficulty", 0))
+    comments = feedback.get("comments") or ""
+    session_id = feedback.get("sessionId")
+    fid = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
-    
     execute(
         """
-        INSERT INTO patientfeedback (
-            ID, UserID, SessionID, Pain, Fatigue, Difficulty, Comments, TimeCreated
-        )
+        INSERT INTO PatientFeedback (ID, UserID, SessionID, Pain, Fatigue, Difficulty, Comments, TimeCreated)
         VALUES (:id, :user_id, :session_id, :pain, :fatigue, :difficulty, :comments, :now)
         """,
         {
-            "id": new_id,
-            "user_id": user_id,
+            "id": fid,
+            "user_id": patient_id,
             "session_id": session_id,
-            "pain": data.get('pain'),
-            "fatigue": data.get('fatigue'),
-            "difficulty": data.get('difficulty'),
-            "comments": data.get('comments'),
-            "now": now
-        }
+            "pain": pain,
+            "fatigue": fatigue,
+            "difficulty": difficulty,
+            "comments": comments[:4096] if comments else None,
+            "now": now,
+        },
     )
-    return new_id
+    return fid
 
-def get_feedback_by_patient(patient_id):
-    rows = fetch_all(
+
+def get_feedback_by_patient(patient_id: str, limit: int = 100):
+    """Get feedback entries for a patient from PatientFeedback."""
+    return fetch_all(
         """
-        SELECT f.*, s.ExerciseType, s.TimeCreated as SessionDate
-        FROM patientfeedback f
-        JOIN session s ON f.SessionID = s.ID
-        WHERE f.UserID = :patient_id
-        ORDER BY f.TimeCreated DESC
+        SELECT ID, UserID AS PatientID, SessionID, TimeCreated AS FeedbackTime, Pain, Fatigue, Difficulty, Comments
+        FROM PatientFeedback
+        WHERE UserID = :patient_id
+        ORDER BY TimeCreated DESC
+        LIMIT :limit
         """,
-        {"patient_id": patient_id}
+        {"patient_id": patient_id, "limit": limit},
     )
-    
-    for row in rows:
-        if row.get('TimeCreated'): row['TimeCreated'] = str(row['TimeCreated'])
-        if row.get('SessionDate'): row['SessionDate'] = str(row['SessionDate'])
-            
-    return rows
