@@ -4,7 +4,7 @@ import { createStackNavigator, StackNavigationProp } from '@react-navigation/sta
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { StackHeaderProps } from '@react-navigation/stack';
 import { useTranslation } from 'react-i18next';
 
@@ -89,6 +89,7 @@ const CustomHeader: React.FC<StackHeaderProps> = ({ navigation, route, options }
 const PatientTabNavigator = () => {
   const { colors } = useTheme();
   const { t } = useTranslation();
+  const { bottom } = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -99,8 +100,8 @@ const PatientTabNavigator = () => {
           backgroundColor: colors.card,
           borderTopWidth: 0,
           elevation: 0,
-          height: 60,
-          paddingBottom: 8,
+          height: 60 + bottom,
+          paddingBottom: 8 + bottom,
         },
       }}
     >
@@ -141,6 +142,7 @@ const PatientTabNavigator = () => {
 const DoctorTabNavigator = () => {
   const { colors } = useTheme();
   const { t } = useTranslation();
+  const { bottom } = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -151,8 +153,8 @@ const DoctorTabNavigator = () => {
           backgroundColor: colors.card,
           borderTopWidth: 0,
           elevation: 0,
-          height: 60,
-          paddingBottom: 8,
+          height: 60 + bottom,
+          paddingBottom: 8 + bottom,
         },
       }}
     >
