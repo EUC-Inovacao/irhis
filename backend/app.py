@@ -9,6 +9,8 @@ import re
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import date, datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
@@ -102,6 +104,13 @@ def _get_cors_origins():
 app = Flask(__name__)
 app.config["SECRET_KEY"] = _get_secret_key()
 CORS(app, resources={r"/*": {"origins": _get_cors_origins()}})
+
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=[],  # no global limit; apply per-route only
+    storage_uri="memory://",
+)
 
 
 def _log_server_error(context, exc):
@@ -347,6 +356,7 @@ def home():
     return "irhis Backend"
 
 @app.route('/login', methods=['POST'])
+@limiter.limit("10 per minute")
 def login():
     data = request.get_json() or {}
 
@@ -1542,13 +1552,8 @@ def fix_user_role(current_user):
     if not user:
         return jsonify({"error": "User not found"}), 404
     
-    # Allow users to fix their own role if they're currently a Patient
-    # Or allow if the current user is a Doctor
-    can_fix = (
-        current_user['id'] == user['ID'] and user['Role'] == 'Patient'
-    ) or current_user['role'] == 'doctor'
-    
-    if not can_fix:
+    # Only doctors can change roles — patients must not be able to self-escalate.
+    if current_user['role'] != 'doctor':
         return jsonify({"error": "Unauthorized to change this user's role"}), 403
     
     # Update the role
