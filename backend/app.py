@@ -1120,25 +1120,60 @@ def check_movement_api_health(current_user):
         _log_server_error("Movement API health check failed", e)
         return jsonify({"status": "error", "message": "Movement API is unavailable"}), 503
 
+UPLOAD_ALLOWED_EXTENSIONS = {".zip"}
+# ZIP magic bytes: PK\x03\x04
+UPLOAD_ZIP_MAGIC = b"PK\x03\x04"
+
+
+def _validate_movement_file(file):
+    """Return an error string if the file is invalid, else None."""
+    filename = file.filename or ""
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in UPLOAD_ALLOWED_EXTENSIONS:
+        return f"Invalid file type '{ext}'. Only ZIP files are accepted."
+
+    # Read enough bytes to verify magic number without loading the whole file
+    header = file.stream.read(4)
+    file.stream.seek(0)
+    if header != UPLOAD_ZIP_MAGIC:
+        return "File content does not match a valid ZIP archive."
+
+    return None
+
+
+def _safe_filename(filename):
+    """Return a sanitized filename containing only safe characters."""
+    basename = os.path.basename(filename or "upload.zip")
+    sanitized = re.sub(r"[^\w.\-]", "_", basename)
+    return sanitized or "upload.zip"
+
+
 @app.route('/movement/analyze', methods=['POST'])
 @token_required
 def analyze_movement_data(current_user):
     """Upload and analyze movement data using external API"""
     try:
         import requests
-        
+
         # Check if file is present in request
         if 'file' not in request.files:
             return jsonify({"error": "No file provided"}), 400
-        
+
         file = request.files['file']
         if file.filename == '':
             return jsonify({"error": "No file selected"}), 400
-        
+
+        # --- File validation ---
+        validation_error = _validate_movement_file(file)
+        if validation_error:
+            return jsonify({"error": validation_error}), 400
+
+        safe_name = _safe_filename(file.filename)
+
         # Get additional parameters
         patient_id = request.form.get('patient_id')
         exercise_type = request.form.get('exercise_type', 'general')
-        
+
         # Validate patient access
         forbidden = ensure_patient_resource_access(
             current_user,
@@ -1147,14 +1182,14 @@ def analyze_movement_data(current_user):
         )
         if forbidden:
             return forbidden
-        
+
         if current_user['role'] == 'doctor' and patient_id:
             # Check if doctor has access to this patient
             if patient_id not in patients:
                 return jsonify({"error": "Patient not found"}), 404
-        
-        # Forward file to external API
-        files = {'file': (file.filename, file.stream, file.content_type)}
+
+        # Forward validated file to external API using the sanitized filename
+        files = {'file': (safe_name, file.stream, "application/zip")}
         
         response = requests.post(
             f"{MOVEMENT_API_BASE_URL}/analyze",
@@ -1174,7 +1209,7 @@ def analyze_movement_data(current_user):
                     'id': f"analysis_{datetime.now().timestamp()}",
                     'timestamp': datetime.now().isoformat(),
                     'exercise_type': exercise_type,
-                    'file_name': file.filename,
+                    'file_name': safe_name,
                     'result': analysis_result,
                     'analyzed_by': current_user['id']
                 }
