@@ -418,156 +418,41 @@ export function hipFlexSeries(
   const out = new Float64Array(n);
   if (n === 0) return out;
 
-  const wrap180 = (d: number) => ((((d + 180) % 360) + 360) % 360) - 180;
-  const mul33 = (A: number[][], B: number[][]) =>
-    [
-      [
-        A[0][0] * B[0][0] + A[0][1] * B[1][0] + A[0][2] * B[2][0],
-        A[0][0] * B[0][1] + A[0][1] * B[1][1] + A[0][2] * B[2][1],
-        A[0][0] * B[0][2] + A[0][1] * B[1][2] + A[0][2] * B[2][2],
-      ],
-      [
-        A[1][0] * B[0][0] + A[1][1] * B[1][0] + A[1][2] * B[2][0],
-        A[1][0] * B[0][1] + A[1][1] * B[1][1] + A[1][2] * B[2][1],
-        A[1][0] * B[0][2] + A[1][1] * B[1][2] + A[1][2] * B[2][2],
-      ],
-      [
-        A[2][0] * B[0][0] + A[2][1] * B[1][0] + A[2][2] * B[2][0],
-        A[2][0] * B[0][1] + A[2][1] * B[1][1] + A[2][2] * B[2][1],
-        A[2][0] * B[0][2] + A[2][1] * B[1][2] + A[2][2] * B[2][2],
-      ],
-    ] as number[][];
-  const transpose3 = (R: number[][]) => [
-    [R[0][0], R[1][0], R[2][0]],
-    [R[0][1], R[1][1], R[2][1]],
-    [R[0][2], R[1][2], R[2][2]],
-  ];
+  const BONE: [number, number, number] = [0, -1, 0];
+  const CALIB_N = Math.min(n, 120); // ~2 s at 60 Hz
 
-  const B0 = Math.min(n, 200);
+  // --- Calibration: average bone-axis direction in world frame ---
+  // Averaging unit vectors gives the mean direction (renormalise after).
+  // This captures the actual resting orientation of each sensor regardless
+  // of how it is strapped to the segment.
+  let tx = 0, ty = 0, tz = 0;
+  let px = 0, py = 0, pz = 0;
+  for (let i = 0; i < CALIB_N; i++) {
+    const t = rotateVecByQuat(thighQ[i],  BONE);
+    const p = rotateVecByQuat(pelvisQ[i], BONE);
+    tx += t[0]; ty += t[1]; tz += t[2];
+    px += p[0]; py += p[1]; pz += p[2];
+  }
+  const tm = Math.sqrt(tx*tx + ty*ty + tz*tz) || 1;
+  const pm = Math.sqrt(px*px + py*py + pz*pz) || 1;
+  const thighNeutral:  [number, number, number] = [tx/tm, ty/tm, tz/tm];
+  const pelvisNeutral: [number, number, number] = [px/pm, py/pm, pz/pm];
 
-  function buildForK(k: number) {
-    const theta = new Float64Array(n);
-    for (let i = 0; i < n; i++) {
-      const Rp = mat3FromQuat(pelvisQ[i]);
-      const Rt = mat3FromQuat(thighQ[i]);
-      const Rrel = mul33(transpose3(Rp), Rt);
-      const u1 = Rrel[1][k],
-        u2 = Rrel[2][k];
-      theta[i] = (Math.atan2(u2, -u1) * 180) / Math.PI; // flexão sagital
-    }
-    
-    // Unwrap cumulativo SEM cap - permite valores contínuos
-    // Mas com detecção de saltos grandes para evitar drift
-    for (let i = 1; i < n; i++) {
-      let d = wrap180(theta[i] - theta[i - 1]);
-      // Se o salto for muito grande (>90°), pode ser um wrap - não acumular
-      if (Math.abs(d) > 90) {
-        // Manter o valor wrapped original
-        theta[i] = wrap180(theta[i]);
-      } else {
-        // Unwrap normal
-        theta[i] = theta[i - 1] + d;
-      }
-    }
-    
-    // Baseline: média dos primeiros ~200 amostras (posição inicial/neutra)
-    let base = 0;
-    for (let i = 0; i < B0; i++) base += theta[i];
-    base /= Math.max(1, B0);
+  // --- Per-sample angle ---
+  // thighDisplacement  = how far the thigh  has moved from its calibrated neutral
+  // pelvisDisplacement = how far the pelvis has moved from its calibrated neutral
+  // hip flexion ≈ thighDisplacement − pelvisDisplacement
+  // (pelvis correction removes anterior pelvic tilt / transverse sway)
+  for (let i = 0; i < n; i++) {
+    const tc = rotateVecByQuat(thighQ[i],  BONE);
+    const pc = rotateVecByQuat(pelvisQ[i], BONE);
 
-    // Calcular valores relativos ao baseline (centrar em zero)
-    const thetaRelative = new Float64Array(n);
-    for (let i = 0; i < n; i++) {
-      thetaRelative[i] = theta[i] - base;
-    }
+    const thighDeg  = toDeg(Math.acos(clamp(dot3(thighNeutral,  tc), -1, 1)));
+    const pelvisDeg = toDeg(Math.acos(clamp(dot3(pelvisNeutral, pc), -1, 1)));
 
-    // ROM circular (medido na série wrapped em torno do baseline)
-    let minV = 1e9,
-      maxV = -1e9;
-    for (let i = 0; i < n; i++) {
-      const w = wrap180(thetaRelative[i]);
-      if (w < minV) minV = w;
-      if (w > maxV) maxV = w;
-    }
-    const span = maxV - minV;
-    const rom = span > 180 ? 360 - span : span;
-
-    // "sagitalidade" (std de uz fora do baseline) e alinhamento no baseline
-    let meanZ = 0,
-      cnt = 0,
-      sumAbsUy = 0;
-    for (let i = 0; i < B0; i++) {
-      const Rp = mat3FromQuat(pelvisQ[i]);
-      const Rt = mat3FromQuat(thighQ[i]);
-      const Rrel = mul33(transpose3(Rp), Rt);
-      sumAbsUy += Math.abs(Rrel[1][k]); // alinhamento com −Y
-    }
-    const baselineUy = sumAbsUy / Math.max(1, B0);
-
-    for (let i = B0; i < n; i++) {
-      const Rp = mat3FromQuat(pelvisQ[i]);
-      const Rt = mat3FromQuat(thighQ[i]);
-      const Rrel = mul33(transpose3(Rp), Rt);
-      meanZ += Rrel[2][k];
-      cnt++;
-    }
-    meanZ /= Math.max(1, cnt);
-    let varZ = 0;
-    for (let i = B0; i < n; i++) {
-      const Rp = mat3FromQuat(pelvisQ[i]);
-      const Rt = mat3FromQuat(thighQ[i]);
-      const Rrel = mul33(transpose3(Rp), Rt);
-      const dz = Rrel[2][k] - meanZ;
-      varZ += dz * dz;
-    }
-    const stdSag = Math.sqrt(varZ / Math.max(1, cnt));
-
-    return { k, thetaUnwrapped: thetaRelative, rom, stdSag, baselineUy, baseline: base, minV, maxV };
+    out[i] = thighDeg - pelvisDeg;
   }
 
-  const cand = [0, 1, 2].map(buildForK);
-
-  // Escolher coluna com maior ROM dentro do range fisiológico (40-140°)
-  // Ordem de preferência:
-  // 1. Maior ROM no range 40-140° (fisiologicamente plausível para flexão de quadril)
-  // 2. Se nenhuma no range, escolher a com maior sagitalidade
-  const physiological = cand.filter((c) => c.rom >= 40 && c.rom <= 140);
-  let chosen: (typeof cand)[0];
-
-  if (physiological.length > 0) {
-    // Escolher a de maior ROM dentro do range fisiológico
-    chosen = physiological.sort((a, b) => b.rom - a.rom)[0];
-  } else {
-    // Fallback: escolher por sagitalidade
-    chosen = [...cand].sort((a, b) => b.stdSag - a.stdSag)[0];
-  }
-
-  // Debug logging
-  console.warn("[hipFlexSeries] Column candidates", {
-    k0: {
-      k: 0,
-      rom: cand.find((c) => c.k === 0)?.rom,
-      stdSag: cand.find((c) => c.k === 0)?.stdSag,
-    },
-    k1: {
-      k: 1,
-      rom: cand.find((c) => c.k === 1)?.rom,
-      stdSag: cand.find((c) => c.k === 1)?.stdSag,
-    },
-    k2: {
-      k: 2,
-      rom: cand.find((c) => c.k === 2)?.rom,
-      stdSag: cand.find((c) => c.k === 2)?.stdSag,
-    },
-    physiologicalOptions: physiological.length,
-    chosen: {
-      k: chosen.k,
-      rom: chosen.rom,
-      reason: physiological.length > 0 ? "max ROM in 40-140" : "max stdSag",
-    },
-  });
-
-  out.set(chosen.thetaUnwrapped);
   return out;
 }
 

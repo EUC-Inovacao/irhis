@@ -105,6 +105,8 @@ export interface FusionMeasurementData {
   FreeAcc_Y: number;
   FreeAcc_Z: number;
   Status: number;
+  /** Original quaternion from BLE — avoids quat→Euler→quat round-trip in analysis */
+  quaternion?: { w: number; x: number; y: number; z: number };
 }
 
 export interface BleServiceCallbacks {
@@ -1272,8 +1274,13 @@ export class MovellaBleService {
         await new Promise((r) => setTimeout(r, 150));
       }
       
-      // Remove notification subscription. On Android, skip subscription.remove() - it can crash.
-      // Per react-native-ble-plx#1281: subscriptions are auto-cleaned when device disconnects.
+      // Remove notification subscription.
+      // iOS: remove and delete from map immediately.
+      // Android: subscription.remove() during stopMeasurement can crash the BLE stack
+      // (react-native-ble-plx#1281). Keep the entry in the map so the next call to
+      // enableMeasurementNotifications (on the next exercise start) finds and removes it
+      // safely before creating a fresh subscription. Without this, each new exercise adds
+      // a native subscription without removing the old one → samples multiply each exercise.
       const subscription = this.notificationSubscriptions.get(sensorId);
       if (subscription) {
         if (Platform.OS !== "android") {
@@ -1282,10 +1289,10 @@ export class MovellaBleService {
           } catch (removeError) {
             console.log(`ℹ️ [BLE] Subscription removal note for ${sensorId}:`, removeError);
           }
+          this.notificationSubscriptions.delete(sensorId);
         } else {
-          console.log(`🛑 [BLE] Skipping subscription.remove() on Android (auto-cleanup on disconnect)`);
+          console.log(`🛑 [BLE] Android: keeping subscription in map for cleanup at next startMeasurement`);
         }
-        this.notificationSubscriptions.delete(sensorId);
       }
       
       console.log(`✅ [BLE] Stopped measurement on ${sensorId}`);
@@ -1380,11 +1387,23 @@ export class MovellaBleService {
       console.log(`📡 [BLE] Service UUID: ${serviceUUID}`);
       console.log(`📡 [BLE] Characteristic UUID: ${charUUID}`);
       
-      // Remove existing subscription if any
+      // Remove existing subscription before creating a new one.
+      // On Android this is where we do the deferred cleanup (stopMeasurement skips it).
       const existingSubscription = this.notificationSubscriptions.get(sensorId);
       if (existingSubscription) {
-        console.log(`📡 [BLE] Removing existing subscription for ${sensorId}`);
-        existingSubscription.remove();
+        console.log(`📡 [BLE] Removing existing subscription for ${sensorId} before creating new one`);
+        // Re-add to stoppingSensors so the cancellation callback fired by remove() is
+        // silenced. Without this, the callback sees stoppingSensors.has() === false
+        // (the 1500ms timeout already cleared it) and triggers an error popup.
+        this.stoppingSensors.add(sensorId);
+        try {
+          existingSubscription.remove();
+        } catch (removeError) {
+          console.log(`ℹ️ [BLE] Existing subscription removal note for ${sensorId}:`, removeError);
+        }
+        this.notificationSubscriptions.delete(sensorId);
+        // Clear after a short window — enough for the async cancellation callback to fire.
+        setTimeout(() => this.stoppingSensors.delete(sensorId), 500);
       }
       
       console.log(`📡 [BLE] Calling monitorCharacteristicForService for ${sensorId}...`);
@@ -1553,11 +1572,10 @@ export class MovellaBleService {
       console.log(`📤 [BLE] Calling onMeasurementData callback for ${sensorId}`);
       this.callbacks.onMeasurementData?.(sensorId, measurementData);
       
-      // Create FusionMeasurementData for CSV export
-      // Note: PacketCounter and SampleTimeFine will be set by the caller (BleConnectionScreen)
+      // Create FusionMeasurementData — PacketCounter/SampleTimeFine set by caller
       const fusionData: FusionMeasurementData = {
-        PacketCounter: 0, // Will be set by caller
-        SampleTimeFine: timestamp, // Will be adjusted relative to start time by caller
+        PacketCounter: 0,
+        SampleTimeFine: timestamp,
         Euler_X: euler.x,
         Euler_Y: euler.y,
         Euler_Z: euler.z,
@@ -1565,6 +1583,8 @@ export class MovellaBleService {
         FreeAcc_Y: freeAcc.y,
         FreeAcc_Z: freeAcc.z,
         Status: status,
+        // Preserve original quaternion to avoid quat→Euler→quat round-trip in analysis
+        quaternion: { w: quaternion.w, x: quaternion.x, y: quaternion.y, z: quaternion.z },
       };
       
       console.log(`📤 [BLE] Calling onFusionMeasurementData callback for ${sensorId}`);

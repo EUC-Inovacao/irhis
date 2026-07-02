@@ -26,8 +26,9 @@ import {
   PayloadMode,
   getMovellaBleService,
 } from "@services/movellaBleService";
-import { convertBleDataToZip, createCSVForSensor } from "@services/bleDataConverter";
+import { createCSVForSensor } from "@services/bleDataConverter";
 import { createLocalAnalysisApi, AnalysisResult } from "@services/analysisApi";
+import type { Session, SensorStream } from "@io/zipReader";
 import { createSessionFromAnalysisResult } from "@services/sessionService";
 import { useAuth } from "@context/AuthContext";
 import { usePatients } from "@context/PatientContext";
@@ -37,6 +38,65 @@ import LocalAnalysisResults from "@components/LocalAnalysisResults";
 interface BleConnectionScreenProps {
   navigation?: any;
   onSensorsConnected?: (sensorIds: string[]) => void;
+}
+
+/**
+ * Build a Session object directly from BLE exercise data.
+ * Uses the original quaternion stored on each FusionMeasurementData packet,
+ * falling back to Euler conversion only if the quaternion field is absent.
+ * This avoids the quat → Euler → quat round-trip that was done via ZIP/CSV.
+ */
+function buildSessionFromBleData(
+  exerciseData: Map<string, FusionMeasurementData[]>,
+  deviceTagMap: Map<string, DeviceTag>,
+  _startTime: Date
+): Session {
+  const streams: Record<number, SensorStream> = {};
+
+  for (const [sensorId, data] of Array.from(exerciseData.entries())) {
+    const tagEnum = deviceTagMap.get(sensorId);
+    if (tagEnum === undefined || data.length === 0) continue;
+
+    const tag = typeof tagEnum === "number" ? tagEnum : Number(tagEnum);
+    const firstTime = data[0].SampleTimeFine;
+
+    const quats: [number, number, number, number][] = [];
+    const times: number[] = [];
+
+    for (const sample of data) {
+      // Time in seconds relative to first sample
+      times.push((sample.SampleTimeFine - firstTime) / 1e6);
+
+      if (sample.quaternion) {
+        // Use original BLE quaternion — no conversion needed
+        const q = sample.quaternion;
+        quats.push([q.w, q.x, q.y, q.z]);
+      } else {
+        // Fallback: convert from Euler (legacy path)
+        const ex = (sample.Euler_X * Math.PI) / 180;
+        const ey = (sample.Euler_Y * Math.PI) / 180;
+        const ez = (sample.Euler_Z * Math.PI) / 180;
+        const cy = Math.cos(ez * 0.5), sy = Math.sin(ez * 0.5);
+        const cp = Math.cos(ey * 0.5), sp = Math.sin(ey * 0.5);
+        const cr = Math.cos(ex * 0.5), sr = Math.sin(ex * 0.5);
+        quats.push([
+          cr * cp * cy + sr * sp * sy,
+          sr * cp * cy - cr * sp * sy,
+          cr * sp * cy + sr * cp * sy,
+          cr * cp * sy - sr * sp * cy,
+        ]);
+      }
+    }
+
+    streams[tag] = {
+      tag: tag as 1 | 2 | 3 | 4 | 5,
+      t: times,
+      ex: [], ey: [], ez: [], // Euler not needed downstream
+      quat: quats,
+    };
+  }
+
+  return { streams };
 }
 
 const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
@@ -454,21 +514,19 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
         }
       });
 
-      // Convert to ZIP
-      console.log("🔬 [UI] Converting exercise data to ZIP...");
-      const zipBase64 = await convertBleDataToZip(exerciseDataRef.current, deviceTagMap, exerciseStartTime);
-      console.log(`🔬 [UI] ZIP conversion complete, base64 length: ${zipBase64.length}`);
-      
+      // Build Session directly from BLE data — no ZIP/CSV serialisation needed.
+      // This avoids the quat→Euler→quat round-trip that was introduced by the CSV export path.
+      console.log("🔬 [UI] Building session from BLE data...");
+      const session = buildSessionFromBleData(exerciseDataRef.current, deviceTagMap, exerciseStartTime);
+      console.log(`🔬 [UI] Session built, streams: ${Object.keys(session.streams).join(', ')}`);
+
       // Analyze with local API
       console.log("🔬 [UI] Starting analysis with local API...");
       const localAnalysisApi = createLocalAnalysisApi();
-      
-      const result = await localAnalysisApi.analyzeZip(zipBase64, {
-        thresholdAngleDeg: 18,
-        minPeakDistanceSec: 0.6,
+
+      const result = await localAnalysisApi.analyzeSession(session, {
         bodyHeight_m: 1.75,
         bodyMass_kg: 70,
-        artificialDelayMs: 350,
       });
 
       console.log("🔬 [UI] Analysis complete!");
@@ -1665,113 +1723,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
-  logsContainer: {
-    marginTop: 12,
-    marginBottom: 12,
-    maxHeight: 300,
-    borderRadius: 8,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E5E5E5",
-  },
-  logsHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E5E5",
-  },
-  logsTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  clearLogsButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  clearLogsButtonText: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  logsScrollView: {
-    maxHeight: 250,
-  },
-  logsContent: {
-    padding: 8,
-  },
-  modalContainer: {
-    flex: 1,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E5E5",
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  modalCloseButton: {
-    padding: 6,
-  },
-  modalScroll: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  modalScrollContent: {
-    paddingVertical: 16,
-  },
-  modalCsvContent: {
-    fontSize: 12,
-    lineHeight: 18,
-    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
-  },
-  logEntry: {
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    borderBottomWidth: 1,
-    marginBottom: 4,
-  },
-  logHeader: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    marginBottom: 4,
-    gap: 8,
-  },
-  logTimestamp: {
-    fontSize: 11,
-    fontFamily: "monospace",
-  },
-  logSensorName: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  logDeviceTag: {
-    fontSize: 11,
-    fontWeight: "500",
-  },
-  logPacketCounter: {
-    fontSize: 11,
-    fontFamily: "monospace",
-  },
-  logData: {
-    fontSize: 11,
-    fontFamily: "monospace",
-    marginTop: 2,
-  },
-  noLogsText: {
-    fontSize: 12,
-    textAlign: "center",
-    padding: 20,
-    fontStyle: "italic",
-  },
 });
 
 export default BleConnectionScreen;
-

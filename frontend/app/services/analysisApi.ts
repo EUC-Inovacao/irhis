@@ -238,10 +238,110 @@ export interface AnalysisApi {
     file: File | Buffer | string,
     opts?: AnalysisOptions
   ): Promise<AnalysisResult>;
+  /** Analyse a pre-built Session directly — skips ZIP/CSV serialisation */
+  analyzeSession(
+    session: import("../io/zipReader").Session,
+    opts?: AnalysisOptions
+  ): Promise<AnalysisResult>;
 }
 
 /**
- * Create local analysis API that mocks external API behavior
+ * Shared analysis implementation — works on an already-parsed Session.
+ * Called by both analyzeZip (after parsing) and analyzeSession (directly).
+ */
+async function runAnalysis(
+  session: import("../io/zipReader").Session,
+  opts: AnalysisOptions
+): Promise<AnalysisResult> {
+  const validation = validateRequiredSensors(session);
+
+  const result: AnalysisResult = {
+    knee: {
+      left:  { rom: 0, maxFlexion: 0, maxExtension: 0, avgVelocity: 0, peakVelocity: 0, p95Velocity: 0 },
+      right: { rom: 0, maxFlexion: 0, maxExtension: 0, avgVelocity: 0, peakVelocity: 0, p95Velocity: 0 },
+    },
+    hip: {
+      left:  { rom: 0, maxFlexion: 0, maxExtension: 0, avgVelocity: 0, peakVelocity: 0, p95Velocity: 0 },
+      right: { rom: 0, maxFlexion: 0, maxExtension: 0, avgVelocity: 0, peakVelocity: 0, p95Velocity: 0 },
+    },
+    com: { verticalAmp_cm: 0, mlAmp_cm: 0, apAmp_cm: 0, rms_cm: 0 },
+    asymmetry: {
+      romDifference_knee: 0,
+      romDifference_hip: 0,
+      dominantSide_knee: "balanced",
+      dominantSide_hip: "balanced",
+    },
+    missingSensors: validation.missing,
+  };
+
+  // Knee angles
+  if (session.streams[1] && session.streams[2]) {
+    result.knee.right = await analyzeKneeMetrics(
+      session.streams[1].quat, session.streams[2].quat, session.streams[1].t, opts
+    );
+  }
+  if (session.streams[3] && session.streams[4]) {
+    result.knee.left = await analyzeKneeMetrics(
+      session.streams[3].quat, session.streams[4].quat, session.streams[3].t, opts
+    );
+  }
+
+  // Hip angles
+  if (session.streams[5]) {
+    if (session.streams[1]) {
+      result.hip.right = await analyzeHipMetrics(
+        session.streams[5].quat, session.streams[1].quat, session.streams[5].t, opts
+      );
+    }
+    if (session.streams[3]) {
+      result.hip.left = await analyzeHipMetrics(
+        session.streams[5].quat, session.streams[3].quat, session.streams[5].t, opts
+      );
+    }
+  }
+
+  // Center of Mass
+  if (session.streams[5]) {
+    try {
+      const sensorData = {
+        pelvis:     session.streams[5] ? session.streams[5].quat.map((q: any, i: number) => ({ time: session.streams[5].t[i], quat: q })) : undefined,
+        leftThigh:  session.streams[3] ? session.streams[3].quat.map((q: any, i: number) => ({ time: session.streams[3].t[i], quat: q })) : undefined,
+        rightThigh: session.streams[1] ? session.streams[1].quat.map((q: any, i: number) => ({ time: session.streams[1].t[i], quat: q })) : undefined,
+        leftShank:  session.streams[4] ? session.streams[4].quat.map((q: any, i: number) => ({ time: session.streams[4].t[i], quat: q })) : undefined,
+        rightShank: session.streams[2] ? session.streams[2].quat.map((q: any, i: number) => ({ time: session.streams[2].t[i], quat: q })) : undefined,
+      };
+      const segmentModels = buildSegmentModel(sensorData, opts.bodyHeight_m || 1.75, opts.bodyMass_kg || 70);
+      result.com = analyzeCoM(segmentModels, session.streams[5]?.t || []);
+    } catch (e) {
+      console.warn("CoM analysis failed:", e);
+    }
+  }
+
+  // Asymmetry
+  const romDifference_knee = Math.abs(result.knee.left.rom - result.knee.right.rom);
+  const romDifference_hip  = Math.abs(result.hip.left.rom  - result.hip.right.rom);
+  result.asymmetry = {
+    romDifference_knee,
+    romDifference_hip,
+    dominantSide_knee: romDifference_knee < 10 ? "balanced" : result.knee.left.rom > result.knee.right.rom ? "left" : "right",
+    dominantSide_hip:  romDifference_hip  < 10 ? "balanced" : result.hip.left.rom  > result.hip.right.rom  ? "left" : "right",
+  };
+
+  // Console QC
+  const timeRef = session.streams[1]?.t || session.streams[3]?.t || [];
+  const rightKneeAngles = session.streams[1] && session.streams[2] ? kneeAngleSeries(session.streams[1].quat, session.streams[2].quat) : new Float64Array(0);
+  const leftKneeAngles  = session.streams[3] && session.streams[4] ? kneeAngleSeries(session.streams[3].quat, session.streams[4].quat) : new Float64Array(0);
+  const rightKneeVel = rightKneeAngles.length && timeRef.length ? gradient(rightKneeAngles, timeRef.slice(0, rightKneeAngles.length)) : new Float64Array(0);
+  const leftKneeVel  = leftKneeAngles.length  && timeRef.length ? gradient(leftKneeAngles,  timeRef.slice(0, leftKneeAngles.length))  : new Float64Array(0);
+  const aw = detectActiveWindow(leftKneeVel, rightKneeVel, timeRef);
+  performConsoleQC(result, aw, true);
+  console.warn("[QC HIP]", { L: { rom: result.hip.left.rom, peak: result.hip.left.peakVelocity }, R: { rom: result.hip.right.rom, peak: result.hip.right.peakVelocity } });
+
+  return result;
+}
+
+/**
+ * Create local analysis API
  */
 export function createLocalAnalysisApi(): AnalysisApi {
   return {
@@ -249,240 +349,23 @@ export function createLocalAnalysisApi(): AnalysisApi {
       file: File | Buffer | string,
       opts: AnalysisOptions = {}
     ): Promise<AnalysisResult> {
-      // Add artificial delay to simulate network latency
       const delay = opts.artificialDelayMs || 0;
-      if (delay > 0) {
-        await new Promise((resolve) => setTimeout(resolve, delay));
-      }
-
+      if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
       try {
-        // Load and parse ZIP file
         const session = await loadSessionFromZip(file);
+        return await runAnalysis(session, opts);
+      } catch (error) {
+        console.error("Local analysis failed:", error);
+        throw new Error(`Analysis failed: ${error}`);
+      }
+    },
 
-        // Validate required sensors
-        const validation = validateRequiredSensors(session);
-
-        // Initialize result with default values for missing sensors
-        const result: AnalysisResult = {
-          knee: {
-            left: {
-              rom: 0,
-              maxFlexion: 0,
-              maxExtension: 0,
-              avgVelocity: 0,
-              peakVelocity: 0,
-              p95Velocity: 0,
-            },
-            right: {
-              rom: 0,
-              maxFlexion: 0,
-              maxExtension: 0,
-              avgVelocity: 0,
-              peakVelocity: 0,
-              p95Velocity: 0,
-            },
-          },
-          hip: {
-            left: {
-              rom: 0,
-              maxFlexion: 0,
-              maxExtension: 0,
-              avgVelocity: 0,
-              peakVelocity: 0,
-              p95Velocity: 0,
-            },
-            right: {
-              rom: 0,
-              maxFlexion: 0,
-              maxExtension: 0,
-              avgVelocity: 0,
-              peakVelocity: 0,
-              p95Velocity: 0,
-            },
-          },
-          com: { verticalAmp_cm: 0, mlAmp_cm: 0, apAmp_cm: 0, rms_cm: 0 },
-          asymmetry: {
-            romDifference_knee: 0,
-            romDifference_hip: 0,
-            dominantSide_knee: "balanced",
-            dominantSide_hip: "balanced",
-          },
-          missingSensors: validation.missing,
-        };
-
-        // Analyze knee angles if sensors are available
-        if (session.streams[1] && session.streams[2]) {
-          const rightKneeMetrics = await analyzeKneeMetrics(
-            session.streams[1].quat,
-            session.streams[2].quat,
-            session.streams[1].t,
-            opts
-          );
-          result.knee.right = rightKneeMetrics;
-        }
-
-        if (session.streams[3] && session.streams[4]) {
-          const leftKneeMetrics = await analyzeKneeMetrics(
-            session.streams[3].quat,
-            session.streams[4].quat,
-            session.streams[3].t,
-            opts
-          );
-          result.knee.left = leftKneeMetrics;
-        }
-
-        // Analyze hip angles if pelvis sensor is available
-        if (session.streams[5]) {
-          if (session.streams[1]) {
-            // Right hip (pelvis tag 5, right thigh tag 1)
-            result.hip.right = await analyzeHipMetrics(
-              session.streams[5].quat, // pelvis
-              session.streams[1].quat, // right thigh (Tag 1)
-              session.streams[5].t, // seconds, pelvis timebase
-              opts
-            );
-          }
-
-          if (session.streams[3]) {
-            // Left hip (pelvis tag 5, left thigh tag 3)
-            result.hip.left = await analyzeHipMetrics(
-              session.streams[5].quat,
-              session.streams[3].quat,
-              session.streams[5].t,
-              opts
-            );
-          }
-        }
-
-        // Analyze Center of Mass if pelvis sensor is available
-        if (session.streams[5]) {
-          try {
-            const sensorData = {
-              pelvis: session.streams[5]
-                ? session.streams[5].quat.map((q: any, i: number) => ({
-                    time: session.streams[5].t[i],
-                    quat: q,
-                  }))
-                : undefined,
-              leftThigh: session.streams[3]
-                ? session.streams[3].quat.map((q: any, i: number) => ({
-                    time: session.streams[3].t[i],
-                    quat: q,
-                  }))
-                : undefined,
-              rightThigh: session.streams[1]
-                ? session.streams[1].quat.map((q: any, i: number) => ({
-                    time: session.streams[1].t[i],
-                    quat: q,
-                  }))
-                : undefined,
-              leftShank: session.streams[4]
-                ? session.streams[4].quat.map((q: any, i: number) => ({
-                    time: session.streams[4].t[i],
-                    quat: q,
-                  }))
-                : undefined,
-              rightShank: session.streams[2]
-                ? session.streams[2].quat.map((q: any, i: number) => ({
-                    time: session.streams[2].t[i],
-                    quat: q,
-                  }))
-                : undefined,
-            };
-
-            const segmentModels = buildSegmentModel(
-              sensorData,
-              opts.bodyHeight_m || 1.75,
-              opts.bodyMass_kg || 70
-            );
-
-            const timeSeconds = session.streams[5]?.t || [];
-            result.com = analyzeCoM(segmentModels, timeSeconds);
-          } catch (e) {
-            // eslint-disable-next-line no-console
-            console.warn("CoM analysis failed:", e);
-          }
-        }
-
-        // Calculate asymmetry metrics (ROM-only)
-        const romDifference_knee = Math.abs(
-          result.knee.left.rom - result.knee.right.rom
-        );
-        const romDifference_hip = Math.abs(
-          result.hip.left.rom - result.hip.right.rom
-        );
-        const dominantSide_knee =
-          romDifference_knee < 10
-            ? "balanced"
-            : result.knee.left.rom > result.knee.right.rom
-              ? "left"
-              : "right";
-        const dominantSide_hip =
-          romDifference_hip < 10
-            ? "balanced"
-            : result.hip.left.rom > result.hip.right.rom
-              ? "left"
-              : "right";
-        result.asymmetry = {
-          romDifference_knee,
-          romDifference_hip,
-          dominantSide_knee,
-          dominantSide_hip,
-        };
-
-        // Console-only QC
-        const hipUnwrapApplied = true; // hip series uses unwrapDegrees
-        // To choose active window for QC logging, estimate from knee velocities if available
-        const timeRef = session.streams[1]?.t || session.streams[3]?.t || [];
-        if (timeRef.length > 1) {
-          const dts = timeRef
-            .slice(1)
-            .map((v: number, i: number) => v - timeRef[i]);
-          // eslint-disable-next-line no-console
-          console.warn("QC Δt", {
-            dtMin: Math.min(...dts),
-            dtMax: Math.max(...dts),
-          });
-        }
-        const rightKneeAngles =
-          session.streams[1] && session.streams[2]
-            ? kneeAngleSeries(session.streams[1].quat, session.streams[2].quat)
-            : new Float64Array(0);
-        const leftKneeAngles =
-          session.streams[3] && session.streams[4]
-            ? kneeAngleSeries(session.streams[3].quat, session.streams[4].quat)
-            : new Float64Array(0);
-        const rightKneeVel =
-          rightKneeAngles.length && timeRef.length
-            ? gradient(
-                rightKneeAngles,
-                timeRef.slice(0, rightKneeAngles.length)
-              )
-            : new Float64Array(0);
-        const leftKneeVel =
-          leftKneeAngles.length && timeRef.length
-            ? gradient(leftKneeAngles, timeRef.slice(0, leftKneeAngles.length))
-            : new Float64Array(0);
-        const aw = detectActiveWindow(leftKneeVel, rightKneeVel, timeRef);
-        performConsoleQC(result, aw, hipUnwrapApplied);
-
-        // Final numbers that feed UI (dev-only visibility)
-        // eslint-disable-next-line no-console
-        console.warn("[QC HIP]", {
-          L: {
-            rom: result.hip.left.rom,
-            peak: result.hip.left.peakVelocity,
-          },
-          R: {
-            rom: result.hip.right.rom,
-            peak: result.hip.right.peakVelocity,
-          },
-        });
-
-        // REMOVED: Guards que bloqueiam exibição dos dados
-        // Para demo: aceitar valores mesmo que altos
-
-        return result;
+    async analyzeSession(
+      session: import("../io/zipReader").Session,
+      opts: AnalysisOptions = {}
+    ): Promise<AnalysisResult> {
+      try {
+        return await runAnalysis(session, opts);
       } catch (error) {
         console.error("Local analysis failed:", error);
         throw new Error(`Analysis failed: ${error}`);
@@ -490,6 +373,7 @@ export function createLocalAnalysisApi(): AnalysisApi {
     },
   };
 }
+
 
 /**
  * Analyze knee metrics from thigh and shank quaternions
@@ -631,29 +515,15 @@ async function analyzeHipMetrics(
 
   const alignedTime = timeSeconds.slice(0, alignedQuats.thigh.length);
 
-  // Use pelvis frame method - it's detecting correct ROM (~105-120°)
-  // Get both angles and ROM calculated internally
-  const {
-    angles: hipAngles,
-    rom: romFromInternal,
-    minV,
-    maxV,
-  } = hipFlexSeriesWithROM(alignedQuats.pelvis, alignedQuats.thigh);
-
-  // Use the ROM calculated internally (more accurate, uses wrapped values)
-  const romValue = romFromInternal;
-
-  // hipAngles are relative to baseline (centered around 0)
-  // The baseline is the average of first 200 samples (initial/neutral position)
-  // We need to interpret flexion/extension correctly:
-  // - Minimum value = most extended position (should be ~0° flexion)
-  // - Maximum value = most flexed position (should be ~90° flexion)
-  // The ROM is ~105-120°, but maxFlexion should be ~90°
-  // This suggests the ROM includes some extra movement beyond pure flexion
+  // Get hip angle series (baseline-subtracted, relative to neutral position)
+  const { angles: hipAngles } = hipFlexSeriesWithROM(
+    alignedQuats.pelvis,
+    alignedQuats.thigh
+  );
 
   const hipAnglesArray = Array.from(hipAngles);
 
-  // Find actual min/max from unwrapped relative values
+  // Find actual min/max from the baseline-relative angle series
   let actualMin = 1e9,
     actualMax = -1e9;
   for (let i = 0; i < hipAnglesArray.length; i++) {
@@ -661,14 +531,12 @@ async function analyzeHipMetrics(
     if (hipAnglesArray[i] > actualMax) actualMax = hipAnglesArray[i];
   }
 
-  // The ROM is calculated correctly (~105-120°), but maxFlexion should be ~90°
-  // We'll use the actualMax value relative to baseline, but scale it proportionally
-  // if the ROM is larger than expected (~90°)
-  // This accounts for the fact that the ROM might include some movement beyond pure flexion
-  const expectedROM = 90; // Expected ROM for this exercise
-  const flexionScale = romValue > expectedROM ? expectedROM / romValue : 1.0;
-  const maxFlexion = actualMax * flexionScale;
-  const maxExtension = 0; // By definition, minimum is extension = 0°
+  // Angles are signed (thighDisplacement - pelvisDisplacement).
+  // actualMax = peak flexion above neutral, actualMin = most extended below neutral.
+  // ROM = total excursion from lowest to highest point.
+  const maxFlexion  = Math.max(0, actualMax);          // peak above neutral
+  const maxExtension = Math.max(0, -actualMin);        // depth below neutral (positive value)
+  const romValue = Math.max(0, actualMax - actualMin); // total range
 
   // Velocities: Use the gradient function from metrics.ts which handles time correctly
   const hipVel = gradientSecondsDev(hipAnglesArray, alignedTime);
@@ -716,8 +584,6 @@ async function analyzeHipMetrics(
     actualMin,
     actualMax,
     calculatedROM: actualMax - actualMin,
-    wrappedMin: minV,
-    wrappedMax: maxV,
     range: `${actualMin.toFixed(1)}° to ${actualMax.toFixed(1)}°`,
     velocities: {
       avg: avgVelocityVal,
@@ -764,9 +630,7 @@ function alignQuaternionData(
   };
 }
 
-/**
- * Align quaternion data by time for hip analysis
- */
+
 function alignHipQuaternionData(
   pelvisQuats: [number, number, number, number][],
   thighQuats: [number, number, number, number][],
