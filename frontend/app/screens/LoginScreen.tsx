@@ -28,7 +28,7 @@ const LoginScreen = ({ navigation }: any) => {
 
   const handleLogin = async () => {
     if (!accessCode || !password) {
-      Alert.alert("Required", "Please enter your access code and password.");
+      Alert.alert(t("login.requiredTitle"), t("login.requiredMessage"));
       return;
     }
 
@@ -60,11 +60,11 @@ const LoginScreen = ({ navigation }: any) => {
               style={styles.logo}
             />
             <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>
-              Welcome back to
+              {t("login.welcomeBackTo")}
             </Text>
             <Text style={[styles.title, { color: colors.text }]}>TwinRehab</Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Sign in with your generated access code and password.
+              {t("login.subtitle")}
             </Text>
           </View>
 
@@ -81,7 +81,7 @@ const LoginScreen = ({ navigation }: any) => {
                   styles.input,
                   { backgroundColor: colors.card, color: colors.text },
                 ]}
-                placeholder="Access code"
+                placeholder={t("login.accessCodePlaceholder")}
                 value={accessCode}
                 onChangeText={setAccessCode}
                 autoCapitalize="characters"
@@ -107,10 +107,20 @@ const LoginScreen = ({ navigation }: any) => {
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
                 placeholderTextColor={colors.textSecondary}
+                autoCapitalize="none"
+                autoCorrect={false}
+                contextMenuHidden={false}
               />
               <TouchableOpacity
                 style={styles.passwordToggle}
                 onPress={() => setShowPassword(!showPassword)}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  showPassword
+                    ? t("login.hidePasswordAccessibilityLabel")
+                    : t("login.showPasswordAccessibilityLabel")
+                }
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
                 <Ionicons
                   name={showPassword ? "eye-off-outline" : "eye-outline"}
@@ -126,17 +136,17 @@ const LoginScreen = ({ navigation }: any) => {
               disabled={loading}
             >
               <Text style={[styles.buttonText, { color: colors.white }]}>
-                {loading ? "Signing in..." : "Sign In"}
+                {loading ? t("login.signingIn") : t("login.signIn")}
               </Text>
             </TouchableOpacity>
 
             <View style={styles.signupContainer}>
               <Text style={[styles.signupLabel, { color: colors.textSecondary }]}>
-                Don't have an account?
+                {t("login.noAccount")}
               </Text>
               <TouchableOpacity onPress={() => navigation.navigate("InvitePatient")}>
                 <Text style={[styles.signupLink, { color: colors.purple[600] }]}>
-                  Sign Up
+                  {t("login.signUp")}
                 </Text>
               </TouchableOpacity>
             </View>

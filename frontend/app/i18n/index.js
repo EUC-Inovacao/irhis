@@ -13,7 +13,7 @@ i18n.use(initReactI18next).init({
     'pt-PT': { translation: ptPT },
   },
   lng: getDeviceLanguage(),
-  fallbackLng: 'en',
+  fallbackLng: 'pt-PT',
   interpolation: {
     escapeValue: false,
   },

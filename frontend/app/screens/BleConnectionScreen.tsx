@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "@theme/ThemeContext";
 import { useRoute } from "@react-navigation/native";
+import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import {
   MovellaBleService,
@@ -104,6 +105,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
   onSensorsConnected,
 }) => {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const route = useRoute<any>();
   const { user } = useAuth();
   const { fetchPatients, fetchAssignedExercises } = usePatients();
@@ -198,7 +200,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
           const allSensors = bleService.getSensors();
           const sensor = allSensors.find(s => s.id === sensorId);
           const sensorName = sensor?.name || `Sensor ${sensorId.substring(0, 8)}`;
-          const deviceTagName = sensor?.deviceTag ? getDeviceTagName(sensor.deviceTag) : "Not assigned";
+          const deviceTagName = sensor?.deviceTag ? getDeviceTagName(sensor.deviceTag) : t("ble.tagNotAssigned");
           
           console.log(`📥 [UI] Processing data for ${sensorName} (${deviceTagName})`);
           
@@ -277,7 +279,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
         }
       },
       onError: (error) => {
-        Alert.alert("BLE Error", error.message);
+        Alert.alert(t("ble.alertBleError"), error.message);
       },
     });
 
@@ -352,13 +354,13 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
     if (!hasAllSensorsConnected(testingMode)) {
       if (testingMode) {
         Alert.alert(
-          "Sensors Required",
-          "Please connect at least 1 sensor before starting exercise."
+          t("ble.alertSensorsRequired"),
+          t("ble.sensorsRequiredTesting")
         );
       } else {
         Alert.alert(
-          "Sensors Required",
-          "Please connect all 5 sensors (Right thigh, Right shank, Left thigh, Left shank, Pelvis) before starting exercise."
+          t("ble.alertSensorsRequired"),
+          t("ble.sensorsRequiredAll")
         );
       }
       return;
@@ -404,18 +406,18 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
           console.warn(`⚠️ [UI] exerciseDataRef.size: ${exerciseDataRef.current.size}`);
           console.warn(`⚠️ [UI] isExerciseActiveRef.current: ${isExerciseActiveRef.current}`);
           Alert.alert(
-            "No Data Received",
-            "No measurement data has been received from sensors. Please check sensor connections and try again."
+            t("ble.alertNoDataReceived"),
+            t("ble.noDataReceivedMessage")
           );
           noDataWarningShownRef.current = true;
         }
       }, 5000);
       
-      Alert.alert("Exercise Started", "Recording data from all sensors...");
+      Alert.alert(t("ble.alertExerciseStarted"), t("ble.exerciseStartedMessage"));
     } catch (error) {
       console.error("❌ [UI] Error starting exercise:", error);
       console.error("❌ [UI] Error details:", error instanceof Error ? error.stack : String(error));
-      Alert.alert("Error", `Failed to start exercise: ${error instanceof Error ? error.message : String(error)}`);
+      Alert.alert(t("ble.alertError"), t("ble.failedStartExercise", { error: error instanceof Error ? error.message : String(error) }));
       setIsExerciseActive(false);
       isExerciseActiveRef.current = false;
     }
@@ -439,19 +441,19 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
         }
       } catch (error) {
         console.error("Error stopping exercise:", error);
-        Alert.alert("Error", `Failed to stop exercise: ${error instanceof Error ? error.message : String(error)}`);
+        Alert.alert(t("ble.alertError"), t("ble.failedStopExercise", { error: error instanceof Error ? error.message : String(error) }));
       }
       setCanAnalyze(sensorCount > 0);
       if (Platform.OS === "android") {
         try {
-          ToastAndroid.show(sensorCount > 0 ? "Exercise stopped. You can analyze." : "No data recorded.", ToastAndroid.SHORT);
+          ToastAndroid.show(sensorCount > 0 ? t("ble.toastExerciseStopped") : t("ble.toastNoDataRecorded"), ToastAndroid.SHORT);
         } catch (_) { /* ignore */ }
       } else {
         Alert.alert(
-          "Exercise Stopped",
+          t("ble.alertExerciseStopped"),
           sensorCount > 0
-            ? `Recorded data from ${sensorCount} sensor${sensorCount !== 1 ? "s" : ""}. You can now analyze.`
-            : "No data was recorded."
+            ? t("ble.recordedFromSensors", { count: sensorCount })
+            : t("ble.noDataWasRecorded")
         );
       }
     };
@@ -476,7 +478,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
     
     if (!exerciseStartTime || exerciseDataRef.current.size === 0) {
       console.error("❌ [UI] No data to analyze - exerciseStartTime or exerciseDataRef is empty");
-      Alert.alert("No Data", "No exercise data available to analyze.");
+      Alert.alert(t("ble.alertNoData"), t("ble.noExerciseDataToAnalyze"));
       return;
     }
 
@@ -496,7 +498,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
 
       if (deviceTagMap.size === 0) {
         console.error("❌ [UI] No sensors with device tags found");
-        Alert.alert("Error", "No sensors with device tags found. Please assign device tags to sensors.");
+        Alert.alert(t("ble.alertError"), t("ble.noDeviceTagsFound"));
         return;
       }
 
@@ -564,32 +566,32 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
                 fetchAssignedExercises(patientId),
               ]);
               Alert.alert(
-                "Analysis Complete",
-                `Results saved successfully!\n\nMissing sensors: ${result.missingSensors.length > 0 ? result.missingSensors.join(", ") : "None"}`
+                t("ble.alertAnalysisComplete"),
+                t("ble.resultsSaved", { missing: result.missingSensors.length > 0 ? result.missingSensors.join(", ") : t("ble.missingSensorsNone") })
               );
             } else {
               Alert.alert(
-                "Analysis Complete",
-                `Analysis completed but save failed. Please try again.\n\nMissing sensors: ${result.missingSensors.length > 0 ? result.missingSensors.join(", ") : "None"}`
+                t("ble.alertAnalysisComplete"),
+                t("ble.saveFailed", { missing: result.missingSensors.length > 0 ? result.missingSensors.join(", ") : t("ble.missingSensorsNone") })
               );
             }
           } catch (saveError) {
             console.error("Error saving BLE results to server:", saveError);
             Alert.alert(
-              "Analysis Complete",
-              `Analysis completed but could not save to server: ${saveError instanceof Error ? saveError.message : String(saveError)}\n\nYou can try analyzing again.`
+              t("ble.alertAnalysisComplete"),
+              t("ble.couldNotSave", { error: saveError instanceof Error ? saveError.message : String(saveError) })
             );
           }
         } else {
           Alert.alert(
-            "Analysis Complete",
-            `Analysis completed. Go back to Movement Analysis, select patient and exercise, then record and analyze again to save.\n\nMissing sensors: ${result.missingSensors.length > 0 ? result.missingSensors.join(", ") : "None"}`
+            t("ble.alertAnalysisComplete"),
+            t("ble.completedNotSaved", { missing: result.missingSensors.length > 0 ? result.missingSensors.join(", ") : t("ble.missingSensorsNone") })
           );
         }
       } else {
         Alert.alert(
-          "Analysis Complete",
-          `Analysis completed successfully!\n\nMissing sensors: ${result.missingSensors.length > 0 ? result.missingSensors.join(", ") : "None"}`
+          t("ble.alertAnalysisComplete"),
+          t("ble.completedSuccessfully", { missing: result.missingSensors.length > 0 ? result.missingSensors.join(", ") : t("ble.missingSensorsNone") })
         );
       }
     } catch (error) {
@@ -598,8 +600,8 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
       console.error("❌ [UI] Error message:", error instanceof Error ? error.message : String(error));
       console.error("❌ [UI] Error stack:", error instanceof Error ? error.stack : 'No stack');
       Alert.alert(
-        "Analysis Error",
-        `Failed to analyze exercise: ${error instanceof Error ? error.message : String(error)}`
+        t("ble.alertAnalysisError"),
+        t("ble.failedAnalyzeExercise", { error: error instanceof Error ? error.message : String(error) })
       );
     } finally {
       setIsAnalyzing(false);
@@ -609,23 +611,23 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
   const handleShowCsv = useCallback((sensorId: string) => {
     const data = exerciseDataRef.current.get(sensorId);
     if (!data || data.length === 0) {
-      Alert.alert("No Data", "No recorded samples found for this sensor yet.");
+      Alert.alert(t("ble.alertNoData"), t("ble.noRecordedSamples"));
       return;
     }
 
     if (!exerciseStartTime) {
-      Alert.alert("No Start Time", "Exercise start time is unavailable. Please record an exercise again.");
+      Alert.alert(t("ble.alertNoStartTime"), t("ble.noStartTimeMessage"));
       return;
     }
 
     const sensor = sensors.find((s) => s.id === sensorId);
     if (!sensor) {
-      Alert.alert("Sensor Not Found", "Unable to locate sensor information.");
+      Alert.alert(t("ble.alertSensorNotFound"), t("ble.sensorNotFoundMessage"));
       return;
     }
 
     if (!sensor.deviceTag) {
-      Alert.alert("Assign Device Tag", "Please assign a device tag to this sensor before exporting the CSV.");
+      Alert.alert(t("ble.alertAssignDeviceTag"), t("ble.assignDeviceTagMessage"));
       return;
     }
 
@@ -640,7 +642,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
       setCsvModalVisible(true);
     } catch (error) {
       console.error("❌ [UI] Error generating CSV preview:", error);
-      Alert.alert("Error", "Failed to generate CSV preview for this sensor.");
+      Alert.alert(t("ble.alertError"), t("ble.failedCsvPreview"));
     }
   }, [exerciseStartTime, sensors]);
 
@@ -684,10 +686,10 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
       setScanning(false);
       
       // Show error alert
-      const errorMessage = error instanceof Error ? error.message : "Failed to start scanning";
+      const errorMessage = error instanceof Error ? error.message : t("ble.failedStartScanning");
       console.log("🔍 [UI] Showing alert with message:", errorMessage);
       Alert.alert(
-        "Scan Error",
+        t("ble.alertScanError"),
         errorMessage
       );
     }
@@ -729,8 +731,8 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
     } catch (error) {
       console.error("❌ [UI] Error during rescan:", error);
       Alert.alert(
-        "Rescan Error",
-        error instanceof Error ? error.message : "Failed to rescan sensors."
+        t("ble.alertRescanError"),
+        error instanceof Error ? error.message : t("ble.failedRescan")
       );
     }
   };
@@ -746,8 +748,8 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
         return next;
       });
       Alert.alert(
-        "Connection Error",
-        error instanceof Error ? error.message : "Failed to connect"
+        t("ble.alertConnectionError"),
+        error instanceof Error ? error.message : t("ble.failedConnect")
       );
     }
   };
@@ -762,8 +764,8 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
             setTimeout(updateSensorList, 100);
           } catch (error) {
             Alert.alert(
-              "Disconnect Error",
-              error instanceof Error ? error.message : "Failed to disconnect"
+              t("ble.alertDisconnectError"),
+              error instanceof Error ? error.message : t("ble.failedDisconnect")
             );
           }
         }, 100);
@@ -774,8 +776,8 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
         updateSensorList();
       } catch (error) {
         Alert.alert(
-          "Disconnect Error",
-          error instanceof Error ? error.message : "Failed to disconnect"
+          t("ble.alertDisconnectError"),
+          error instanceof Error ? error.message : t("ble.failedDisconnect")
         );
       }
     }
@@ -789,17 +791,17 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
   const getDeviceTagName = (tag?: DeviceTag): string => {
     switch (tag) {
       case DeviceTag.RIGHT_THIGH:
-        return "Right Thigh";
+        return t("ble.tagRightThigh");
       case DeviceTag.RIGHT_SHANK:
-        return "Right Shank";
+        return t("ble.tagRightShank");
       case DeviceTag.LEFT_THIGH:
-        return "Left Thigh";
+        return t("ble.tagLeftThigh");
       case DeviceTag.LEFT_SHANK:
-        return "Left Shank";
+        return t("ble.tagLeftShank");
       case DeviceTag.PELVIS:
-        return "Pelvis";
+        return t("ble.tagPelvis");
       default:
-        return "Not assigned";
+        return t("ble.tagNotAssigned");
     }
   };
 
@@ -856,7 +858,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
                     { color: colors.primary },
                   ]}
                 >
-                  Device Tag: {item.deviceTag}
+                  {t("ble.deviceTagLabel", { tag: item.deviceTag })}
                 </Text>
               )}
               <Text
@@ -878,7 +880,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
                 ]}
               />
               <Text style={[styles.statusText, { color: colors.success }]}>
-                Connected
+                {t("ble.connected")}
               </Text>
             </View>
           )}
@@ -918,7 +920,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
                 <>
                   <Ionicons name="link" size={16} color={colors.white} />
                   <Text style={[styles.actionButtonText, { color: colors.white }]}>
-                    Connect
+                    {t("ble.connect")}
                   </Text>
                 </>
               )}
@@ -934,7 +936,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
               >
                 <Ionicons name="close" size={16} color={colors.white} />
                 <Text style={[styles.actionButtonText, { color: colors.white }]}>
-                  Disconnect
+                  {t("ble.disconnect")}
                 </Text>
               </TouchableOpacity>
               <View style={styles.tagSelector}>
@@ -944,7 +946,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
                     { color: colors.textSecondary },
                   ]}
                 >
-                  {item.deviceTag ? 'Edit Tag:' : 'Assign Tag:'}
+                  {item.deviceTag ? t("ble.editTag") : t("ble.assignTag")}
                 </Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   {[
@@ -995,7 +997,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
             >
               <Ionicons name="document-text-outline" size={16} color={colors.primary} />
               <Text style={[styles.csvButtonText, { color: colors.primary }]}>
-                Show CSV
+                {t("ble.showCsv")}
               </Text>
             </TouchableOpacity>
           )}
@@ -1018,7 +1020,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
       >
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>
-          Movella DOT Sensors
+          {t("ble.title")}
         </Text>
         {connectedCount > 0 && (
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
@@ -1035,7 +1037,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
           >
             <Ionicons name="search" size={20} color={colors.white} />
             <Text style={[styles.scanButtonText, { color: colors.white }]}>
-              Start Scanning
+              {t("ble.startScanning")}
             </Text>
           </TouchableOpacity>
         ) : (
@@ -1048,7 +1050,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
           >
             <ActivityIndicator size="small" color={colors.white} />
             <Text style={[styles.scanButtonText, { color: colors.white }]}>
-              Scanning...
+              {t("ble.scanning")}
             </Text>
           </TouchableOpacity>
         )}
@@ -1073,7 +1075,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
               { color: scanning ? colors.mediumGray : colors.primary },
             ]}
           >
-            Rescan Sensors
+            {t("ble.rescanSensors")}
           </Text>
         </TouchableOpacity>
       </View>
@@ -1095,7 +1097,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
             onPress={() => setExerciseSectionCollapsed(!exerciseSectionCollapsed)}
           >
             <Text style={[styles.collapseHeaderText, { color: colors.text }]}>
-              Exercise Control
+              {t("ble.exerciseControl")}
             </Text>
             <Ionicons
               name={exerciseSectionCollapsed ? "chevron-down" : "chevron-up"}
@@ -1109,7 +1111,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
           <View style={styles.testingModeContainer}>
             <View style={styles.testingModeRow}>
               <Text style={[styles.testingModeLabel, { color: colors.text }]}>
-                Testing Mode
+                {t("ble.testingMode")}
               </Text>
               <Switch
                 value={testingMode}
@@ -1138,7 +1140,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
             >
               <Ionicons name="play" size={20} color={colors.white} />
               <Text style={[styles.exerciseButtonText, { color: colors.white }]}>
-                Start Exercise
+                {t("ble.startExercise")}
               </Text>
             </TouchableOpacity>
           ) : (
@@ -1151,7 +1153,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
             >
               <Ionicons name="stop" size={20} color={colors.white} />
               <Text style={[styles.exerciseButtonText, { color: colors.white }]}>
-                Stop Exercise
+                {t("ble.stopExercise")}
               </Text>
             </TouchableOpacity>
           )}
@@ -1161,7 +1163,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
               <View style={styles.exerciseIndicator}>
                 <ActivityIndicator size="small" color={colors.primary} />
                 <Text style={[styles.exerciseIndicatorText, { color: colors.text }]}>
-                  Recording exercise data...
+                  {t("ble.recordingData")}
                 </Text>
               </View>
               
@@ -1169,7 +1171,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
               {Array.from(packetCounters.entries()).length > 0 && (
                 <View style={styles.packetCountersContainer}>
                   <Text style={[styles.packetCountersTitle, { color: colors.text }]}>
-                    Packets received:
+                    {t("ble.packetsReceived")}
                   </Text>
                         {sensors
                           .filter(s => s.connected && packetCounters.has(s.id))
@@ -1190,14 +1192,14 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
               <View style={styles.logsContainer}>
                 <View style={styles.logsHeader}>
                   <Text style={[styles.logsTitle, { color: colors.text }]}>
-                    Real-time Data Logs
+                    {t("ble.realTimeLogs")}
                   </Text>
                   <TouchableOpacity
                     onPress={handleClearLogs}
                     style={styles.clearLogsButton}
                   >
                     <Text style={[styles.clearLogsButtonText, { color: colors.primary }]}>
-                      Clear Logs
+                      {t("ble.clearLogs")}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1209,7 +1211,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
                 >
                   {realTimeLogs.length === 0 ? (
                     <Text style={[styles.noLogsText, { color: colors.textSecondary }]}>
-                      Waiting for data...
+                      {t("ble.waitingForData")}
                     </Text>
                   ) : (
                     realTimeLogs.map((log, index) => (
@@ -1260,7 +1262,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
                 <Ionicons name="analytics" size={20} color={colors.white} />
               )}
               <Text style={[styles.analyzeButtonText, { color: colors.white }]}>
-                {isAnalyzing ? "Analyzing..." : "Analyze Exercise"}
+                {isAnalyzing ? t("ble.analyzing") : t("ble.analyzeExercise")}
               </Text>
             </TouchableOpacity>
           )}
@@ -1268,8 +1270,8 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
           {!hasAllSensorsConnected(testingMode) && connectedCount > 0 && !testingMode && (
             <Text style={[styles.sensorWarning, { color: colors.warning || "#FF9500" }]}>
               {connectedCount >= 5
-                ? "Assign tags to all sensors to start exercise"
-                : `${5 - connectedCount} more sensor${5 - connectedCount > 1 ? "s" : ""} needed to start exercise`}
+                ? t("ble.assignTagsToStart")
+                : t("ble.moreSensorsNeeded", { count: 5 - connectedCount })}
             </Text>
           )}
             </View>
@@ -1284,7 +1286,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
           onPress={() => setSensorsSectionCollapsed(!sensorsSectionCollapsed)}
         >
           <Text style={[styles.collapseHeaderText, { color: colors.text }]}>
-            Sensors ({sensors.length})
+            {t("ble.sensorsSection", { total: sensors.length })}
           </Text>
           <Ionicons
             name={sensorsSectionCollapsed ? "chevron-down" : "chevron-up"}
@@ -1307,7 +1309,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
                   color={colors.textSecondary}
                 />
                 <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                  No sensors found
+                  {t("ble.noSensorsFound")}
                 </Text>
                 <Text
                   style={[
@@ -1331,7 +1333,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
             onPress={() => setAnalysisSectionCollapsed(!analysisSectionCollapsed)}
           >
             <Text style={[styles.collapseHeaderText, { color: colors.text }]}>
-              Analysis Results
+              {t("ble.analysisResultsTitle")}
             </Text>
             <Ionicons
               name={analysisSectionCollapsed ? "chevron-down" : "chevron-up"}
@@ -1358,7 +1360,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
         >
           <View style={styles.modalHeader}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>
-              {csvModalSensorName || "CSV Preview"}
+              {csvModalSensorName || t("ble.csvPreview")}
             </Text>
             <TouchableOpacity
               onPress={handleCloseCsvModal}

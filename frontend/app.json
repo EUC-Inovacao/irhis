@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "demoirhisn",
+    "name": "IRHIS",
     "slug": "demoirhisn",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "automatic",
@@ -14,8 +14,8 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.eucinovacao.irhismvp",
-      "buildNumber": "8",
+      "bundleIdentifier": "com.eucinno.irhis",
+      "buildNumber": "9",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSMotionUsageDescription": "This app uses motion/accelerometer data to improve the experience.",
@@ -52,8 +52,8 @@
     },
     "owner": "joaosi98",
     "android": {
-      "package": "com.joaosi98.irhis",
-      "versionCode": 1,
+      "package": "com.eucinno.irhis",
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/logo.png",
         "backgroundColor": "#ffffff"

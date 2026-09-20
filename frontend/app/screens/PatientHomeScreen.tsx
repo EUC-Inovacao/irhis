@@ -131,7 +131,7 @@ const PatientHomeScreen = ({ navigation }: any) => {
             exercise={item}
             patientId={user?.id || ''}
             onPress={() => navigation.navigate('Live Session')}
-            showProgress={true}
+            showDetails={true}
         />
     );
 

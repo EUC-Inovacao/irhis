@@ -28,9 +28,6 @@ import {
 import { buildSegmentModel, analyzeCoM } from "../analysis/com";
 import { AnalysisResult, KneeHipMetrics } from "../types";
 
-// Feature flag to disable external API
-export const USE_EXTERNAL_API = false;
-
 // --- dev-only math guards (local helpers; not exported) ---
 function wrap180(a: number): number {
   return ((((a + 180) % 360) + 360) % 360) - 180;

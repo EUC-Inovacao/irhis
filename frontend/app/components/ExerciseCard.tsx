@@ -9,55 +9,42 @@ interface ExerciseCardProps {
   exercise: AssignedExerciseWithDetails;
   patientId: string;
   onPress?: () => void;
-  showProgress?: boolean;
+  /**
+   * Show the detailed metrics row (reps, sets and the last session date)
+   * instead of the compact reps/sets line.
+   */
+  showDetails?: boolean;
 }
 
 const ExerciseCard: React.FC<ExerciseCardProps> = ({
   exercise,
   patientId,
   onPress,
-  showProgress = true,
+  showDetails = true,
 }) => {
   const { colors } = useTheme();
-  const [completionRate, setCompletionRate] = React.useState(0);
   const [lastSessionDate, setLastSessionDate] = React.useState<string | null>(
     null
   );
-  const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    if (showProgress) {
-      loadProgress();
-    } else {
-      setLoading(false);
+    if (showDetails) {
+      loadLastSessionDate();
     }
-  }, [exercise.id, patientId, showProgress]);
+  }, [exercise.id, patientId, showDetails]);
 
-  const loadProgress = async () => {
+  const loadLastSessionDate = async () => {
     try {
       const sessions = await getSessionHistory(patientId, exercise.exerciseTypeId);
-      
-      if (sessions.length > 0) {
-        // Calculate completion based on sessions vs target sets
-        const targetSets = exercise.targetSets || 3;
-        const completedSessions = sessions.length;
-        const rate = Math.min(100, (completedSessions / targetSets) * 100);
-        setCompletionRate(rate);
-        
-        // Get last session date
-        const lastSession = sessions[0];
-        if (lastSession) {
-          const ts = (lastSession as any).startTime ?? (lastSession as any).timeCreated ?? lastSession.timeCreated;
-          const date = new Date(ts);
-          setLastSessionDate(isNaN(date.getTime()) ? null : date.toLocaleDateString());
-        }
-      } else {
-        setCompletionRate(0);
+      const lastSession = sessions[0];
+
+      if (lastSession) {
+        const ts = (lastSession as any).startTime ?? (lastSession as any).timeCreated ?? lastSession.timeCreated;
+        const date = new Date(ts);
+        setLastSessionDate(isNaN(date.getTime()) ? null : date.toLocaleDateString());
       }
     } catch (error) {
-      console.error("Error loading exercise progress:", error);
-    } finally {
-      setLoading(false);
+      console.error("Error loading last session date:", error);
     }
   };
 
@@ -77,16 +64,6 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const exerciseType = exercise.exerciseType;
   const category = exerciseType?.category || "general";
   const isCompleted = exercise.completed === 1;
-
-  if (loading && showProgress) {
-    return (
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Loading...
-        </Text>
-      </View>
-    );
-  }
 
   return (
     <TouchableOpacity
@@ -148,39 +125,8 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
         )}
       </View>
 
-      {showProgress && (
+      {showDetails && (
         <>
-          <View style={styles.progressSection}>
-            <View style={styles.progressHeader}>
-              <Text
-                style={[styles.progressLabel, { color: colors.textSecondary }]}
-              >
-                Progress
-              </Text>
-              <Text style={[styles.progressValue, { color: colors.text }]}>
-                {Math.round(completionRate)}%
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.progressBar,
-                { backgroundColor: colors.gray[200] || colors.mediumGray },
-              ]}
-            >
-              <View
-                style={[
-                  styles.progressFill,
-                  {
-                    backgroundColor: isCompleted
-                      ? colors.success
-                      : colors.primary,
-                    width: `${completionRate}%`,
-                  },
-                ]}
-              />
-            </View>
-          </View>
-
           <View style={styles.metricsRow}>
             {exercise.targetReps && (
               <View style={styles.metricBadge}>
@@ -228,7 +174,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
         </>
       )}
 
-      {!showProgress && (
+      {!showDetails && (
         <View style={styles.metricsRow}>
           {exercise.targetReps && (
             <Text style={[styles.metricText, { color: colors.textSecondary }]}>
@@ -296,34 +242,6 @@ const styles = StyleSheet.create({
     padding: 4,
     borderRadius: 12,
   },
-  progressSection: {
-    marginTop: 8,
-    marginBottom: 12,
-  },
-  progressHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  progressLabel: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  progressValue: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  progressBar: {
-    height: 8,
-    borderRadius: 4,
-    overflow: "hidden",
-    backgroundColor: "#E2E8F0",
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 3,
-  },
   metricsRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -337,11 +255,6 @@ const styles = StyleSheet.create({
   },
   metricText: {
     fontSize: 12,
-  },
-  loadingText: {
-    fontSize: 14,
-    textAlign: "center",
-    padding: 8,
   },
 });
 

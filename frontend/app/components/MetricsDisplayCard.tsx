@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useTheme } from "@theme/ThemeContext";
+import { useTranslation } from "react-i18next";
 
 /** Shared metrics display - same layout as LocalAnalysisResults / live session. */
 export interface MetricsDisplayCardProps {
@@ -28,6 +29,7 @@ const toNum = (v: unknown): number | null => {
 };
 
 const MetricsDisplayCard: React.FC<MetricsDisplayCardProps> = ({ title, sideLabel, metrics }) => {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const rom = toNum(metrics.rom);
   const maxFlexion = toNum(metrics.maxFlexion);
@@ -61,7 +63,7 @@ const MetricsDisplayCard: React.FC<MetricsDisplayCardProps> = ({ title, sideLabe
         <Row label="Max Extension (°)" value={maxExtension} />
         {reps !== null && (
           <View style={[styles.metricRow, { borderBottomColor: borderColor }]}>
-            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Repetitions</Text>
+            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>{t("analysisResults.repetitions")}</Text>
             <Text style={[styles.metricValue, { color: colors.text }]}>{reps}</Text>
           </View>
         )}
@@ -70,7 +72,7 @@ const MetricsDisplayCard: React.FC<MetricsDisplayCardProps> = ({ title, sideLabe
         <Row label="P95 Velocity (°/s)" value={p95Vel} />
         {com !== null && (
           <View style={[styles.metricRow, { borderBottomColor: borderColor }]}>
-            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Center of Mass (cm)</Text>
+            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>{t("analysisResults.centerOfMassCm")}</Text>
             <Text style={[styles.metricValue, { color: colors.text }]}>{com.toFixed(2)}</Text>
           </View>
         )}

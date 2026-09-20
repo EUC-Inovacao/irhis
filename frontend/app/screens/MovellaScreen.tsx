@@ -24,13 +24,8 @@ import LocalAnalysisResults from "@components/LocalAnalysisResults";
 import movementService, {
   PerKneeAnalysisResult,
 } from "@services/movementService";
-// import movementApiService from "@services/movementApiService"; // Disabled - using local analysis only
 import { analyzeZip, Analysis } from "@services/zipAnalysisService";
-import {
-  localAnalysisApi,
-  AnalysisResult,
-  USE_EXTERNAL_API,
-} from "@services/analysisApi";
+import { localAnalysisApi, AnalysisResult } from "@services/analysisApi";
 import { getHistoricalSessionData } from "@services/historicalDataService";
 import { SegmentOrientation } from "../types";
 import * as THREE from "three";
@@ -380,11 +375,6 @@ const MovellaScreen = () => {
     setShowLoadingOverlay(true);
 
     try {
-      // Check if external API should be disabled
-      if (USE_EXTERNAL_API) {
-        throw new Error("External analysis API is disabled; use local engine.");
-      }
-
       console.log("Starting local analysis for file:", fileName);
 
       // Read file as base64 for local analysis

@@ -20,7 +20,15 @@ interface AssignedExercisesCardProps {
 }
 
 type ExerciseItem = {
+    /**
+     * Grouping key used for React list keys and change detection.
+     * NOTE: this is the exercise *type* key, not a database row id --
+     * PatientContext groups sessions by exercise type and overwrites `id`
+     * with that key. Never send this to the API.
+     */
     id: string;
+    /** Real session row id, required by the update endpoint. */
+    sessionId: string;
     name: string;
     targetRepetitions: number;
     targetSets: number;
@@ -36,6 +44,7 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
     const listFromContext = assignedExercises[patient.id] ?? [];
     const toItem = (ex: SessionAsExercise): ExerciseItem => ({
         id: ex.id,
+        sessionId: ex.sessionId ?? ex.id,
         name: ex.exerciseType?.name ?? (ex as any).name ?? t('assignedExercises.exerciseFallback'),
         targetRepetitions: ex.targetReps ?? ex.exerciseType?.targetReps ?? 10,
         targetSets: ex.targetSets ?? ex.exerciseType?.targetSets ?? 3,
@@ -88,9 +97,12 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
             const allExerciseTypes = newOnes.length > 0 ? await getAvailableExercises() : [];
 
             for (const exercise of updatedOnes) {
+                // Must be sessionId, not id: `id` is the exercise-type grouping
+                // key assigned in PatientContext and does not exist as a row in
+                // the session table, so the API would return 404.
                 await updateAssignedExercise(
                     patient.id,
-                    exercise.id,
+                    exercise.sessionId,
                     exercise.targetRepetitions,
                     exercise.name.trim()
                 );
@@ -135,8 +147,10 @@ const AssignedExercisesCard: React.FC<AssignedExercisesCardProps> = ({ patient, 
     };
 
     const handleAddNewExercise = () => {
+        const newId = `new_${Date.now()}`;
         setExercises(current => [...current, {
-            id: `new_${Date.now()}`,
+            id: newId,
+            sessionId: newId, // unused for new items; they go through the create path
             name: t('assignedExercises.newExercise'),
             targetRepetitions: 10,
             targetSets: 3,
