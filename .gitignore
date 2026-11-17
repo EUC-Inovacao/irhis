@@ -103,3 +103,24 @@ public
 
 #expo
 .expo-test-export
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor / IDE settings (local per developer)
+.idea/
+.vscode/
+
+# Expo local state
+.expo/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+backend/antenv/
+
+# Local tooling
+.github/modernize/
