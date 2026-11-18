@@ -138,6 +138,11 @@ def normalize_role(role):
     return str(role or "").strip().lower()
 
 
+def _is_public_signup_enabled():
+    """Public /signup is off unless PUBLIC_SIGNUP_ENABLED is true/1/yes."""
+    return (_get_env_value("PUBLIC_SIGNUP_ENABLED") or "").lower() in ("1", "true", "yes")
+
+
 def _is_mock_auth_enabled():
     return (
         not _is_production_environment()
@@ -316,6 +321,27 @@ def resolve_login_identifier(identifier, role):
 def ensure_patient_resource_access(current_user, patient_id, message="Unauthorized"):
     if current_user.get('role') == 'patient' and current_user.get('id') != str(patient_id):
         return jsonify({"error": message}), 403
+    return None
+
+
+def ensure_patient_access(current_user, patient_id, message="Unauthorized"):
+    """
+    Access rule for patient data:
+    - a patient may only access their own data;
+    - a doctor may only access patients linked to them (active patientdoctor row).
+    Returns a Flask error response, or None when access is allowed.
+    """
+    forbidden = ensure_patient_resource_access(current_user, patient_id, message=message)
+    if forbidden:
+        return forbidden
+    if current_user.get('role') == 'doctor':
+        if not is_db_enabled():
+            return jsonify({"error": "Database not configured"}), 500
+        if not patient_id or not get_patient_doctor_relation(str(patient_id), current_user['id']):
+            return jsonify({"error": "Patient not associated with this doctor"}), 403
+        return None
+    if current_user.get('role') != 'patient':
+        return jsonify({"error": message}), 403
     return None
 
 
@@ -420,6 +446,10 @@ def login():
 
 @app.route('/signup', methods=['POST'])
 def signup():
+    # Public sign-up is switched off (accounts are created by doctors in the app,
+    # and doctors with create_doctor.py). Set PUBLIC_SIGNUP_ENABLED=true to re-enable.
+    if not _is_public_signup_enabled():
+        return jsonify({"error": "Not found"}), 404
     try:
         data = request.get_json(silent=True) or {}
         email = (data.get('email') or '').strip()
@@ -560,7 +590,7 @@ def update_current_user_password(current_user):
 @app.route('/patients/<patient_id>', methods=['GET'])
 @token_required
 def get_patient(current_user, patient_id):
-    forbidden = ensure_patient_resource_access(current_user, patient_id)
+    forbidden = ensure_patient_access(current_user, patient_id)
     if forbidden:
         return forbidden
 
@@ -780,6 +810,9 @@ def assign_doctor(current_user, patient_id):
 def update_patient_details(current_user, patient_id):
     if current_user['role'] != 'doctor':
         return jsonify({"error": "Only doctors can update patient details"}), 403
+    forbidden = ensure_patient_access(current_user, patient_id)
+    if forbidden:
+        return forbidden
 
     if not is_db_enabled():
         return jsonify({"error": "Database not configured"}), 500
@@ -846,7 +879,7 @@ def update_patient_details(current_user, patient_id):
 @app.route('/patients/<patient_id>/feedback', methods=['PUT'])
 @token_required
 def update_patient_feedback(current_user, patient_id):
-    forbidden = ensure_patient_resource_access(
+    forbidden = ensure_patient_access(
         current_user,
         patient_id,
         message="Patients can only update their own feedback",
@@ -1187,7 +1220,7 @@ def assign_patients_sessions(current_user, patient_id):
 @app.route('/patients/<patient_id>/sessions', methods=['GET'])
 @token_required
 def get_patients_sessions(current_user, patient_id):
-    forbidden = ensure_patient_resource_access(current_user, patient_id)
+    forbidden = ensure_patient_access(current_user, patient_id)
     if forbidden:
         return forbidden
 
@@ -1271,6 +1304,9 @@ def delete_session(current_user, session_id):
     session = get_session_by_id(session_id)
     if not session:
         return jsonify({"error": "Session not found"}), 404
+    forbidden = ensure_patient_access(current_user, session.get('PatientID'))
+    if forbidden:
+        return forbidden
 
     try:
         delete_patient_session(session_id)
@@ -1328,7 +1364,7 @@ def post_session_metrics(current_user, session_id):
 @app.route('/patients/<patient_id>/metrics', methods=['GET'])
 @token_required
 def get_patient_metrics(current_user, patient_id):
-    forbidden = ensure_patient_resource_access(current_user, patient_id)
+    forbidden = ensure_patient_access(current_user, patient_id)
     if forbidden:
         return forbidden
 
@@ -1348,7 +1384,7 @@ def get_specific_session_metrics(current_user, session_id):
     if not session:
         return jsonify({"error": "Session not found"}), 404
 
-    forbidden = ensure_patient_resource_access(current_user, session.get('PatientID'))
+    forbidden = ensure_patient_access(current_user, session.get('PatientID'))
     if forbidden:
         return forbidden
 
@@ -1485,7 +1521,7 @@ def get_exercise_types(current_user):
 @token_required
 def get_patient_exercises(current_user, patient_id):
     """Get assigned exercises for a patient."""
-    forbidden = ensure_patient_resource_access(current_user, patient_id)
+    forbidden = ensure_patient_access(current_user, patient_id)
     if forbidden:
         return forbidden
     

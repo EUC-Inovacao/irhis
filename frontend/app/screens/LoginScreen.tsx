@@ -139,17 +139,6 @@ const LoginScreen = ({ navigation }: any) => {
                 {loading ? t("login.signingIn") : t("login.signIn")}
               </Text>
             </TouchableOpacity>
-
-            <View style={styles.signupContainer}>
-              <Text style={[styles.signupLabel, { color: colors.textSecondary }]}>
-                {t("login.noAccount")}
-              </Text>
-              <TouchableOpacity onPress={() => navigation.navigate("InvitePatient")}>
-                <Text style={[styles.signupLink, { color: colors.purple[600] }]}>
-                  {t("login.signUp")}
-                </Text>
-              </TouchableOpacity>
-            </View>
           </View>
 
           <View style={styles.footer}>
@@ -230,21 +219,6 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     fontWeight: "600",
-  },
-  signupContainer: {
-    marginTop: 24,
-    alignItems: "center",
-    borderTopWidth: 1,
-    borderTopColor: "rgba(0,0,0,0.05)",
-    paddingTop: 16,
-  },
-  signupLabel: {
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  signupLink: {
-    fontSize: 14,
-    fontWeight: "bold",
   },
   footer: {
     alignItems: "center",

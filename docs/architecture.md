@@ -100,7 +100,8 @@ See [analysis-pipeline.md](analysis-pipeline.md) for the maths and [sensors.md](
 - **MySQL** on Azure, reached through SQLAlchemy Core with raw SQL in `db.py`. The connection comes from `DATABASE_URL`; without it the database is disabled and most endpoints return `500 Database not configured`.
 - **Auth**: JWT (HS256) signed with `SECRET_KEY`, sent as `Authorization: Bearer <token>`. `/login` is rate-limited to 10 requests per minute per IP (in-memory limiter, so the limit is per instance).
 - **Clinical-study logins**: during the clinical trial, patients and clinicians sign in with generated access codes (`IRHIS-XXXXXX` for patients, `IRHIS-D-XXXXXX` for clinicians) instead of email. These are stored in the existing `users` table as a temporary compatibility layer (see `db.py`).
-- **Access control**: patient resources go through `ensure_patient_resource_access`, which stops a patient from reading another patient's data. Endpoints that change data (assigning sessions or exercises, editing sessions, posting metrics) also check that a doctor is linked to the patient (`patientdoctor`). **Known gap:** most read endpoints do not check that link, so any authenticated doctor can read any patient's details, sessions and metrics. See [api.md](api.md#access-rules).
+- **Access control**: patients can only reach their own data; doctors only patients linked to them in `patientdoctor`. See [api.md](api.md#access-rules).
+- **Accounts**: public sign-up is switched off (the screen is hidden and `/signup` returns 404 unless `PUBLIC_SIGNUP_ENABLED=true`). Doctors create patients in the app (which links them automatically); doctor accounts are created by an administrator with `backend/create_doctor.py`.
 
 Endpoint reference: [api.md](api.md).
 

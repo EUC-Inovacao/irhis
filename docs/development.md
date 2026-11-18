@@ -95,6 +95,7 @@ python app.py            # http://localhost:5001
 | `CORS_ALLOWED_ORIGINS` | no | Comma-separated origins for browser clients. The mobile app does not need CORS |
 | `DEV_AUTH_MODE` | no | `mock` enables the two built-in test accounts (development only, see [api.md](api.md)) |
 | `DEV_TEST_PASSWORD` | no | Password for the mock accounts (default `DevPass123`) |
+| `PUBLIC_SIGNUP_ENABLED` | no | `true` re-enables the hidden public `POST /signup`. Off by default |
 | `PORT` | no | Port for `python app.py` (default 5001) |
 
 `.env` is git-ignored. Never commit real credentials. If any were ever committed, rotate them in the Azure portal.
@@ -102,6 +103,8 @@ python app.py            # http://localhost:5001
 ### Database
 
 There is no ORM and no migration tool. `backend/migrations/` holds SQL scripts that are run by hand on Azure MySQL: `001_metrics_table.sql` (`metrics`) and `002_feedback_table.sql` (`PatientFeedback`). Both use `CREATE TABLE IF NOT EXISTS`, so they are safe to run on an existing database.
+
+`backend/create_doctor.py` creates a doctor account and prints its `IRHIS-D-…` access code (public sign-up is switched off). It asks for the password interactively and needs `DATABASE_URL`.
 
 `backend/check_users.py` prints users, doctor ↔ patient assignments and unassigned patients from the configured database, which helps when debugging assignment problems.
 

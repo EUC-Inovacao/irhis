@@ -119,40 +119,6 @@ class TemporaryStudyAccessTests(unittest.TestCase):
         self.assertEqual(payload["patientCode"], "IRHIS-000001")
         self.assertEqual(payload["name"], "Patient IRHIS-000001")
 
-    def test_signup_without_sensitive_fields_returns_generated_patient_code(self):
-        temporary_user = {
-            "user_id": "patient-9",
-            "access_code": "IRHIS-000009",
-            "patient_code": "IRHIS-000009",
-            "label": "Patient IRHIS-000009",
-            "email": "irhis-000009@irhis.local",
-            "role": "Patient",
-        }
-        with patch.object(backend_app, "is_db_enabled", return_value=True), patch.object(
-            backend_app,
-            "create_temporary_user",
-            return_value=temporary_user,
-        ) as create_temporary_user, patch.object(
-            backend_app,
-            "create_patient_record",
-        ) as create_patient_record:
-            response = self.client.post(
-                "/signup",
-                json={
-                    "password": "Secret123",
-                    "role": "Patient",
-                    "useTemporaryAccessCode": True,
-                },
-            )
-
-        self.assertEqual(response.status_code, 201)
-        payload = response.get_json()
-        self.assertEqual(payload["user"]["email"], "")
-        self.assertEqual(payload["user"]["patientCode"], "IRHIS-000009")
-        self.assertEqual(payload["user"]["name"], "Patient IRHIS-000009")
-        create_temporary_user.assert_called_once()
-        create_patient_record.assert_called_once_with("patient-9", birth_date=None)
-
     def test_manual_patient_registration_returns_generated_patient_code(self):
         created_patient = {
             "user_id": "patient-2",
@@ -226,6 +192,42 @@ class TemporaryStudyAccessTests(unittest.TestCase):
         self.assertEqual(payload["patientCode"], "IRHIS-900001")
         self.assertEqual(payload["role"], "Patient")
         self.assertEqual(payload["email"], "")
+
+
+    def test_signup_without_sensitive_fields_returns_generated_patient_code(self):
+        temporary_user = {
+            "user_id": "patient-9",
+            "access_code": "IRHIS-000009",
+            "patient_code": "IRHIS-000009",
+            "label": "Patient IRHIS-000009",
+            "email": "irhis-000009@irhis.local",
+            "role": "Patient",
+        }
+        with patch.dict(backend_app.os.environ, {"PUBLIC_SIGNUP_ENABLED": "true"}), \
+             patch.object(backend_app, "is_db_enabled", return_value=True), patch.object(
+            backend_app,
+            "create_temporary_user",
+            return_value=temporary_user,
+        ) as create_temporary_user, patch.object(
+            backend_app,
+            "create_patient_record",
+        ) as create_patient_record:
+            response = self.client.post(
+                "/signup",
+                json={
+                    "password": "Secret123",
+                    "role": "Patient",
+                    "useTemporaryAccessCode": True,
+                },
+            )
+
+        self.assertEqual(response.status_code, 201)
+        payload = response.get_json()
+        self.assertEqual(payload["user"]["email"], "")
+        self.assertEqual(payload["user"]["patientCode"], "IRHIS-000009")
+        self.assertEqual(payload["user"]["name"], "Patient IRHIS-000009")
+        create_temporary_user.assert_called_once()
+        create_patient_record.assert_called_once_with("patient-9", birth_date=None)
 
 
 if __name__ == "__main__":

@@ -22,9 +22,9 @@ import ExerciseHistoryDetailScreen from '@screens/ExerciseHistoryDetailScreen';
 import ProfileScreen from '@screens/ProfileScreen';
 import MovellaScreen from '@screens/MovellaScreen';
 import CreatePatientScreen from '@screens/CreatePatientScreen';
-import CreateAccountScreen from '@screens/CreateAccountScreen';
 import ManageInvitesScreen from '@screens/ManageInvitesScreen';
 import PatientListScreen from '@screens/PatientListScreen';
+import CreateAccountScreen from '@screens/CreateAccountScreen';
 import BleConnectionScreen from '@screens/BleConnectionScreen';
 import SensorsScreen from '@screens/SensorsScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
@@ -296,14 +296,6 @@ const AppNavigator = () => {
               }}
             />
             <Stack.Screen
-              name="InvitePatient"
-              component={CreateAccountScreen}
-              options={{
-                headerTitle: t('createAccount.title'),
-                headerBackTitle: t('common.back'),
-              }}
-            />
-            <Stack.Screen
               name="ManageInvites"
               component={ManageInvitesScreen}
               options={{
@@ -382,6 +374,8 @@ const AppNavigator = () => {
               component={LoginScreen}
               options={{ headerShown: false }}
             />
+            {/* Hidden: public sign-up screen. Not linked from the UI; the backend
+                /signup endpoint is off unless PUBLIC_SIGNUP_ENABLED=true. */}
             <Stack.Screen
               name="InvitePatient"
               component={CreateAccountScreen}

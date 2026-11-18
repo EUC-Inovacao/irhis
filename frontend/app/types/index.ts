@@ -257,7 +257,7 @@ export type RootStackParamList = {
   PatientDetail: { patientId: string; role: string };
   SessionDetail: { sessionId: string; patientId: string };
   CreatePatient: undefined;
-  InvitePatient: undefined;
+  InvitePatient: undefined; // hidden: public sign-up screen, not linked from the UI
   ManageInvites: undefined;
   PatientList: undefined;
   

@@ -13,9 +13,11 @@ Source: `backend/app.py`. This page is maintained by hand; when you add or chang
 |---|---|---|---|
 | GET | `/` | public | Health check |
 | POST | `/login` | public, **10/min per IP** | Sign in. Body: `identifier` (or `accessCode` / `email`), `password`, optional `role`. Returns `{ token, user }` |
-| POST | `/signup` | public | Create an account. Body: `password`, `role`, and either `email` + `name` or `useTemporaryAccessCode: true` (generates an `IRHIS-…` access code) |
+| POST | `/signup` | public, **off by default** | Self-service account creation. Returns 404 unless `PUBLIC_SIGNUP_ENABLED=true`. Body: `password`, `role`, and either `email` + `name` or `useTemporaryAccessCode: true` |
 | GET | `/me` | any | Current user |
 | PUT | `/me/password` | any | Change own password. Body: `password` |
+
+**Public sign-up is switched off.** The sign-up screen and `POST /signup` still exist but are hidden: nothing in the app links to the screen, and the endpoint returns 404 unless `PUBLIC_SIGNUP_ENABLED=true`. Patients are created by a doctor in the app (`POST /patients/manual-registry`), which also links them to that doctor. Doctor accounts are created by an administrator with `backend/create_doctor.py`, which prints the new `IRHIS-D-…` access code.
 
 **Clinical-study access codes.** During the trial, users sign in with a generated code instead of an email: `IRHIS-XXXXXX` for patients and `IRHIS-D-XXXXXX` for clinicians. Codes are stored in the existing `users.Email` column as `<code>@irhis.local` (see `db.py`). Older patient accounts stored as `irhis-p-XXXXXX@irhis.local` still work, and are always returned in the current `IRHIS-XXXXXX` format. This is a temporary layer until a dedicated identity model exists.
 
@@ -25,12 +27,12 @@ Source: `backend/app.py`. This page is maintained by hand; when you add or chang
 
 | Method | Path | Who | Purpose |
 |---|---|---|---|
-| GET | `/patients/<patient_id>` | doctor, or the patient themself | Patient details |
-| PUT | `/patients/<patient_id>/details` | doctor | Update details (age, height, weight, BMI, medical history…). Body: `{ details: {...} }` or the details object |
-| PUT | `/patients/<patient_id>/feedback` | doctor, or the patient themself | Update the patient's feedback record. Body: `{ feedback: ... }` |
+| GET | `/patients/<patient_id>` | linked doctor, or the patient themself | Patient details |
+| PUT | `/patients/<patient_id>/details` | linked doctor | Update details (age, height, weight, BMI, medical history…). Body: `{ details: {...} }` or the details object |
+| PUT | `/patients/<patient_id>/feedback` | linked doctor, or the patient themself | Update the patient's feedback record. Body: `{ feedback: ... }` |
 | GET | `/patients/unassigned` | doctor | Patients without a doctor |
 | POST | `/patients/<patient_id>/assign-doctor` | doctor | Link the calling doctor to the patient |
-| POST | `/patients/manual-registry` | doctor | Register a patient manually. Body: `password`, `sex`, `height`, `weight`, `bmi`, `medical_history` |
+| POST | `/patients/manual-registry` | doctor | Create a patient and link them to the calling doctor. Generates an `IRHIS-…` access code. Body: `password`, `sex`, `height`, `weight`, `bmi`, `medical_history` |
 
 ## Doctors
 
@@ -47,7 +49,7 @@ Source: `backend/app.py`. This page is maintained by hand; when you add or chang
 | Method | Path | Who | Purpose |
 |---|---|---|---|
 | GET | `/exercise-types` | any | Available exercise types. Currently a fixed list in code (knee flexion, knee extension, hip flexion, hip abduction, ankle dorsiflexion…); there is no exercise-types table yet |
-| GET | `/patients/<patient_id>/exercises` | doctor, or the patient themself | Exercises assigned to a patient |
+| GET | `/patients/<patient_id>/exercises` | linked doctor, or the patient themself | Exercises assigned to a patient |
 | POST | `/patients/<patient_id>/exercises` | doctor linked to the patient | Assign an exercise. Body: `exercise_type_id`, `exercise_type_name`, `target_reps`, `target_sets` |
 | PUT | `/patients/<patient_id>/exercises/<exercise_id>` | doctor linked to the patient | Update an assignment. Body: `exercise_type_name`, `target_reps` |
 
@@ -56,13 +58,13 @@ Source: `backend/app.py`. This page is maintained by hand; when you add or chang
 | Method | Path | Who | Purpose |
 |---|---|---|---|
 | POST | `/patients/<patient_id>/sessions` | linked doctor, or the patient themself | Create a session. Body: `exercise_type`, `exercise_description`, `repetitions`, `duration` |
-| GET | `/patients/<patient_id>/sessions` | doctor, or the patient themself | A patient's sessions |
+| GET | `/patients/<patient_id>/sessions` | linked doctor, or the patient themself | A patient's sessions |
 | GET | `/sessions/<session_id>` | linked doctor, or the patient themself | One session |
 | PUT | `/sessions/<session_id>` | doctor linked to the patient | Update a session |
-| DELETE | `/sessions/<session_id>` | doctor | Delete a session |
+| DELETE | `/sessions/<session_id>` | linked doctor | Delete a session |
 | POST | `/sessions/<session_id>/metrics` | linked doctor, or the patient themself | Store metrics for one joint and side. Body: `joint`, `side`, `repetitions`, `min/max/avg/p95 velocity`, `min/max/avg ROM`, `maxFlexion`, `maxExtension`, `centerMassDisplacement` (camelCase and snake_case both accepted) |
-| GET | `/sessions/<session_id>/metrics` | doctor, or the patient themself | Metrics for one session |
-| GET | `/patients/<patient_id>/metrics` | doctor, or the patient themself | All metrics for a patient. Query: `limit` |
+| GET | `/sessions/<session_id>/metrics` | linked doctor, or the patient themself | Metrics for one session |
+| GET | `/patients/<patient_id>/metrics` | linked doctor, or the patient themself | All metrics for a patient. Query: `limit` |
 
 ## Admin
 
@@ -72,9 +74,16 @@ Source: `backend/app.py`. This page is maintained by hand; when you add or chang
 
 ## Access rules
 
-- A **patient** can only reach their own resources (`ensure_patient_resource_access`).
-- A **doctor** must be linked to the patient (`patientdoctor`) for: creating sessions, reading or editing a single session, posting metrics, assigning or editing exercises, and the dashboard summaries.
-- **Known gaps** (no doctor ↔ patient link check): `GET /patients/<id>`, `PUT /patients/<id>/details`, `PUT /patients/<id>/feedback`, `GET /patients/<id>/sessions`, `GET /patients/<id>/metrics`, `GET /sessions/<id>/metrics`, `GET /patients/<id>/exercises` and `DELETE /sessions/<id>`. Any authenticated doctor can use these on any patient. In addition, any doctor can link themselves to any patient through `POST /patients/<id>/assign-doctor`.
+All patient data goes through one check, `ensure_patient_access()` in `app.py`:
+
+- A **patient** can only reach their own data.
+- A **doctor** can only reach patients they are linked to (an active row in `patientdoctor`). Otherwise the API returns `403 Patient not associated with this doctor`.
+
+Doctors are linked to a patient when they create the patient (`/patients/manual-registry`) or with `POST /patients/<id>/assign-doctor`. Any doctor can link themselves to any patient this way (shared care is allowed), so this endpoint is the point to restrict if that policy changes.
+
+Other rules:
+
+- `/doctors/me/…` endpoints only return the calling doctor's own patients.
 - `/admin/fix-user-role` lets any doctor change any user's role.
 
 ## Errors
