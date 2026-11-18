@@ -29,6 +29,7 @@ import { createCSVForSensor } from "@services/bleDataConverter";
 import { createLocalAnalysisApi, AnalysisResult } from "@services/analysisApi";
 import type { Session, SensorStream } from "@io/zipReader";
 import { createSessionFromAnalysisResult } from "@services/sessionService";
+import { getPatientBodyMeasurements } from "@services/patientService";
 import { useAuth } from "@context/AuthContext";
 import { usePatients } from "@context/PatientContext";
 import { deviceTagLabelKey, useSensors } from "@context/SensorContext";
@@ -466,9 +467,14 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
       console.log("🔬 [UI] Starting analysis with local API...");
       const localAnalysisApi = createLocalAnalysisApi();
 
+      // Patient's own height/weight for the centre-of-mass model (defaults if not recorded)
+      const analysisPatientId = user?.role === "patient" ? user.id : params.patientId;
+      const body = await getPatientBodyMeasurements(analysisPatientId);
+      console.log("🔬 [UI] Body measurements:", body);
+
       const result = await localAnalysisApi.analyzeSession(session, {
-        bodyHeight_m: 1.75,
-        bodyMass_kg: 70,
+        bodyHeight_m: body.bodyHeight_m,
+        bodyMass_kg: body.bodyMass_kg,
       });
 
       console.log("🔬 [UI] Analysis complete!");

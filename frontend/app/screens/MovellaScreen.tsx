@@ -37,6 +37,7 @@ import SessionFeedbackModal from "@components/SessionFeedbackModal";
 import { usePatients } from "@context/PatientContext";
 import { getCurrentExercise } from "@services/exerciseAssignmentService";
 import { createSessionFromAnalysisResult } from "@services/sessionService";
+import { getPatientBodyMeasurements } from "@services/patientService";
 import { useTranslation } from "react-i18next";
 
 interface SensorData {
@@ -382,12 +383,17 @@ const MovellaScreen = () => {
         encoding: "base64",
       });
 
+      // Patient's own height/weight for the centre-of-mass model (defaults if not recorded)
+      const body = await getPatientBodyMeasurements(
+        selectedPatientId ?? (user?.role?.toLowerCase() === "patient" ? user.id : undefined)
+      );
+
       // Analyze with local engine
       const result = await localAnalysisApi.analyzeZip(base64Content, {
         thresholdAngleDeg: 18,
         minPeakDistanceSec: 0.6,
-        bodyHeight_m: 1.75,
-        bodyMass_kg: 70,
+        bodyHeight_m: body.bodyHeight_m,
+        bodyMass_kg: body.bodyMass_kg,
         artificialDelayMs: 350,
       });
 

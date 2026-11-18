@@ -4,6 +4,7 @@
  */
 
 import { rotateVecByQuat, mat3FromQuat } from "./kinematics";
+import { DEFAULT_BODY_HEIGHT_M, DEFAULT_BODY_MASS_KG } from "./bodyMeasurements";
 
 // De Leva (1996) anthropometric constants
 export const DE_LEVA_CONSTANTS = {
@@ -84,8 +85,8 @@ export function buildSegmentModel(
     leftShank?: { time: number; quat: [number, number, number, number] }[];
     rightShank?: { time: number; quat: [number, number, number, number] }[];
   },
-  bodyHeight_m: number = 1.75,
-  bodyMass_kg: number = 70
+  bodyHeight_m: number = DEFAULT_BODY_HEIGHT_M,
+  bodyMass_kg: number = DEFAULT_BODY_MASS_KG
 ): SegmentModel[] {
   const minLength = Math.min(
     sensorData.pelvis?.length || Infinity,

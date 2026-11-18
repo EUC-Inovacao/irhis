@@ -113,13 +113,15 @@ def normalize_temporary_access_code(value: Optional[str]) -> Optional[str]:
         if code_match:
             return f"{TEMPORARY_ACCESS_CODE_PREFIXES[role]}-{code_match.group(1)}"
 
+    # Codes found inside an email or a name label go through the patterns above
+    # too, so legacy IRHIS-P-XXXXXX accounts come back as IRHIS-XXXXXX.
     email_match = TEMPORARY_ACCESS_CODE_EMAIL_PATTERN.match(cleaned.lower())
     if email_match:
-        return email_match.group(1).upper()
+        return normalize_temporary_access_code(email_match.group(1))
 
     label_match = TEMPORARY_ACCESS_CODE_LABEL_PATTERN.search(cleaned)
     if label_match:
-        return label_match.group(1).upper()
+        return normalize_temporary_access_code(label_match.group(1))
 
     return None
 

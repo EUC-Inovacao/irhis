@@ -4,6 +4,7 @@
  */
 
 import { loadSessionFromZip, validateRequiredSensors } from "../io/zipReader";
+import { DEFAULT_BODY_HEIGHT_M, DEFAULT_BODY_MASS_KG } from "../analysis/bodyMeasurements";
 import {
   kneeAngleSeries,
   hipFlexSeries,
@@ -307,7 +308,7 @@ async function runAnalysis(
         leftShank:  session.streams[4] ? session.streams[4].quat.map((q: any, i: number) => ({ time: session.streams[4].t[i], quat: q })) : undefined,
         rightShank: session.streams[2] ? session.streams[2].quat.map((q: any, i: number) => ({ time: session.streams[2].t[i], quat: q })) : undefined,
       };
-      const segmentModels = buildSegmentModel(sensorData, opts.bodyHeight_m || 1.75, opts.bodyMass_kg || 70);
+      const segmentModels = buildSegmentModel(sensorData, opts.bodyHeight_m || DEFAULT_BODY_HEIGHT_M, opts.bodyMass_kg || DEFAULT_BODY_MASS_KG);
       result.com = analyzeCoM(segmentModels, session.streams[5]?.t || []);
     } catch (e) {
       console.warn("CoM analysis failed:", e);

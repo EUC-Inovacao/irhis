@@ -1,4 +1,5 @@
 import api from "./api";
+import { resolveBodyMeasurements, type BodyMeasurements } from "../analysis/bodyMeasurements";
 import type {
   Patient,
   PatientDetails,
@@ -182,14 +183,17 @@ export async function createNewPatient(payload: CreatePatientPayload): Promise<P
   return toPatient(res.data);
 }
 
-export async function updateRecoveryProcess(
-  patientId: string,
-  recovery_process: RecoveryProcess[]
-): Promise<Patient> {
-  const res = await api.put<any>(`/patients/${patientId}/recovery-process`, {
-    recovery_process,
-  });
-  return toPatient(res.data);
+/**
+ * Height (m) and weight (kg) for the centre-of-mass model.
+ * Falls back to population defaults when the patient has no (plausible)
+ * measurements recorded or the request fails.
+ */
+export async function getPatientBodyMeasurements(
+  patientId?: string | null
+): Promise<BodyMeasurements> {
+  if (!patientId) return resolveBodyMeasurements(null);
+  const patient = await getPatientById(patientId);
+  return resolveBodyMeasurements(patient?.details ?? null);
 }
 
 export async function updatePatientDetails(
