@@ -215,7 +215,38 @@ function quaternionToEulerZYX(qw: number, qx: number, qy: number, qz: number): {
  */
 export class MovellaBleService {
   private sensors: Map<string, MovellaSensor> = new Map();
-  private callbacks: BleServiceCallbacks = {};
+  /**
+   * Event listeners. Several parts of the app (Sensors tab, recording screen,
+   * app-wide SensorContext) can listen at the same time; every event is
+   * fanned out to all of them. `this.callbacks` is the dispatcher used
+   * internally, so existing `this.callbacks.onX?.(...)` calls stay unchanged.
+   */
+  private listeners: Set<BleServiceCallbacks> = new Set();
+  private legacyListener: BleServiceCallbacks | null = null;
+  private callbacks: Required<BleServiceCallbacks> = {
+    onSensorDiscovered: (sensor) => this.emit("onSensorDiscovered", sensor),
+    onSensorConnected: (sensorId) => this.emit("onSensorConnected", sensorId),
+    onSensorDisconnected: (sensorId) => this.emit("onSensorDisconnected", sensorId),
+    onMeasurementData: (sensorId, data) => this.emit("onMeasurementData", sensorId, data),
+    onFusionMeasurementData: (sensorId, data) => this.emit("onFusionMeasurementData", sensorId, data),
+    onBatteryLevel: (sensorId, level) => this.emit("onBatteryLevel", sensorId, level),
+    onError: (error) => this.emit("onError", error),
+  };
+
+  private emit<K extends keyof BleServiceCallbacks>(
+    event: K,
+    ...args: Parameters<NonNullable<BleServiceCallbacks[K]>>
+  ): void {
+    for (const listener of Array.from(this.listeners)) {
+      const handler = listener[event] as ((...a: any[]) => void) | undefined;
+      if (!handler) continue;
+      try {
+        handler(...args);
+      } catch (e) {
+        console.error(`[BLE] listener for ${String(event)} threw`, e);
+      }
+    }
+  }
   private isScanning = false;
   private isInitialized = false;
 
@@ -601,7 +632,20 @@ export class MovellaBleService {
    * Set callbacks for BLE events
    */
   setCallbacks(callbacks: BleServiceCallbacks): void {
-    this.callbacks = { ...this.callbacks, ...callbacks };
+    // Legacy single-slot API: merges into one listener. Prefer addListener().
+    if (this.legacyListener) this.listeners.delete(this.legacyListener);
+    this.legacyListener = { ...(this.legacyListener ?? {}), ...callbacks };
+    this.listeners.add(this.legacyListener);
+  }
+
+  /**
+   * Subscribe to BLE events. Returns an unsubscribe function.
+   */
+  addListener(listener: BleServiceCallbacks): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
   }
 
   /**

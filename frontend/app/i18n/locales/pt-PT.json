@@ -38,7 +38,9 @@
     "manageInvites": "Gerir convites",
     "patientList": "Lista de pacientes",
     "profile": "Perfil",
-    "connectSensors": "Ligar sensores"
+    "connectSensors": "Ligar sensores",
+    "sensors": "Sensores",
+    "recordExercise": "Gravar exercício"
   },
   "login": {
     "welcomeBackTo": "Bem-vindo de volta ao",
@@ -609,5 +611,20 @@
     "noFeedbackYetPatient": "Ainda não forneceu feedback. Toque no botão acima para dar feedback.",
     "noFeedbackRecorded": "Não foi registado feedback para esta sessão.",
     "noDataRecorded": "Não foram registadas métricas nem feedback para esta sessão."
+  },
+  "sensors": {
+    "readyTitle": "Sensores prontos",
+    "notReadyTitle": "Sensores não prontos",
+    "positionsCovered": "{{covered}}/{{total}} posições do corpo",
+    "connectedCount_one": "{{count}} ligado",
+    "connectedCount_other": "{{count}} ligados",
+    "missing": "Posições em falta:",
+    "emptyHint": "Confirme que os sensores estão ligados e toque em \"Iniciar Pesquisa\".",
+    "bluetoothHint": "Confirme que o Bluetooth está ativo e toque em \"Iniciar Pesquisa\" para procurar sensores Movella DOT.",
+    "recordingInProgressTitle": "Gravação em curso",
+    "recordingInProgressMessage": "Está a ser gravado um exercício. Pare a gravação antes de alterar as ligações dos sensores.",
+    "manageSensors": "Gerir sensores",
+    "goToSensorsTab": "Abra o separador Sensores para ligar e atribuir os sensores.",
+    "recordingSensorsTitle": "Sensores"
   }
 }

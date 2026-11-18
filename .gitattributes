@@ -1,0 +1,28 @@
+# Line endings: stored as LF in the repo, checked out in each OS's native style.
+# Keeps git status clean regardless of each machine's core.autocrlf setting.
+* text=auto
+
+# Scripts that must keep a specific ending
+*.sh text eol=lf
+gradlew text eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files (never convert)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.jar binary
+*.keystore binary
+*.docx binary
+*.pdf binary
+*.zip binary
+*.mp4 binary
+
+# patch-package patches must stay byte-for-byte
+*.patch -text

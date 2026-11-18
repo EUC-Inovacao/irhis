@@ -38,7 +38,9 @@
     "manageInvites": "Manage Invites",
     "patientList": "Patient List",
     "profile": "Profile",
-    "connectSensors": "Connect Sensors"
+    "connectSensors": "Connect Sensors",
+    "sensors": "Sensors",
+    "recordExercise": "Record Exercise"
   },
   "login": {
     "welcomeBackTo": "Welcome back to",
@@ -609,5 +611,20 @@
     "noFeedbackYetPatient": "No feedback provided yet. Click the button above to provide feedback.",
     "noFeedbackRecorded": "No feedback recorded for this session.",
     "noDataRecorded": "No metrics or feedback recorded for this session."
+  },
+  "sensors": {
+    "readyTitle": "Sensors ready",
+    "notReadyTitle": "Sensors not ready",
+    "positionsCovered": "{{covered}}/{{total}} body positions",
+    "connectedCount_one": "{{count}} connected",
+    "connectedCount_other": "{{count}} connected",
+    "missing": "Missing positions:",
+    "emptyHint": "Make sure the sensors are switched on, then tap \"Start Scanning\".",
+    "bluetoothHint": "Make sure Bluetooth is on, then tap \"Start Scanning\" to look for Movella DOT sensors.",
+    "recordingInProgressTitle": "Recording in progress",
+    "recordingInProgressMessage": "An exercise is being recorded. Stop it before changing sensor connections.",
+    "manageSensors": "Manage Sensors",
+    "goToSensorsTab": "Open the Sensors tab to connect and assign the sensors.",
+    "recordingSensorsTitle": "Sensors"
   }
 }

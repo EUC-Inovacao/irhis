@@ -264,6 +264,8 @@ export type RootStackParamList = {
   Profile: { twoFactorEnabled?: boolean } | undefined;
   
   BleConnection: { patientId?: string; exerciseTypeId?: string; exerciseName?: string } | undefined;
+  /** Sensors screen opened on top of the recording screen (same screen as the Sensors tab). */
+  SensorSetup: undefined;
   
   ExerciseDetail: { exercise: any };
   ExerciseHistory: undefined;

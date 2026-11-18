@@ -26,6 +26,7 @@ import CreateAccountScreen from '@screens/CreateAccountScreen';
 import ManageInvitesScreen from '@screens/ManageInvitesScreen';
 import PatientListScreen from '@screens/PatientListScreen';
 import BleConnectionScreen from '@screens/BleConnectionScreen';
+import SensorsScreen from '@screens/SensorsScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import TwoFactorSetupScreen from '../screens/TwoFactorSetupScreen';
 import PrivacyNoticeScreen from '../screens/PrivacyNoticeScreen';
@@ -126,6 +127,16 @@ const PatientTabNavigator = () => {
         }}
       />
       <Tab.Screen
+        name="Sensors"
+        component={SensorsScreen}
+        options={{
+          tabBarLabel: t('navigation.sensors'),
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="bluetooth-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
         name="Live Session"
         component={MovellaScreen}
         options={{
@@ -165,6 +176,16 @@ const DoctorTabNavigator = () => {
           tabBarLabel: t('navigation.patients'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Sensors"
+        component={SensorsScreen}
+        options={{
+          tabBarLabel: t('navigation.sensors'),
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="bluetooth-outline" size={size} color={color} />
           ),
         }}
       />
@@ -310,7 +331,15 @@ const AppNavigator = () => {
               name="BleConnection"
               component={BleConnectionScreen}
               options={{
-                headerTitle: t('navigation.connectSensors'),
+                headerTitle: t('navigation.recordExercise'),
+                headerBackTitle: t('common.back'),
+              }}
+            />
+            <Stack.Screen
+              name="SensorSetup"
+              component={SensorsScreen}
+              options={{
+                headerTitle: t('navigation.sensors'),
                 headerBackTitle: t('common.back'),
               }}
             />

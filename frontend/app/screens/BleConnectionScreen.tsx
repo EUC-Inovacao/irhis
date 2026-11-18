@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  FlatList,
   ActivityIndicator,
   Alert,
   ScrollView,
@@ -12,7 +11,6 @@ import {
   Modal,
   Platform,
   ToastAndroid,
-  InteractionManager,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "@theme/ThemeContext";
@@ -33,12 +31,19 @@ import type { Session, SensorStream } from "@io/zipReader";
 import { createSessionFromAnalysisResult } from "@services/sessionService";
 import { useAuth } from "@context/AuthContext";
 import { usePatients } from "@context/PatientContext";
+import { deviceTagLabelKey, useSensors } from "@context/SensorContext";
 import ErrorBoundary from "@components/ErrorBoundary";
 import LocalAnalysisResults from "@components/LocalAnalysisResults";
 
+/**
+ * Exercise recording screen.
+ *
+ * Records, analyses and saves an exercise using sensors that are already
+ * connected. Scanning, connecting and tagging live in the Sensors tab
+ * (SensorContext); this screen only checks readiness.
+ */
 interface BleConnectionScreenProps {
   navigation?: any;
-  onSensorsConnected?: (sensorIds: string[]) => void;
 }
 
 /**
@@ -101,8 +106,7 @@ function buildSessionFromBleData(
 }
 
 const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
-  navigation: _navigation,
-  onSensorsConnected,
+  navigation,
 }) => {
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -111,10 +115,9 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
   const { fetchPatients, fetchAssignedExercises } = usePatients();
   const params = route.params ?? {};
   const [bleService] = useState<MovellaBleService>(getMovellaBleService());
-  const [sensors, setSensors] = useState<MovellaSensor[]>([]);
-  const [scanning, setScanning] = useState(false);
-  const [connecting, setConnecting] = useState<Set<string>>(new Set());
-  
+  // Connection state comes from the app-wide SensorContext (Sensors tab)
+  const { sensors, connectedSensors, missingTags, isReady, setRecording } = useSensors();
+
   // Exercise state
   const [isExerciseActive, setIsExerciseActive] = useState(false);
   const [exerciseData, setExerciseData] = useState<Map<string, FusionMeasurementData[]>>(new Map());
@@ -144,7 +147,6 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
   const [csvModalSensorName, setCsvModalSensorName] = useState<string>("");
   
   // Collapsible sections state
-  const [sensorsSectionCollapsed, setSensorsSectionCollapsed] = useState(false);
   const [exerciseSectionCollapsed, setExerciseSectionCollapsed] = useState(false);
   const [analysisSectionCollapsed, setAnalysisSectionCollapsed] = useState(true);
   
@@ -153,44 +155,10 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
   const exerciseDataRef = useRef<Map<string, FusionMeasurementData[]>>(new Map());
   const isExerciseActiveRef = useRef(false);
 
-  // Defer BLE callbacks to next JS tick to avoid Android crash (state updates from native BLE context)
-  const defer = (fn: () => void) => {
-    if (Platform.OS === "android") {
-      setTimeout(fn, 0);
-    } else {
-      fn();
-    }
-  };
-
   useEffect(() => {
-    // Setup callbacks
-    bleService.setCallbacks({
-      onSensorDiscovered: (sensor) => {
-        defer(() => {
-          setSensors((prev) => {
-            const exists = prev.find((s) => s.id === sensor.id);
-            if (exists) return prev;
-            return [...prev, sensor];
-          });
-        });
-      },
-      onSensorConnected: (sensorId) => {
-        defer(() => {
-          setConnecting((prev) => {
-            const next = new Set(prev);
-            next.delete(sensorId);
-            return next;
-          });
-          updateSensorList();
-          checkAllConnected();
-        });
-      },
-      onSensorDisconnected: () => {
-        defer(updateSensorList);
-      },
-      onBatteryLevel: () => {
-        defer(updateSensorList);
-      },
+    // Only listen for measurement data here. Discovery, connection, battery and
+    // BLE errors are handled app-wide by SensorContext.
+    const unsubscribe = bleService.addListener({
       onFusionMeasurementData: (sensorId, data) => {
         console.log(`📥 [UI] onFusionMeasurementData callback invoked for ${sensorId}`);
         console.log(`📥 [UI] Data received: PacketCounter=${data.PacketCounter}, SampleTimeFine=${data.SampleTimeFine}, Euler=[${data.Euler_X.toFixed(2)}, ${data.Euler_Y.toFixed(2)}, ${data.Euler_Z.toFixed(2)}]`);
@@ -278,18 +246,15 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
           console.warn(`⚠️ [UI] Received data but exercise is not active (isExerciseActiveRef.current=${isExerciseActiveRef.current})`);
         }
       },
-      onError: (error) => {
-        Alert.alert(t("ble.alertBleError"), error.message);
-      },
     });
 
-    // Load existing sensors
-    updateSensorList();
-
     return () => {
-      // Cleanup
-      bleService.stopScanning().catch(console.error);
-      if (isExerciseActive) {
+      unsubscribe();
+      // Leaving mid-recording: stop streaming but keep sensors connected.
+      // Uses the ref (state captured at mount time would always be false).
+      if (isExerciseActiveRef.current) {
+        isExerciseActiveRef.current = false;
+        setRecording(false);
         // Stop measurements sequentially on unmount (Android BLE struggles with concurrent ops)
         const connectedSensors = bleService.getConnectedSensors();
         const stopSequentially = async () => {
@@ -307,46 +272,18 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
         stopSequentially();
       }
     };
-  }, [bleService]);
+  }, [bleService, setRecording]);
 
-  const updateSensorList = useCallback(() => {
-    const allSensors = bleService.getSensors();
-    setSensors(allSensors);
-  }, [bleService]);
+  // Ready to record: all 5 body positions covered (normal), or 1+ sensor (testing mode)
+  const hasAllSensorsConnected = useCallback(
+    (testMode: boolean = false): boolean =>
+      testMode ? connectedSensors.length >= 1 : isReady,
+    [connectedSensors, isReady]
+  );
 
-  const checkAllConnected = useCallback(() => {
-    const connected = bleService.getConnectedSensors();
-    if (connected.length > 0 && onSensorsConnected) {
-      onSensorsConnected(connected.map((s) => s.id));
-    }
-  }, [bleService, onSensorsConnected]);
-
-  // Check if all required sensors are connected (5 in normal mode, 1+ in testing mode)
-  const hasAllSensorsConnected = useCallback((testMode: boolean = false): boolean => {
-    const connected = bleService.getConnectedSensors();
-    
-    if (testMode) {
-      // Testing mode: require at least 1 connected sensor
-      return connected.length >= 1;
-    }
-    
-    // Normal mode: require all 5 sensors with DeviceTags 1-5
-    if (connected.length < 5) return false;
-    
-    // Check if we have all DeviceTags 1-5
-    const deviceTags = new Set<DeviceTag>();
-    connected.forEach((sensor) => {
-      if (sensor.deviceTag) {
-        deviceTags.add(sensor.deviceTag);
-      }
-    });
-    
-    return deviceTags.has(DeviceTag.RIGHT_THIGH) &&
-           deviceTags.has(DeviceTag.RIGHT_SHANK) &&
-           deviceTags.has(DeviceTag.LEFT_THIGH) &&
-           deviceTags.has(DeviceTag.LEFT_SHANK) &&
-           deviceTags.has(DeviceTag.PELVIS);
-  }, [bleService]);
+  const openSensorSetup = useCallback(() => {
+    navigation?.navigate("SensorSetup");
+  }, [navigation]);
 
   const handleStartExercise = async () => {
     console.log(`🎬 [UI] handleStartExercise() called, testingMode: ${testingMode}`);
@@ -383,6 +320,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
       noDataWarningShownRef.current = false;
       setIsExerciseActive(true);
       isExerciseActiveRef.current = true;
+      setRecording(true);
       setCanAnalyze(false);
       setBleAnalysisResult(null);
       
@@ -420,6 +358,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
       Alert.alert(t("ble.alertError"), t("ble.failedStartExercise", { error: error instanceof Error ? error.message : String(error) }));
       setIsExerciseActive(false);
       isExerciseActiveRef.current = false;
+      setRecording(false);
     }
   };
 
@@ -427,6 +366,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
     // Stop processing BLE data immediately to avoid race with subscription removal
     setIsExerciseActive(false);
     isExerciseActiveRef.current = false;
+    setRecording(false);
     const sensorCount = exerciseDataRef.current.size;
 
     const doStop = async () => {
@@ -652,361 +592,48 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
     setCsvModalSensorName("");
   }, []);
 
-  const handleStartScan = async () => {
-    console.log("🔍 [UI] handleStartScan() called");
-    console.log("🔍 [UI] bleService available:", bleService.isAvailable());
-    
-    try {
-      console.log("🔍 [UI] Setting scanning state to true");
-      setScanning(true);
-      
-      console.log("🔍 [UI] Calling bleService.startScanning()...");
-      await bleService.startScanning();
-      console.log("✅ [UI] Scan started successfully!");
-      
-      // Auto-stop after 10 seconds
-      setTimeout(async () => {
-        console.log("🔍 [UI] Auto-stopping scan after 10 seconds");
-        try {
-          await bleService.stopScanning();
-          setScanning(false);
-          console.log("✅ [UI] Auto-stop completed");
-        } catch (stopError) {
-          console.error("❌ [UI] Error in auto-stop:", stopError);
-          setScanning(false);
-        }
-      }, 10000);
-    } catch (error) {
-      console.error("❌ [UI] Error in handleStartScan:");
-      console.error("❌ [UI] Error type:", typeof error);
-      console.error("❌ [UI] Error:", error);
-      console.error("❌ [UI] Error message:", error instanceof Error ? error.message : String(error));
-      console.error("❌ [UI] Error stack:", error instanceof Error ? error.stack : 'No stack');
-      
-      setScanning(false);
-      
-      // Show error alert
-      const errorMessage = error instanceof Error ? error.message : t("ble.failedStartScanning");
-      console.log("🔍 [UI] Showing alert with message:", errorMessage);
-      Alert.alert(
-        t("ble.alertScanError"),
-        errorMessage
-      );
-    }
-  };
+  const getDeviceTagName = (tag?: DeviceTag): string => t(deviceTagLabelKey(tag));
 
-  const handleStopScan = async () => {
-    try {
-      await bleService.stopScanning();
-      setScanning(false);
-    } catch (error) {
-      console.error("Error stopping scan:", error);
-    }
-  };
-
-  const handleRescan = async () => {
-    console.log("🔄 [UI] handleRescan() called");
-
-    // Reset component state
-    setConnecting(new Set());
-    setSensors([]);
-    setIsExerciseActive(false);
-    isExerciseActiveRef.current = false;
-    setExerciseStartTime(null);
-    setExerciseData(new Map());
-    exerciseDataRef.current = new Map();
-    firstTimestampsRef.current = new Map();
-    setPacketCounters(new Map());
-    setRealTimeLogs([]);
-    setCanAnalyze(false);
-    setBleAnalysisResult(null);
-    noDataWarningShownRef.current = false;
-    handleCloseCsvModal();
-
-    try {
-      await bleService.reset();
-      updateSensorList();
-      setScanning(false);
-      await handleStartScan();
-    } catch (error) {
-      console.error("❌ [UI] Error during rescan:", error);
-      Alert.alert(
-        t("ble.alertRescanError"),
-        error instanceof Error ? error.message : t("ble.failedRescan")
-      );
-    }
-  };
-
-  const handleConnect = async (sensorId: string) => {
-    try {
-      setConnecting((prev) => new Set(prev).add(sensorId));
-      await bleService.connectToSensor(sensorId);
-    } catch (error) {
-      setConnecting((prev) => {
-        const next = new Set(prev);
-        next.delete(sensorId);
-        return next;
-      });
-      Alert.alert(
-        t("ble.alertConnectionError"),
-        error instanceof Error ? error.message : t("ble.failedConnect")
-      );
-    }
-  };
-
-  const handleDisconnect = async (sensorId: string) => {
-    if (Platform.OS === "android") {
-      // Defer to next frame + after UI interactions (avoids native crash during button press)
-      InteractionManager.runAfterInteractions(() => {
-        setTimeout(async () => {
-          try {
-            await bleService.disconnectFromSensor(sensorId);
-            setTimeout(updateSensorList, 100);
-          } catch (error) {
-            Alert.alert(
-              t("ble.alertDisconnectError"),
-              error instanceof Error ? error.message : t("ble.failedDisconnect")
-            );
-          }
-        }, 100);
-      });
-    } else {
-      try {
-        await bleService.disconnectFromSensor(sensorId);
-        updateSensorList();
-      } catch (error) {
-        Alert.alert(
-          t("ble.alertDisconnectError"),
-          error instanceof Error ? error.message : t("ble.failedDisconnect")
-        );
-      }
-    }
-  };
-
-  const handleAssignTag = (sensorId: string, tag: DeviceTag) => {
-    bleService.setDeviceTag(sensorId, tag);
-    updateSensorList();
-  };
-
-  const getDeviceTagName = (tag?: DeviceTag): string => {
-    switch (tag) {
-      case DeviceTag.RIGHT_THIGH:
-        return t("ble.tagRightThigh");
-      case DeviceTag.RIGHT_SHANK:
-        return t("ble.tagRightShank");
-      case DeviceTag.LEFT_THIGH:
-        return t("ble.tagLeftThigh");
-      case DeviceTag.LEFT_SHANK:
-        return t("ble.tagLeftShank");
-      case DeviceTag.PELVIS:
-        return t("ble.tagPelvis");
-      default:
-        return t("ble.tagNotAssigned");
-    }
-  };
-
-  const renderSensorItem = ({ item }: { item: MovellaSensor }) => {
-    const isConnecting = connecting.has(item.id);
-    const connectedCount = sensors.filter((s) => s.connected).length;
+  // Compact row per connected sensor: position, battery, samples, CSV preview
+  const renderSensorItem = (item: MovellaSensor) => {
     const recordedSamples = exerciseData.get(item.id);
     const hasRecordedData = !!recordedSamples && recordedSamples.length > 0;
 
     return (
       <View
-        style={[
-          styles.sensorCard,
-          {
-            backgroundColor: colors.card,
-            borderColor: item.connected
-              ? colors.success
-              : colors.mediumGray,
-            borderWidth: item.connected ? 2 : 1,
-          },
-        ]}
+        key={item.id}
+        style={[styles.sensorRow, { borderBottomColor: colors.border }]}
       >
-        <View style={styles.sensorHeader}>
-          <View style={styles.sensorInfo}>
-            <View
-              style={[
-                styles.sensorIcon,
-                {
-                  backgroundColor: item.connected
-                    ? colors.success + "15"
-                    : colors.purple[100],
-                },
-              ]}
-            >
-              <Ionicons
-                name={item.connected ? "bluetooth" : "bluetooth-outline"}
-                size={24}
-                color={item.connected ? colors.success : colors.purple[500]}
-              />
-            </View>
-            <View style={styles.sensorDetails}>
-              <Text style={[styles.sensorName, { color: colors.text }]}>
-                {item.name}
-              </Text>
-              <Text
-                style={[styles.sensorMac, { color: colors.textSecondary }]}
-              >
-                {item.macAddress}
-              </Text>
-              {item.deviceTag && (
-                <Text
-                  style={[
-                    styles.sensorTag,
-                    { color: colors.primary },
-                  ]}
-                >
-                  {t("ble.deviceTagLabel", { tag: item.deviceTag })}
-                </Text>
-              )}
-              <Text
-                style={[
-                  styles.hardwareTag,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                DOT tag: {item.hardwareDeviceTag ?? "—"}
-              </Text>
-            </View>
-          </View>
-          {item.connected && (
-            <View style={styles.connectedBadge}>
-              <View
-                style={[
-                  styles.statusDot,
-                  { backgroundColor: colors.success },
-                ]}
-              />
-              <Text style={[styles.statusText, { color: colors.success }]}>
-                {t("ble.connected")}
-              </Text>
-            </View>
-          )}
+        <Ionicons name="bluetooth" size={18} color={colors.success} />
+        <View style={styles.sensorRowText}>
+          <Text style={[styles.sensorRowName, { color: colors.text }]}>
+            {getDeviceTagName(item.deviceTag)}
+          </Text>
+          <Text style={[styles.sensorRowMeta, { color: colors.textSecondary }]}>
+            {item.name}
+            {item.batteryLevel !== undefined ? ` · ${item.batteryLevel}%` : ""}
+            {hasRecordedData ? ` · ${recordedSamples!.length} samples` : ""}
+          </Text>
         </View>
-
-        {item.batteryLevel !== undefined && (
-          <View style={styles.batteryInfo}>
-            <Ionicons
-              name="battery-half-outline"
-              size={16}
-              color={colors.textSecondary}
-            />
-            <Text
-              style={[styles.batteryText, { color: colors.textSecondary }]}
-            >
-              {item.batteryLevel}%
+        {hasRecordedData && (
+          <TouchableOpacity
+            style={[
+              styles.csvButton,
+              { borderColor: colors.primary, backgroundColor: colors.primary + "10" },
+            ]}
+            onPress={() => handleShowCsv(item.id)}
+          >
+            <Ionicons name="document-text-outline" size={16} color={colors.primary} />
+            <Text style={[styles.csvButtonText, { color: colors.primary }]}>
+              {t("ble.showCsv")}
             </Text>
-          </View>
+          </TouchableOpacity>
         )}
-
-        <View style={styles.sensorActions}>
-          {!item.connected ? (
-            <TouchableOpacity
-              style={[
-                styles.actionButton,
-                {
-                  backgroundColor: colors.primary,
-                  opacity: isConnecting ? 0.6 : 1,
-                },
-              ]}
-              onPress={() => handleConnect(item.id)}
-              disabled={isConnecting}
-            >
-              {isConnecting ? (
-                <ActivityIndicator size="small" color={colors.white} />
-              ) : (
-                <>
-                  <Ionicons name="link" size={16} color={colors.white} />
-                  <Text style={[styles.actionButtonText, { color: colors.white }]}>
-                    {t("ble.connect")}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-          ) : (
-            <>
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  { backgroundColor: colors.error || "#FF3B30" },
-                ]}
-                onPress={() => handleDisconnect(item.id)}
-              >
-                <Ionicons name="close" size={16} color={colors.white} />
-                <Text style={[styles.actionButtonText, { color: colors.white }]}>
-                  {t("ble.disconnect")}
-                </Text>
-              </TouchableOpacity>
-              <View style={styles.tagSelector}>
-                <Text
-                  style={[
-                    styles.tagLabel,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  {item.deviceTag ? t("ble.editTag") : t("ble.assignTag")}
-                </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {[
-                    DeviceTag.RIGHT_THIGH,
-                    DeviceTag.RIGHT_SHANK,
-                    DeviceTag.LEFT_THIGH,
-                    DeviceTag.LEFT_SHANK,
-                    DeviceTag.PELVIS,
-                  ].map((tag) => (
-                    <TouchableOpacity
-                      key={tag}
-                      style={[
-                        styles.tagButton,
-                        {
-                          backgroundColor: item.deviceTag === tag ? colors.primary : colors.background,
-                          borderColor: item.deviceTag === tag ? colors.primary : colors.mediumGray,
-                        },
-                      ]}
-                      onPress={() => handleAssignTag(item.id, tag)}
-                    >
-                      <Text
-                        style={[
-                          styles.tagButtonText,
-                          { 
-                            color: item.deviceTag === tag ? colors.white : colors.text,
-                            fontWeight: item.deviceTag === tag ? '600' : '500',
-                          },
-                        ]}
-                      >
-                        {getDeviceTagName(tag)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            </>
-          )}
-          {hasRecordedData && (
-            <TouchableOpacity
-              style={[
-                styles.csvButton,
-                {
-                  borderColor: colors.primary,
-                  backgroundColor: colors.primary + "10",
-                },
-              ]}
-              onPress={() => handleShowCsv(item.id)}
-            >
-              <Ionicons name="document-text-outline" size={16} color={colors.primary} />
-              <Text style={[styles.csvButtonText, { color: colors.primary }]}>
-                {t("ble.showCsv")}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
       </View>
     );
   };
 
-  const connectedCount = sensors.filter((s) => s.connected).length;
+  const connectedCount = connectedSensors.length;
 
   return (
     <ErrorBoundary>
@@ -1020,78 +647,68 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
       >
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>
-          {t("ble.title")}
+          {params.exerciseName || t("navigation.recordExercise")}
         </Text>
-        {connectedCount > 0 && (
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            {connectedCount} sensor{connectedCount > 1 ? "s" : ""} connected
-          </Text>
-        )}
       </View>
 
-      <View style={styles.scanSection}>
-        {!scanning ? (
-          <TouchableOpacity
-            style={[styles.scanButton, { backgroundColor: colors.primary }]}
-            onPress={handleStartScan}
-          >
-            <Ionicons name="search" size={20} color={colors.white} />
-            <Text style={[styles.scanButtonText, { color: colors.white }]}>
-              {t("ble.startScanning")}
-            </Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={[
-              styles.scanButton,
-              { backgroundColor: colors.error || "#FF3B30" },
-            ]}
-            onPress={handleStopScan}
-          >
-            <ActivityIndicator size="small" color={colors.white} />
-            <Text style={[styles.scanButtonText, { color: colors.white }]}>
-              {t("ble.scanning")}
-            </Text>
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity
-          style={[
-            styles.rescanButton,
-            {
-              borderColor: colors.primary,
-            },
-          ]}
-          onPress={handleRescan}
-          disabled={scanning}
-        >
+      {/* Sensor status: connection is managed in the Sensors tab */}
+      <View
+        style={[
+          styles.sensorStatusCard,
+          {
+            backgroundColor: colors.card,
+            borderColor: isReady ? colors.success : colors.warning || "#FF9500",
+          },
+        ]}
+      >
+        <View style={styles.sensorStatusHeader}>
           <Ionicons
-            name="refresh"
-            size={16}
-            color={scanning ? colors.mediumGray : colors.primary}
+            name={isReady ? "checkmark-circle" : "alert-circle-outline"}
+            size={24}
+            color={isReady ? colors.success : colors.warning || "#FF9500"}
           />
-          <Text
+          <View style={styles.sensorStatusTextBlock}>
+            <Text style={[styles.sensorStatusTitle, { color: colors.text }]}>
+              {isReady ? t("sensors.readyTitle") : t("sensors.notReadyTitle")}
+            </Text>
+            <Text style={[styles.sensorStatusSubtitle, { color: colors.textSecondary }]}>
+              {t("sensors.connectedCount", { count: connectedCount })}
+            </Text>
+          </View>
+          <TouchableOpacity
             style={[
-              styles.rescanButtonText,
-              { color: scanning ? colors.mediumGray : colors.primary },
+              styles.manageSensorsButton,
+              { borderColor: colors.primary, opacity: isExerciseActive ? 0.5 : 1 },
             ]}
+            onPress={openSensorSetup}
+            disabled={isExerciseActive}
           >
-            {t("ble.rescanSensors")}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {!bleService.isAvailable() && (
-        <View style={styles.warningBox}>
-          <Ionicons name="warning-outline" size={20} color={colors.warning || "#FF9500"} />
-          <Text style={[styles.warningText, { color: colors.text }]}>
-            BLE not available. Please install react-native-ble-plx or enable Bluetooth.
-          </Text>
+            <Ionicons name="settings-outline" size={16} color={colors.primary} />
+            <Text style={[styles.manageSensorsText, { color: colors.primary }]}>
+              {t("sensors.manageSensors")}
+            </Text>
+          </TouchableOpacity>
         </View>
-      )}
+
+        {!isReady && missingTags.length > 0 && (
+          <Text style={[styles.sensorStatusMissing, { color: colors.textSecondary }]}>
+            {t("sensors.missing")} {missingTags.map((tag) => getDeviceTagName(tag)).join(", ")}
+          </Text>
+        )}
+
+        {connectedSensors.length > 0 ? (
+          <View style={styles.sensorRows}>
+            {connectedSensors.map(renderSensorItem)}
+          </View>
+        ) : (
+          <Text style={[styles.sensorStatusMissing, { color: colors.textSecondary }]}>
+            {t("sensors.goToSensorsTab")}
+          </Text>
+        )}
+      </View>
 
       {/* Exercise Section */}
-      {connectedCount > 0 && (
-        <View style={styles.exerciseSection}>
+      <View style={styles.exerciseSection}>
           <TouchableOpacity
             style={styles.collapseHeader}
             onPress={() => setExerciseSectionCollapsed(!exerciseSectionCollapsed)}
@@ -1276,53 +893,6 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
           )}
             </View>
           )}
-        </View>
-      )}
-
-      {/* Sensors Section */}
-      <View style={styles.sensorsSection}>
-        <TouchableOpacity
-          style={styles.collapseHeader}
-          onPress={() => setSensorsSectionCollapsed(!sensorsSectionCollapsed)}
-        >
-          <Text style={[styles.collapseHeaderText, { color: colors.text }]}>
-            {t("ble.sensorsSection", { total: sensors.length })}
-          </Text>
-          <Ionicons
-            name={sensorsSectionCollapsed ? "chevron-down" : "chevron-up"}
-            size={20}
-            color={colors.textSecondary}
-          />
-        </TouchableOpacity>
-        {!sensorsSectionCollapsed && (
-          <FlatList
-            data={sensors}
-            renderItem={renderSensorItem}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
-            scrollEnabled={false}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Ionicons
-                  name="bluetooth-outline"
-                  size={48}
-                  color={colors.textSecondary}
-                />
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                  {t("ble.noSensorsFound")}
-                </Text>
-                <Text
-                  style={[
-                    styles.emptySubtext,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  Tap "Start Scanning" to search for Movella DOT sensors
-                </Text>
-              </View>
-            }
-          />
-        )}
       </View>
 
       {/* Analysis Section */}
@@ -1388,6 +958,67 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
+  sensorStatusCard: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  sensorStatusHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  sensorStatusTextBlock: {
+    flex: 1,
+  },
+  sensorStatusTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  sensorStatusSubtitle: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  sensorStatusMissing: {
+    fontSize: 13,
+    marginTop: 10,
+  },
+  manageSensorsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  manageSensorsText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  sensorRows: {
+    marginTop: 10,
+  },
+  sensorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  sensorRowText: {
+    flex: 1,
+  },
+  sensorRowName: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  sensorRowMeta: {
+    fontSize: 12,
+    marginTop: 2,
+  },
   container: {
     flex: 1,
   },
@@ -1724,6 +1355,113 @@ const styles = StyleSheet.create({
   packetCounterValue: {
     fontSize: 12,
     fontWeight: "600",
+  },
+  // Restored: dropped by mistake in 934b681 (live log + CSV preview modal)
+  logsContainer: {
+    marginTop: 12,
+    marginBottom: 12,
+    maxHeight: 300,
+    borderRadius: 8,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E5E5E5",
+  },
+  logsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E5E5",
+  },
+  logsTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  clearLogsButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  clearLogsButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  logsScrollView: {
+    maxHeight: 250,
+  },
+  logsContent: {
+    padding: 8,
+  },
+  noLogsText: {
+    fontSize: 12,
+    textAlign: "center",
+    padding: 20,
+    fontStyle: "italic",
+  },
+  logEntry: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    marginBottom: 4,
+  },
+  logHeader: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    marginBottom: 4,
+    gap: 8,
+  },
+  logTimestamp: {
+    fontSize: 11,
+    fontFamily: "monospace",
+  },
+  logSensorName: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  logDeviceTag: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  logPacketCounter: {
+    fontSize: 11,
+    fontFamily: "monospace",
+  },
+  logData: {
+    fontSize: 11,
+    fontFamily: "monospace",
+    marginTop: 2,
+  },
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E5E5",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  modalCloseButton: {
+    padding: 6,
+  },
+  modalScroll: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  modalScrollContent: {
+    paddingVertical: 16,
+  },
+  modalCsvContent: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
   },
 });
 

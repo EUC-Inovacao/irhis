@@ -5,6 +5,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ThemeProvider } from "./app/theme/ThemeContext";
 import { AuthProvider } from "./app/context/AuthContext";
 import { PatientProvider } from "./app/context/PatientContext";
+import { SensorProvider } from "./app/context/SensorContext";
 import { HealthProvider } from "./app/context/HealthContext";
 import { HealthGoalsProvider } from "./app/context/HealthGoalsContext";
 import healthService from "./app/services/healthService";
@@ -27,7 +28,9 @@ export default function App() {
           <PatientProvider>
             <HealthGoalsProvider>
               <HealthProvider>
-                <AppNavigator />
+                <SensorProvider>
+                  <AppNavigator />
+                </SensorProvider>
               </HealthProvider>
             </HealthGoalsProvider>
           </PatientProvider>
