@@ -62,7 +62,37 @@ const fromBase = (rel) => {
 };
 
 const changed = git("diff", "--name-only", base, "HEAD", "--", ".").split(/\r?\n/).filter(Boolean);
-const nativeFiles = changed.filter((f) => /^frontend\/(android|ios)\//.test(f));
+
+// Ignore native files whose change is only comments or whitespace (e.g. the EAS CLI
+// rewriting AndroidManifest.xml without its comments when it syncs the update config).
+const showAt = (rev, repoPath) => {
+  try {
+    return git("show", `${rev}:${repoPath}`);
+  } catch {
+    return null; // file added or deleted
+  }
+};
+const normalize = (text) =>
+  text
+    .replace(/<!--[\s\S]*?-->/g, "") // XML comments
+    .replace(/\/\*[\s\S]*?\*\//g, "") // /* block */ comments
+    .replace(/^\s*\/\/.*$/gm, "") // whole-line // comments
+    .replace(/\s+/g, "");
+const isCosmeticChange = (repoPath) => {
+  const before = showAt(base, repoPath);
+  const after = showAt("HEAD", repoPath);
+  return before !== null && after !== null && normalize(before) === normalize(after);
+};
+
+const nativeFiles = changed
+  .filter((f) => /^frontend\/(android|ios)\//.test(f))
+  .filter((f) => {
+    if (isCosmeticChange(f)) {
+      console.log(`Ignoring comment/whitespace-only change: ${f}`);
+      return false;
+    }
+    return true;
+  });
 
 let dependencyChanges = [];
 const oldPkgRaw = fromBase("package.json");
