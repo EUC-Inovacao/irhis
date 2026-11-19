@@ -128,4 +128,5 @@ The tests mock the database layer, so they do not need `DATABASE_URL`.
 - Commit messages: `feat: …`, `fix: …`, `docs: …`, `chore: …`, `refactor: …`.
 - Open a pull request into `main`. Pushing to `main` deploys the backend (see [deployment.md](deployment.md)).
 - Line endings are normalised by `.gitattributes` (LF in the repository). Editor and OS files (`.idea/`, `.vscode/`, `.expo/`, `.DS_Store`) are git-ignored.
+- All Expo packages must match the project's Expo SDK (54). Add or upgrade them with `npx expo install <package>`, never plain `npm install`, and check with `npx expo install --check`. A package from another SDK (for example `expo-dev-client` 55 on SDK 54) can bundle fine but break the native build.
 - User-facing text goes in `frontend/app/i18n/locales/en.json` **and** `pt-PT.json`, never hard-coded in screens.

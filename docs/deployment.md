@@ -88,7 +88,7 @@ The backend workflow (`main_irhis-api.yml`) also runs the backend tests before d
 
 **Runtime version: when a new build is needed**
 
-An OTA update only contains JavaScript and assets, and only reaches builds with the same **runtime version** (currently `1.1.0`). It is set in three places that must match:
+An OTA update only contains JavaScript and assets, and only reaches builds with the same **runtime version** (currently `1.1.1`). It is set in three places that must match:
 
 - `frontend/app.json` → `expo.runtimeVersion`
 - `frontend/android/app/src/main/res/values/strings.xml` → `expo_runtime_version`

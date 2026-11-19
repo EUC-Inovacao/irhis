@@ -3,7 +3,7 @@
     "name": "IRHIS",
     "slug": "demoirhisn",
     "version": "1.1.0",
-    "runtimeVersion": "1.1.0",
+    "runtimeVersion": "1.1.1",
     "updates": {
       "url": "https://u.expo.dev/5f6b9979-1140-45fc-bd2b-1a2bef360758",
       "checkAutomatically": "ON_LOAD",
