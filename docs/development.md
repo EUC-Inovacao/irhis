@@ -4,7 +4,7 @@
 
 | Tool | Version | Needed for |
 |---|---|---|
-| Node.js + npm | 20 LTS or newer | Mobile app |
+| Node.js + npm | Node 22 LTS or newer, **npm 11** | Mobile app. The lock file is written with npm 11; npm 10 reads it differently and `npm ci` fails. Check with `npm -v`, upgrade with `npm install -g npm@11` |
 | Python | 3.11 (matches Azure) | Backend |
 | Expo account + EAS CLI (`npm i -g eas-cli`) | EAS CLI ≥ 16.9 | Cloud builds |
 | Android Studio + SDK (API 33+) | latest stable | Local Android builds |
