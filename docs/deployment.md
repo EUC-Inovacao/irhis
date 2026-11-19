@@ -105,6 +105,10 @@ The CI guard blocks the update if native files or dependencies changed and the r
 - `eas channel:pause production` stops serving updates to the trial phones; `eas channel:resume production` resumes.
 - `eas update:republish` re-publishes an earlier update, which rolls the phones back to it.
 
+### npm version on EAS Build
+
+The lock file only installs cleanly with recent npm 11 (11.19). `package.json` has an `eas-build-pre-install` script that installs `npm@11.19.1` on the EAS build server before dependencies are installed, and CI pins the same version. If you upgrade npm locally, update both.
+
 ### Signing
 
 - **Android:** `frontend/android/app/build.gradle` signs both debug and release with the debug keystore, which is only acceptable for local builds. Store builds should use credentials managed by EAS (`eas credentials`).
