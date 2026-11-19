@@ -42,7 +42,14 @@ The login limit (10/min per IP) is stored in memory. If the App Service is scale
 
 - **Expo project:** `demoirhisn`, owned by the EUC Expo account `euc-inovacao-portugal-lda` (project ID `5f6b9979-1140-45fc-bd2b-1a2bef360758`, also in `frontend/app.json`). Builds made before November 2026 belonged to an earlier, personal Expo project and are signed with a different key: uninstall them before installing a new build.
 - **Identifiers:** Android package and iOS bundle ID `com.eucinno.irhis`.
-- **Versions:** set in `frontend/app.json` (`version`, `ios.buildNumber`, `android.versionCode`). The OTA runtime version is separate; see [Over-the-air updates](#over-the-air-updates). `eas.json` uses `appVersionSource: local` and `autoIncrement: false`, so **bump them by hand** before each store build.
+- **Versions:** because `android/` and `ios/` are committed, EAS reads the build version from the **native files**, not from `app.json`. Bump them in all three places so they stay in sync:
+
+  | Version | `app.json` | Android `android/app/build.gradle` | iOS `ios/demoirhisn/Info.plist` |
+  |---|---|---|---|
+  | App version (currently 1.1.0) | `version` | `versionName` | `CFBundleShortVersionString` |
+  | Build number (currently 2 / 9) | `android.versionCode` / `ios.buildNumber` | `versionCode` | `CFBundleVersion` |
+
+  `eas.json` uses `appVersionSource: local` and `autoIncrement: false`, so nothing is bumped automatically. Increase the build number before every store upload. The OTA **runtime version** is separate; see [Over-the-air updates](#over-the-air-updates).
 
 ### Build profiles (`frontend/eas.json`)
 

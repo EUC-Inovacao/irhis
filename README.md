@@ -20,11 +20,11 @@ Patients wear five **Movella DOT** inertial sensors on the thighs, lower legs an
 
 ## Quick start
 
-**App** (needs a physical phone with a development build for anything that uses the sensors):
+**App** (needs Node 22+ with **npm 11**, and a physical phone with a development build for anything that uses the sensors):
 
 ```bash
 cd frontend
-npm install
+npm ci                      # npm 10 cannot read the lock file; check with `npm -v`
 npm run start:dev-client
 ```
 
@@ -68,8 +68,15 @@ Details: [docs/architecture.md](docs/architecture.md).
 
 ## Deployment
 
-- **Backend**: every push to `main` deploys `backend/` to the `irhis-api` Azure App Service via GitHub Actions.
-- **App**: built with EAS (`frontend/eas.json` profiles: development, preview, production, testflight).
+- **Backend**: every push to `main` runs the backend tests and, if they pass, deploys `backend/` to the `irhis-api` Azure App Service.
+- **App updates (OTA)**: every push to `main` that touches `frontend/` runs the app checks and, if they pass, publishes an over-the-air update. Installed apps get it the next time they are opened. No new build or store release is needed for JavaScript changes.
+- **App builds**: made with EAS (`frontend/eas.json` profiles: development, preview, production, testflight) when native code changes. Expo project: `@euc-inovacao-portugal-lda/demoirhisn`.
+
+| Version | Current | What it is |
+|---|---|---|
+| App version | 1.1.0 | Shown to users; bump for each new build |
+| Android version code / iOS build number | 2 / 9 | Must increase for every store upload |
+| Runtime version | 1.1.0 | Which builds can receive which OTA updates; bump only when native code changes |
 
 See [docs/deployment.md](docs/deployment.md).
 
