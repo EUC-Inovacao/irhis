@@ -11,7 +11,7 @@
     "prebuild": "expo prebuild --clean",
     "build:dev:ios": "eas build --profile development --platform ios",
     "web": "expo start --web",
-    "eas-build-pre-install": "npm install -g npm@11.19.1",
+    "eas-build-pre-install": "npm install -g npm@11.19.1 && rm -f android/local.properties",
     "postinstall": "patch-package"
   },
   "dependencies": {

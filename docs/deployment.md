@@ -107,7 +107,7 @@ The CI guard blocks the update if native files or dependencies changed and the r
 
 ### npm version on EAS Build
 
-The lock file only installs cleanly with recent npm 11 (11.19). `package.json` has an `eas-build-pre-install` script that installs `npm@11.19.1` on the EAS build server before dependencies are installed, and CI pins the same version. If you upgrade npm locally, update both.
+The lock file only installs cleanly with recent npm 11 (11.19). `package.json` has an `eas-build-pre-install` script that runs on the EAS build server before dependencies are installed. It installs `npm@11.19.1` (CI pins the same version; if you upgrade npm locally, update both). It also deletes `android/local.properties`, which may hold a Windows `node.executable` path from a developer's machine that would break the Linux build.
 
 ### Signing
 
