@@ -48,7 +48,12 @@ If Gradle cannot find the SDK, create `frontend/android/local.properties`:
 
 ```
 sdk.dir=/path/to/Android/sdk
+# Android Studio does not inherit the terminal PATH, so tell Gradle where Node.js is
+# (find it with `which node`, or `where node` on Windows)
+node.executable=/path/to/node
 ```
+
+`node.executable` is read by a small patch to `expo-modules-autolinking` (`frontend/patches/`), applied automatically on `npm install`. When an Expo upgrade changes that package's version, the patch has to be regenerated for the new version.
 
 `frontend/scripts/test-android-setup.sh` checks the Android toolchain.
 
@@ -66,7 +71,7 @@ cd frontend
 npx tsc -p . --noEmit
 ```
 
-TypeScript runs with `strict: false`, and the project currently has about 70 type errors that pre-date this guide. Do not add new ones: compare the error count before and after your change.
+TypeScript runs with `strict: false`, and the project still has about 70 older type errors. CI fails if the count goes up (`node scripts/check-types.js`, baseline in `scripts/tsc-baseline.json`). When you fix errors, lower the baseline in the same commit.
 
 ### Tests
 

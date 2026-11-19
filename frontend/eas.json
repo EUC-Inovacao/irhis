@@ -12,24 +12,28 @@
       },
       "android": {
         "buildType": "apk"
-      }
+      },
+      "channel": "development"
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk"
-      }
+      },
+      "channel": "production"
     },
     "production": {
       "autoIncrement": false,
       "android": {
         "buildType": "app-bundle"
-      }
+      },
+      "channel": "production"
     },
     "testflight": {
       "ios": {
         "distribution": "store"
-      }
+      },
+      "channel": "production"
     }
   },
   "submit": {

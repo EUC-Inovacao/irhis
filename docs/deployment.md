@@ -40,9 +40,9 @@ The login limit (10/min per IP) is stored in memory. If the App Service is scale
 
 ## Mobile app (EAS Build)
 
-- **Expo project:** `demoirhisn`, owner `joaosi98`, EAS project ID in `frontend/app.json`.
+- **Expo project:** `demoirhisn`, owned by the EUC Expo account `euc-inovacao-portugal-lda` (project ID `5f6b9979-1140-45fc-bd2b-1a2bef360758`, also in `frontend/app.json`). Builds made before November 2026 belonged to an earlier, personal Expo project and are signed with a different key: uninstall them before installing a new build.
 - **Identifiers:** Android package and iOS bundle ID `com.eucinno.irhis`.
-- **Versions:** set in `frontend/app.json` (`version`, `ios.buildNumber`, `android.versionCode`). `eas.json` uses `appVersionSource: local` and `autoIncrement: false`, so **bump them by hand** before each store build.
+- **Versions:** set in `frontend/app.json` (`version`, `ios.buildNumber`, `android.versionCode`). The OTA runtime version is separate; see [Over-the-air updates](#over-the-air-updates). `eas.json` uses `appVersionSource: local` and `autoIncrement: false`, so **bump them by hand** before each store build.
 
 ### Build profiles (`frontend/eas.json`)
 
@@ -60,6 +60,50 @@ eas build --profile production --platform android
 eas build --profile testflight --platform ios
 eas submit --profile production --platform android   # or ios
 ```
+
+### Over-the-air updates
+
+JavaScript and asset changes reach installed apps without a new build, through **EAS Update** (`expo-updates`).
+
+**How it works**
+
+1. A commit that touches `frontend/` lands on `main`.
+2. `.github/workflows/app-update.yml` runs the checks:
+   - `npm ci`;
+   - `scripts/check-types.js`: no new TypeScript errors compared with `scripts/tsc-baseline.json`;
+   - `scripts/check-runtime-version.js`: the runtime version is the same in all three native config files, and native code or dependencies did not change without a runtime-version bump.
+3. If the checks pass, it publishes an update to the **`production`** channel (`eas update --channel production`).
+4. Builds on that channel (the `preview`, `production` and `testflight` profiles) check for an update every time the app opens. They wait up to **5 seconds** for it, so a new update usually applies on the first launch after it is published. If the download takes longer, it applies on the next launch. Without internet, the app starts with the version it already has.
+
+Pull requests that touch `frontend/` run the same checks without publishing.
+
+The backend workflow (`main_irhis-api.yml`) also runs the backend tests before deploying.
+
+**Runtime version: when a new build is needed**
+
+An OTA update only contains JavaScript and assets, and only reaches builds with the same **runtime version** (currently `1.1.0`). It is set in three places that must match:
+
+- `frontend/app.json` → `expo.runtimeVersion`
+- `frontend/android/app/src/main/res/values/strings.xml` → `expo_runtime_version`
+- `frontend/ios/demoirhisn/Supporting/Expo.plist` → `EXUpdatesRuntimeVersion`
+
+When you change native code (`android/`, `ios/`), add or upgrade a package with native code, or upgrade the Expo SDK:
+
+1. bump the runtime version in all three files (e.g. `1.2.0`);
+2. make a new EAS build and install it on the phones.
+
+The CI guard blocks the update if native files or dependencies changed and the runtime version did not. Updates published for the new runtime version only reach phones that have the new build.
+
+**One-time setup**
+
+1. Install the package in `frontend/`: `npx expo install expo-updates` (then `npx pod-install` on a Mac for iOS).
+2. Create an Expo access token at expo.dev → Account settings → Access tokens, from a member of the `euc-inovacao-portugal-lda` Expo account. Add it to GitHub under Settings → Secrets and variables → Actions as **`EXPO_TOKEN`**.
+3. Make a new build (`eas build --profile preview --platform android`, and/or iOS) and install it on every phone. Builds made before this setup do not contain `expo-updates` and will never receive OTA updates.
+
+**Stopping or undoing an update**
+
+- `eas channel:pause production` stops serving updates to the trial phones; `eas channel:resume production` resumes.
+- `eas update:republish` re-publishes an earlier update, which rolls the phones back to it.
 
 ### Signing
 
