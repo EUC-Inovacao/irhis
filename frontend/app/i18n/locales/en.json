@@ -21,7 +21,8 @@
     "futureBirthDateError": "Date of birth can't be superior to current date.",
     "invalidBirthDateError": "Date of birth is invalid.",
     "emailAlreadyExists": "Email already exists.",
-    "emailAlreadyRegistered": "Email already registered."
+    "emailAlreadyRegistered": "Email already registered.",
+    "save": "Save"
   },
   "navigation": {
     "myExercises": "My Exercises",
@@ -625,6 +626,28 @@
     "recordingInProgressMessage": "An exercise is being recorded. Stop it before changing sensor connections.",
     "manageSensors": "Manage Sensors",
     "goToSensorsTab": "Open the Sensors tab to connect and assign the sensors.",
-    "recordingSensorsTitle": "Sensors"
+    "recordingSensorsTitle": "Sensors",
+    "registerKit": "Register kit",
+    "kitTitle": "Kit number",
+    "kitHelp": "Each set of 5 sensors is a kit with its own number. This phone only connects to sensors registered to its kit.",
+    "kitProgress": "{{count}}/{{total}} positions of {{kit}} registered on the connected sensors",
+    "kitInvalidTitle": "Invalid kit number",
+    "kitInvalidMessage": "Use K followed by a number, for example K01.",
+    "registerHowTitle": "How to register",
+    "registerHowSteps": "1. Connect all 5 sensors in the Sensors tab.\n2. Tap Blink on a sensor: its light flashes so you know which one it is.\n3. Choose where that sensor is worn. The app saves it on the sensor.\n4. Repeat for every sensor. Registration is only needed once per kit.",
+    "registerNoSensors": "No sensors connected. Connect the sensors in the Sensors tab first.",
+    "backToSensors": "Back to Sensors",
+    "blink": "Blink",
+    "chooseRegisteredPosition": "Worn on:",
+    "registeredAs": "Registered: {{kit}} · {{position}}",
+    "registeredOtherKit": "Registered to another kit ({{kit}})",
+    "notRegistered": "Not registered (name: {{name}})",
+    "positionTakenTitle": "Position already registered",
+    "positionTakenMessage": "{{position}} is already registered on {{sensor}}. Register this sensor instead?",
+    "replace": "Replace",
+    "identifyFailedTitle": "Could not blink the sensor",
+    "registerFailedTitle": "Could not register the sensor",
+    "registerVerifyFailedTitle": "Registration not confirmed",
+    "registerVerifyFailedMessage": "The sensor should be named {{expected}} but reports {{actual}}. Try again; if it keeps failing, switch the sensor off and on."
   }
 }

@@ -20,7 +20,25 @@ Each sensor is assigned a body position (a *device tag*) in the app's **Sensors*
 - **Hip** angle = thigh relative to pelvis (tag 1 or 3 with tag 5).
 - If a side is missing its sensors, that side's metrics are reported as 0 and the sensor is listed under *missing sensors* in the result.
 
-Tags set in the app are kept in memory for the session only; they are not written to the sensor. Each sensor also has a hardware *DOT tag* (its name stored on the device), shown in the sensor card to help match physical units to positions. Labelling the sensors 1–5 with stickers avoids swaps.
+### Registering a kit (once per kit)
+
+Each set of 5 sensors is a **kit** with a number (`K01`, `K02`, …). A clinician registers it once, from **Sensors → Register kit** (doctor accounts only):
+
+1. Connect all 5 sensors.
+2. Tap **Blink** on a sensor: its LED flashes for about 10 seconds, so you know which physical unit it is.
+3. Choose where it is worn. The app stores the name `<kit>-<position>` on the sensor itself (e.g. `K01-RTHIGH`, `K01-PELVIS`) and reads it back to confirm.
+
+The name is stored in the sensor's "device tag" (max 16 characters, kept across power cycles). From then on, whenever a sensor of this phone's kit connects, the app assigns its position **automatically**. This works on any phone, survives app reinstalls, and works on iOS, where sensor IDs differ per phone. The phone's kit number is saved on the phone (default `K01`); sensors registered to another kit are not assigned.
+
+| Position | Code |
+|---|---|
+| Right thigh | `RTHIGH` |
+| Right shank | `RSHANK` |
+| Left thigh | `LTHIGH` |
+| Left shank | `LSHANK` |
+| Pelvis | `PELVIS` |
+
+Unregistered sensors (factory name "Movella DOT") can still be assigned by hand in the Sensors tab; that assignment only lasts until the app closes. Code: `services/sensorTags.ts`, `screens/RegisterKitScreen.tsx`.
 
 ### Placement
 

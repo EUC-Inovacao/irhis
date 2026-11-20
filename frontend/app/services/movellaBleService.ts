@@ -1138,78 +1138,121 @@ export class MovellaBleService {
   }
 
   /**
-   * Configure device settings (react-native-ble-plx)
+   * Write the Device Control characteristic (Movella DOT BLE spec, Table 7).
+   *
+   * 32-byte layout:
+   *   [0]     visit index bitmask: b0 identify, b1 power off, b2 power-saving timeouts,
+   *           b3 tag name, b4 output rate, b5 filter profile (only flagged fields are applied)
+   *   [1]     identify (0x01 = blink the LED)
+   *   [2]     power off / power-on options
+   *   [3..6]  power-saving timeout X min, X sec (advertising), Y min, Y sec (connected)
+   *   [7]     tag name length (0..16)
+   *   [8..23] tag name
+   *   [24..25] output rate (Hz, little-endian)
+   *   [26]    filter profile index
+   *   [27..31] reserved
    */
   async configureDevice(
     sensorId: string,
     options: {
+      identify?: boolean; // blink the sensor LED (about 10 s)
+      deviceTag?: string; // name stored on the sensor, max 16 ASCII characters
       outputRate?: number; // Hz: 1, 4, 10, 12, 15, 20, 30, 60, 120
       filterProfile?: number; // 0 = General, 1 = Dynamic
-      deviceTag?: string; // Max 16 characters
+      powerSaving?: {
+        advertisingMinutes: number; // 0..30 (0 disables), default 10
+        advertisingSeconds?: number; // 0..60, default 0
+        connectedMinutes: number; // 0..30 (0 disables), default 30
+        connectedSeconds?: number; // 0..60, default 0
+      };
     }
   ): Promise<void> {
-    if (!this.isAvailable() || !this.bleManager) return;
+    if (!this.isAvailable() || !this.bleManager) {
+      throw new Error("BLE not available");
+    }
 
     const device = this.deviceCache.get(sensorId);
     if (!device) {
-      console.warn(`Device ${sensorId} not found in cache`);
-      return;
+      throw new Error(`Device ${sensorId} not found in cache`);
     }
 
+    const buffer = new Uint8Array(32);
+    let visit = 0;
+
+    if (options.identify) {
+      visit |= 0x01;
+      buffer[1] = 0x01;
+    }
+
+    if (options.powerSaving) {
+      const clamp = (v: number | undefined, max: number) =>
+        Math.min(Math.max(Math.round(v ?? 0), 0), max);
+      visit |= 0x04;
+      buffer[3] = clamp(options.powerSaving.advertisingMinutes, 30);
+      buffer[4] = clamp(options.powerSaving.advertisingSeconds, 60);
+      buffer[5] = clamp(options.powerSaving.connectedMinutes, 30);
+      buffer[6] = clamp(options.powerSaving.connectedSeconds, 60);
+    }
+
+    if (options.deviceTag !== undefined) {
+      const tag = options.deviceTag;
+      if (!/^[\x20-\x7E]{1,16}$/.test(tag) || /[\/\\:,]/.test(tag)) {
+        throw new Error(`Invalid sensor name "${tag}": use 1-16 plain characters without / \\ : ,`);
+      }
+      const tagBytes = new TextEncoder().encode(tag);
+      visit |= 0x08;
+      buffer[7] = tagBytes.length;
+      buffer.set(tagBytes, 8);
+    }
+
+    if (options.outputRate !== undefined) {
+      const rate = Math.min(Math.max(Math.round(options.outputRate), 1), 120);
+      visit |= 0x10;
+      buffer[24] = rate & 0xff;
+      buffer[25] = (rate >> 8) & 0xff;
+    }
+
+    if (options.filterProfile !== undefined) {
+      visit |= 0x20;
+      buffer[26] = options.filterProfile & 0xff;
+    }
+
+    if (visit === 0) return; // nothing to change
+    buffer[0] = visit;
+
     try {
-      const serviceUUID = getFullUuid(CONFIGURATION_SERVICE_UUID);
-      const charUUID = getFullUuid(DEVICE_CONTROL_CHAR_UUID);
-      
-      // Build 32-byte configuration buffer
-      const buffer = new Uint8Array(32);
-      let offset = 0;
-      
-      // Visit Index (bitmask)
-      if (options.outputRate !== undefined || options.filterProfile !== undefined || options.deviceTag !== undefined) {
-        buffer[offset++] = 0x30; // Enable bits for output rate, filter profile, and tag
-      }
-      
-      // Power off/power saving (skip)
-      offset += 2;
-      
-      // Device Tag
-      if (options.deviceTag) {
-        const tagBytes = new TextEncoder().encode(options.deviceTag);
-        buffer[offset++] = Math.min(tagBytes.length, 16);
-        buffer.set(tagBytes.slice(0, 16), offset);
-        offset += 16;
-      } else {
-        offset += 17; // Skip tag length + tag
-      }
-      
-      // Output Rate (2 bytes, little-endian)
-      if (options.outputRate !== undefined) {
-        const rate = Math.min(Math.max(options.outputRate, 1), 120);
-        buffer[offset] = rate & 0xff;
-        buffer[offset + 1] = (rate >> 8) & 0xff;
-        offset += 2;
-      } else {
-        offset += 2;
-      }
-      
-      // Filter Profile Index (1 byte)
-      if (options.filterProfile !== undefined) {
-        buffer[offset++] = options.filterProfile;
-      }
-      
-      // Write configuration
-      const base64Value = uint8ArrayToBase64(buffer);
       await device.writeCharacteristicWithResponseForService(
-        serviceUUID,
-        charUUID,
-        base64Value
+        getFullUuid(CONFIGURATION_SERVICE_UUID),
+        getFullUuid(DEVICE_CONTROL_CHAR_UUID),
+        uint8ArrayToBase64(buffer)
       );
-      
-      console.log(`✅ [BLE] Configured device ${sensorId}`);
+      console.log(`✅ [BLE] Configured device ${sensorId} (visit=0x${visit.toString(16)})`);
     } catch (error) {
       console.error(`❌ [BLE] Error configuring device ${sensorId}:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Make the sensor's LED blink (about 10 seconds) so it can be found physically.
+   */
+  async identifySensor(sensorId: string): Promise<void> {
+    await this.configureDevice(sensorId, { identify: true });
+  }
+
+  /**
+   * Store a name on the sensor (persists across power cycles) and read it back.
+   * Returns the name the sensor reports afterwards.
+   */
+  async writeHardwareTag(sensorId: string, tag: string): Promise<string | null> {
+    await this.configureDevice(sensorId, { deviceTag: tag });
+    // Give the sensor a moment to apply the setting, then read it back
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const stored = await this.requestHardwareTag(sensorId);
+    if (stored !== tag) {
+      console.warn(`⚠️ [BLE] Sensor ${sensorId} reports tag "${stored}" after writing "${tag}"`);
+    }
+    return stored;
   }
 
   /**

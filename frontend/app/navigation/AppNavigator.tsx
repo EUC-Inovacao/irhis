@@ -27,6 +27,7 @@ import PatientListScreen from '@screens/PatientListScreen';
 import CreateAccountScreen from '@screens/CreateAccountScreen';
 import BleConnectionScreen from '@screens/BleConnectionScreen';
 import SensorsScreen from '@screens/SensorsScreen';
+import RegisterKitScreen from '@screens/RegisterKitScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import TwoFactorSetupScreen from '../screens/TwoFactorSetupScreen';
 import PrivacyNoticeScreen from '../screens/PrivacyNoticeScreen';
@@ -324,6 +325,14 @@ const AppNavigator = () => {
               component={BleConnectionScreen}
               options={{
                 headerTitle: t('navigation.recordExercise'),
+                headerBackTitle: t('common.back'),
+              }}
+            />
+            <Stack.Screen
+              name="RegisterKit"
+              component={RegisterKitScreen}
+              options={{
+                headerTitle: t('sensors.registerKit'),
                 headerBackTitle: t('common.back'),
               }}
             />

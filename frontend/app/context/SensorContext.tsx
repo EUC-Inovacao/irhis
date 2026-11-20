@@ -10,11 +10,13 @@ import React, {
 } from "react";
 import { Alert, InteractionManager, Platform } from "react-native";
 import { useTranslation } from "react-i18next";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   DeviceTag,
   MovellaSensor,
   getMovellaBleService,
 } from "@services/movellaBleService";
+import { buildSensorTag, normalizeKitId, parseSensorTag } from "@services/sensorTags";
 
 /**
  * App-wide sensor state.
@@ -23,8 +25,15 @@ import {
  * assignment) independently of any exercise. Screens that record exercises
  * only read readiness from here and never manage connections themselves.
  *
- * This is the place to add auto-connect / auto-registration of known sensors.
+ * Registered sensors carry their kit and body position in their stored name
+ * (e.g. "K01-RTHIGH", see services/sensorTags.ts). When a sensor of this phone's
+ * kit connects, its position is assigned automatically.
+ *
+ * This is the place to add auto-connect of registered sensors.
  */
+
+const KIT_STORAGE_KEY = "irhis.sensorKitId";
+export const DEFAULT_KIT_ID = "K01";
 
 /** The five body positions a full recording needs. */
 export const REQUIRED_TAGS: DeviceTag[] = [
@@ -75,6 +84,14 @@ interface SensorContextValue {
   disconnect: (sensorId: string) => Promise<void>;
   assignTag: (sensorId: string, tag: DeviceTag) => void;
   refresh: () => void;
+  /** Kit this phone belongs to (e.g. "K01"); saved on the phone. */
+  kitId: string;
+  /** Change the kit; returns false if the value is not a valid kit id. */
+  setKitId: (kitId: string) => Promise<boolean>;
+  /** Blink the sensor's LED so it can be found physically. */
+  identify: (sensorId: string) => Promise<void>;
+  /** Store "<kit>-<position>" on the sensor and assign the position. Returns true when verified. */
+  registerSensor: (sensorId: string, position: DeviceTag) => Promise<boolean>;
 }
 
 const SensorContext = createContext<SensorContextValue | undefined>(undefined);
@@ -97,13 +114,57 @@ export const SensorProvider = ({ children }: { children: ReactNode }) => {
   const [connecting, setConnecting] = useState<Set<string>>(new Set());
   const [bleAvailable, setBleAvailable] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [kitId, setKitIdState] = useState<string>(DEFAULT_KIT_ID);
+  const kitIdRef = useRef<string>(DEFAULT_KIT_ID);
   const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refresh = useCallback(() => {
+    // Auto-assign the body position of registered sensors that belong to this kit
+    for (const sensor of bleService.getSensors()) {
+      if (!sensor.connected || sensor.deviceTag !== undefined) continue;
+      const registered = parseSensorTag(sensor.hardwareDeviceTag);
+      if (registered && registered.kitId === kitIdRef.current) {
+        bleService.setDeviceTag(sensor.id, registered.position);
+      }
+    }
     // Copy objects so React sees a change when the service mutates a sensor in place
     setSensors(bleService.getSensors().map((s) => ({ ...s })));
     setBleAvailable(bleService.isAvailable());
   }, [bleService]);
+
+  // Load the kit this phone belongs to
+  useEffect(() => {
+    let cancelled = false;
+    AsyncStorage.getItem(KIT_STORAGE_KEY)
+      .then((stored) => {
+        const kit = normalizeKitId(stored ?? "") ?? DEFAULT_KIT_ID;
+        if (cancelled) return;
+        kitIdRef.current = kit;
+        setKitIdState(kit);
+        refresh();
+      })
+      .catch((error) => console.warn("[Sensors] Could not load kit id:", error));
+    return () => {
+      cancelled = true;
+    };
+  }, [refresh]);
+
+  const setKitId = useCallback(
+    async (value: string) => {
+      const kit = normalizeKitId(value);
+      if (!kit) return false;
+      kitIdRef.current = kit;
+      setKitIdState(kit);
+      try {
+        await AsyncStorage.setItem(KIT_STORAGE_KEY, kit);
+      } catch (error) {
+        console.warn("[Sensors] Could not save kit id:", error);
+      }
+      refresh();
+      return true;
+    },
+    [refresh]
+  );
 
   const clearConnecting = useCallback((sensorId: string) => {
     setConnecting((prev) => {
@@ -247,6 +308,50 @@ export const SensorProvider = ({ children }: { children: ReactNode }) => {
     [bleService, refresh]
   );
 
+  const identify = useCallback(
+    async (sensorId: string) => {
+      try {
+        await bleService.identifySensor(sensorId);
+      } catch (error) {
+        Alert.alert(
+          t("sensors.identifyFailedTitle"),
+          error instanceof Error ? error.message : String(error)
+        );
+      }
+    },
+    [bleService, t]
+  );
+
+  const registerSensor = useCallback(
+    async (sensorId: string, position: DeviceTag) => {
+      if (isRecording) {
+        Alert.alert(t("sensors.recordingInProgressTitle"), t("sensors.recordingInProgressMessage"));
+        return false;
+      }
+      try {
+        const tag = buildSensorTag(kitIdRef.current, position);
+        const stored = await bleService.writeHardwareTag(sensorId, tag);
+        bleService.setDeviceTag(sensorId, position);
+        refresh();
+        if (stored !== tag) {
+          Alert.alert(
+            t("sensors.registerVerifyFailedTitle"),
+            t("sensors.registerVerifyFailedMessage", { expected: tag, actual: stored ?? "—" })
+          );
+          return false;
+        }
+        return true;
+      } catch (error) {
+        Alert.alert(
+          t("sensors.registerFailedTitle"),
+          error instanceof Error ? error.message : String(error)
+        );
+        return false;
+      }
+    },
+    [bleService, isRecording, refresh, t]
+  );
+
   const connectedSensors = useMemo(() => sensors.filter((s) => s.connected), [sensors]);
 
   const missingTags = useMemo(() => {
@@ -273,6 +378,10 @@ export const SensorProvider = ({ children }: { children: ReactNode }) => {
     disconnect,
     assignTag,
     refresh,
+    kitId,
+    setKitId,
+    identify,
+    registerSensor,
   };
 
   return <SensorContext.Provider value={value}>{children}</SensorContext.Provider>;

@@ -18,14 +18,18 @@ import {
   useSensors,
 } from "@context/SensorContext";
 import ErrorBoundary from "@components/ErrorBoundary";
+import { useAuth } from "@context/AuthContext";
+import { parseSensorTag } from "@services/sensorTags";
 
 /**
  * Sensors tab: discover, connect, and assign body positions to Movella DOT
  * sensors. Independent of exercises; recording screens only check readiness.
  */
-const SensorsScreen: React.FC = () => {
+const SensorsScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const { colors } = useTheme();
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const isDoctor = user?.role?.toLowerCase() === "doctor";
   const {
     sensors,
     connectedSensors,
@@ -41,6 +45,7 @@ const SensorsScreen: React.FC = () => {
     connect,
     disconnect,
     assignTag,
+    kitId,
   } = useSensors();
 
   const coveredCount = REQUIRED_TAGS.length - missingTags.length;
@@ -94,7 +99,16 @@ const SensorsScreen: React.FC = () => {
                   {t(deviceTagLabelKey(item.deviceTag))}
                 </Text>
                 <Text style={[styles.hardwareTag, { color: colors.textSecondary }]}>
-                  DOT tag: {item.hardwareDeviceTag ?? "—"}
+                  {(() => {
+                    const registered = parseSensorTag(item.hardwareDeviceTag);
+                    if (registered && registered.kitId === kitId) {
+                      return t("sensors.registeredAs", {
+                        kit: registered.kitId,
+                        position: t(deviceTagLabelKey(registered.position)),
+                      });
+                    }
+                    return `DOT tag: ${item.hardwareDeviceTag ?? "—"}`;
+                  })()}
                 </Text>
               </View>
             </View>
@@ -204,7 +218,7 @@ const SensorsScreen: React.FC = () => {
         </View>
       );
     },
-    [colors, connecting, connect, disconnect, assignTag, isRecording, t]
+    [colors, connecting, connect, disconnect, assignTag, isRecording, kitId, t]
   );
 
   // Connected sensors first, then by name
@@ -318,6 +332,27 @@ const SensorsScreen: React.FC = () => {
                 {t("ble.rescanSensors")}
               </Text>
             </TouchableOpacity>
+            {isDoctor && (
+              <TouchableOpacity
+                style={[styles.rescanButton, { borderColor: colors.primary }]}
+                onPress={() => navigation?.navigate("RegisterKit")}
+                disabled={isRecording}
+              >
+                <Ionicons
+                  name="pricetags-outline"
+                  size={16}
+                  color={isRecording ? colors.mediumGray : colors.primary}
+                />
+                <Text
+                  style={[
+                    styles.rescanButtonText,
+                    { color: isRecording ? colors.mediumGray : colors.primary },
+                  ]}
+                >
+                  {t("sensors.registerKit")} ({kitId})
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {!bleAvailable && sensors.length === 0 && !scanning && (

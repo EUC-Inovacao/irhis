@@ -266,6 +266,8 @@ export type RootStackParamList = {
   BleConnection: { patientId?: string; exerciseTypeId?: string; exerciseName?: string } | undefined;
   /** Sensors screen opened on top of the recording screen (same screen as the Sensors tab). */
   SensorSetup: undefined;
+  /** Clinician screen to register a sensor kit (writes kit + position names to the sensors). */
+  RegisterKit: undefined;
   
   ExerciseDetail: { exercise: any };
   ExerciseHistory: undefined;
