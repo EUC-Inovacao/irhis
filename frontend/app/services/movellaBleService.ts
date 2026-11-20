@@ -808,7 +808,14 @@ export class MovellaBleService {
       try {
         await this.readDeviceInfo(sensorId);
         await this.readBatteryLevel(sensorId);
-        await this.requestHardwareTag(sensorId);
+        const hardwareTag = await this.requestHardwareTag(sensorId);
+        if (!hardwareTag) {
+          const control = await this.readDeviceControl(sensorId);
+          if (control?.tag) {
+            sensor.hardwareDeviceTag = control.tag;
+            this.sensors.set(sensorId, sensor);
+          }
+        }
       } catch (error) {
         console.warn(`⚠️ [BLE] Could not read device info/battery for ${sensorId}:`, error);
       }
@@ -1246,13 +1253,70 @@ export class MovellaBleService {
    */
   async writeHardwareTag(sensorId: string, tag: string): Promise<string | null> {
     await this.configureDevice(sensorId, { deviceTag: tag });
-    // Give the sensor a moment to apply the setting, then read it back
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    const stored = await this.requestHardwareTag(sensorId);
+
+    // Read back directly from the Device Control characteristic (retry briefly while
+    // the sensor applies the setting), falling back to the message-service request.
+    let stored: string | null = null;
+    for (let attempt = 0; attempt < 3 && stored !== tag; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 300 + attempt * 300));
+      stored = (await this.readDeviceControl(sensorId))?.tag ?? null;
+    }
+    if (stored !== tag) {
+      stored = (await this.requestHardwareTag(sensorId)) ?? stored;
+    }
+
+    if (stored) {
+      const sensor = this.sensors.get(sensorId);
+      if (sensor) {
+        sensor.hardwareDeviceTag = stored;
+        this.sensors.set(sensorId, sensor);
+      }
+    }
     if (stored !== tag) {
       console.warn(`⚠️ [BLE] Sensor ${sensorId} reports tag "${stored}" after writing "${tag}"`);
     }
     return stored;
+  }
+
+  /**
+   * Read the Device Control characteristic (0x1002, spec Table 7): stored tag name,
+   * output rate, filter profile and power-saving timeouts. Returns null if it cannot be read.
+   */
+  async readDeviceControl(sensorId: string): Promise<{
+    tag: string;
+    outputRate: number;
+    filterProfile: number;
+    powerSaving: { advertisingMinutes: number; advertisingSeconds: number; connectedMinutes: number; connectedSeconds: number };
+  } | null> {
+    if (!this.isAvailable() || !this.bleManager) return null;
+    const device = this.deviceCache.get(sensorId);
+    if (!device) return null;
+    try {
+      const characteristic = await device.readCharacteristicForService(
+        getFullUuid(CONFIGURATION_SERVICE_UUID),
+        getFullUuid(DEVICE_CONTROL_CHAR_UUID)
+      );
+      if (!characteristic?.value) return null;
+      const bytes = base64ToUint8Array(characteristic.value);
+      console.log(`🔍 [BLE] Device control for ${sensorId}: ${bufferToHex(bytes, 32)}`);
+      if (bytes.length < 27) return null;
+      const tagLength = Math.min(bytes[7], 16);
+      const tag = String.fromCharCode(...Array.from(bytes.slice(8, 8 + tagLength))).replace(/\0+$/, "");
+      return {
+        tag,
+        outputRate: bytes[24] | (bytes[25] << 8),
+        filterProfile: bytes[26],
+        powerSaving: {
+          advertisingMinutes: bytes[3],
+          advertisingSeconds: bytes[4],
+          connectedMinutes: bytes[5],
+          connectedSeconds: bytes[6],
+        },
+      };
+    } catch (error) {
+      console.warn(`⚠️ [BLE] Could not read device control for ${sensorId}:`, error);
+      return null;
+    }
   }
 
   /**
