@@ -649,6 +649,7 @@
     "registerFailedTitle": "Could not register the sensor",
     "registerVerifyFailedTitle": "Registration not confirmed",
     "registerVerifyFailedMessage": "The sensor should be named {{expected}} but reports {{actual}}. Try again; if it keeps failing, switch the sensor off and on.",
-    "placementHint": "Where the sensors go: on the outer side of each leg, just above the knee and just above the ankle, facing out; the fifth in the middle of the lower back, just above the buttocks. Right and left are the patient's right and left."
+    "placementHint": "Where the sensors go: on the outer side of each leg, just above the knee and just above the ankle, facing out; the fifth in the middle of the lower back, just above the buttocks. Right and left are the patient's right and left.",
+    "thisPhoneKit": "this phone: {{kit}}"
   }
 }

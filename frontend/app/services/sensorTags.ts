@@ -48,6 +48,14 @@ for (const codes of [LONG_CODES, SHORT_CODES]) {
  */
 const KIT_PATTERN = new RegExp(`^[A-Za-z0-9](?:[A-Za-z0-9-]{0,${MAX_KIT_ID_LENGTH - 2}}[A-Za-z0-9])?$`);
 
+/**
+ * Clean a name read from a sensor: drop non-printable bytes (padding, zero bytes,
+ * length/ack bytes some firmware includes) and surrounding spaces.
+ */
+export function cleanSensorTag(tag?: string | null): string {
+  return String(tag || "").replace(/[^\x20-\x7E]/g, "").trim();
+}
+
 export interface ParsedSensorTag {
   kitId: string;
   position: DeviceTag;
@@ -92,7 +100,7 @@ export function buildSensorTag(kitId: string, position: DeviceTag): string {
 
 /** Read a sensor name; returns null when the sensor was not registered by IRHIS. */
 export function parseSensorTag(tag?: string | null): ParsedSensorTag | null {
-  const value = String(tag || "").trim();
+  const value = cleanSensorTag(tag);
   const dash = value.lastIndexOf("-");
   if (dash <= 0) return null;
   const kitId = value.slice(0, dash);

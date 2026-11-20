@@ -107,6 +107,9 @@ const SensorsScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
                         position: t(deviceTagLabelKey(registered.position)),
                       });
                     }
+                    if (registered) {
+                      return `${t("sensors.registeredOtherKit", { kit: registered.kitId })} · ${t("sensors.thisPhoneKit", { kit: kitId })}`;
+                    }
                     return `DOT tag: ${item.hardwareDeviceTag ?? "—"}`;
                   })()}
                 </Text>

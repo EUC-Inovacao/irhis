@@ -120,6 +120,15 @@ export interface BleServiceCallbacks {
 }
 
 /**
+ * Clean a device tag read from a sensor: drop non-printable bytes (padding, zero
+ * bytes, length/ack bytes) and surrounding spaces. Mirrors cleanSensorTag() in
+ * sensorTags.ts (kept local to avoid a circular import).
+ */
+function cleanTagBytesText(text: string): string {
+  return text.replace(/[^\x20-\x7E]/g, "").trim();
+}
+
+/**
  * Convert Uint8Array to hex string for logging
  */
 function bufferToHex(buffer: Uint8Array, maxBytes: number = 20): string {
@@ -1051,7 +1060,8 @@ export class MovellaBleService {
           }
 
           if (tagBytes) {
-            const tag = String.fromCharCode(...Array.from(tagBytes)).replace(/\0+$/, '');
+            const tag = cleanTagBytesText(String.fromCharCode(...Array.from(tagBytes)));
+            console.log(`🔍 [BLE] Raw tag bytes for ${sensorId}: ${bufferToHex(tagBytes, 20)}`);
             console.log(`✅ [BLE] Hardware device tag for ${sensorId}: ${tag}`);
 
             const sensor = this.sensors.get(sensorId);
@@ -1301,7 +1311,7 @@ export class MovellaBleService {
       console.log(`🔍 [BLE] Device control for ${sensorId}: ${bufferToHex(bytes, 32)}`);
       if (bytes.length < 27) return null;
       const tagLength = Math.min(bytes[7], 16);
-      const tag = String.fromCharCode(...Array.from(bytes.slice(8, 8 + tagLength))).replace(/\0+$/, "");
+      const tag = cleanTagBytesText(String.fromCharCode(...Array.from(bytes.slice(8, 8 + tagLength))));
       return {
         tag,
         outputRate: bytes[24] | (bytes[25] << 8),
