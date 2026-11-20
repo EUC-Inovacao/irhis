@@ -8,13 +8,15 @@ For what the data can and cannot be trusted for, read [sensor-limitations.md](se
 
 Each sensor is assigned a body position (a *device tag*) in the app's **Sensors** tab. The analysis relies on these numbers.
 
-| Tag | Position | Used for |
-|---|---|---|
-| 1 | Right thigh | Right knee, right hip |
-| 2 | Right shank (lower leg) | Right knee |
-| 3 | Left thigh | Left knee, left hip |
-| 4 | Left shank (lower leg) | Left knee |
-| 5 | Pelvis | Both hips, centre of mass |
+| Tag | Segment measured | Label in the app (EN / PT) | Used for |
+|---|---|---|---|
+| 1 | Right thigh | Right knee / Joelho direito | Right knee, right hip |
+| 2 | Right shank (lower leg) | Right ankle / Tornozelo direito | Right knee |
+| 3 | Left thigh | Left knee / Joelho esquerdo | Left knee, left hip |
+| 4 | Left shank (lower leg) | Left ankle / Tornozelo esquerdo | Left knee |
+| 5 | Pelvis | Lower back / Fundo das costas | Both hips, centre of mass |
+
+The app labels each sensor by **where it is placed** (just above the knee, just above the ankle, lower back), because that is what patients and clinicians need when putting the sensors on. The analysis and its results keep the anatomical segment names. Right and left are always the patient's.
 
 - **Knee** angle = thigh + shank of the same side (tags 1+2 right, 3+4 left).
 - **Hip** angle = thigh relative to pelvis (tag 1 or 3 with tag 5).
@@ -22,21 +24,23 @@ Each sensor is assigned a body position (a *device tag*) in the app's **Sensors*
 
 ### Registering a kit (once per kit)
 
-Each set of 5 sensors is a **kit** with a number (`K01`, `K02`, …). A clinician registers it once, from **Sensors → Register kit** (doctor accounts only):
+Each set of 5 sensors is a **kit** with a name: a number like `K01`, or something longer like `K01-XSens01` (up to 13 letters, digits or `-`; upper/lower case does not matter). A clinician registers it once, from **Sensors → Register kit** (doctor accounts only):
 
 1. Connect all 5 sensors.
 2. Tap **Blink** on a sensor: its LED flashes for about 10 seconds, so you know which physical unit it is.
-3. Choose where it is worn. The app stores the name `<kit>-<position>` on the sensor itself (e.g. `K01-RTHIGH`, `K01-PELVIS`) and reads it back to confirm.
+3. Choose where it is worn. The app stores the name `<kit>-<position>` on the sensor itself (e.g. `K01-RTHIGH`, or `K01-XSens01-RT` for a longer kit name) and reads it back to confirm.
 
-The name is stored in the sensor's "device tag" (max 16 characters, kept across power cycles). From then on, whenever a sensor of this phone's kit connects, the app assigns its position **automatically**. This works on any phone, survives app reinstalls, and works on iOS, where sensor IDs differ per phone. The phone's kit number is saved on the phone (default `K01`); sensors registered to another kit are not assigned.
+The name is stored in the sensor's "device tag" (max 16 characters, kept across power cycles). From then on, whenever a sensor of this phone's kit connects, the app assigns its position **automatically**. This works on any phone, survives app reinstalls, and works on iOS, where sensor IDs differ per phone. The phone's kit name is saved on the phone (default `K01`); sensors registered to another kit are not assigned.
 
-| Position | Code |
-|---|---|
-| Right thigh | `RTHIGH` |
-| Right shank | `RSHANK` |
-| Left thigh | `LTHIGH` |
-| Left shank | `LSHANK` |
-| Pelvis | `PELVIS` |
+A sensor name holds at most 16 characters, so the position uses its long code when it fits and its 2-letter code otherwise. Both are recognised when reading.
+
+| Position | Long code | Short code |
+|---|---|---|
+| Right thigh | `RTHIGH` | `RT` |
+| Right shank | `RSHANK` | `RS` |
+| Left thigh | `LTHIGH` | `LT` |
+| Left shank | `LSHANK` | `LS` |
+| Pelvis | `PELVIS` | `PV` |
 
 Unregistered sensors (factory name "Movella DOT") can still be assigned by hand in the Sensors tab; that assignment only lasts until the app closes. Code: `services/sensorTags.ts`, `screens/RegisterKitScreen.tsx`.
 

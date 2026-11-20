@@ -19,7 +19,7 @@ import {
 } from "@context/SensorContext";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { useAuth } from "@context/AuthContext";
-import { parseSensorTag } from "@services/sensorTags";
+import { parseSensorTag, sameKit } from "@services/sensorTags";
 
 /**
  * Sensors tab: discover, connect, and assign body positions to Movella DOT
@@ -101,7 +101,7 @@ const SensorsScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
                 <Text style={[styles.hardwareTag, { color: colors.textSecondary }]}>
                   {(() => {
                     const registered = parseSensorTag(item.hardwareDeviceTag);
-                    if (registered && registered.kitId === kitId) {
+                    if (registered && sameKit(registered.kitId, kitId)) {
                       return t("sensors.registeredAs", {
                         kit: registered.kitId,
                         position: t(deviceTagLabelKey(registered.position)),
@@ -288,6 +288,12 @@ const SensorsScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
                 {t("sensors.recordingInProgressMessage")}
               </Text>
             )}
+            <View style={styles.placementHint}>
+              <Ionicons name="body-outline" size={16} color={colors.textSecondary} />
+              <Text style={[styles.placementHintText, { color: colors.textSecondary }]}>
+                {t("sensors.placementHint")}
+              </Text>
+            </View>
           </View>
 
           {/* Scan controls */}
@@ -414,6 +420,8 @@ const styles = StyleSheet.create({
   },
   chipText: { fontSize: 12, fontWeight: "500" },
   recordingNote: { marginTop: 12, fontSize: 13, fontWeight: "500" },
+  placementHint: { flexDirection: "row", gap: 6, marginTop: 12, alignItems: "flex-start" },
+  placementHintText: { flex: 1, fontSize: 13, lineHeight: 18 },
   scanSection: { padding: 16 },
   scanButton: {
     flexDirection: "row",

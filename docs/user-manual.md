@@ -47,11 +47,13 @@ Under each connected sensor, tap the position it will be worn on:
 
 | Position in the app | Where on the body |
 |---|---|
-| Right Thigh | Outer side of the right thigh, slightly above the knee, facing out |
-| Right Shank | Outer side of the right lower leg, slightly above the ankle, facing out |
-| Left Thigh | Outer side of the left thigh, slightly above the knee, facing out |
-| Left Shank | Outer side of the left lower leg, slightly above the ankle, facing out |
-| Pelvis | Middle of the lower back, just above the buttocks |
+| Right knee | Outer side of the right leg, just above the knee, facing out |
+| Right ankle | Outer side of the right leg, just above the ankle, facing out |
+| Left knee | Outer side of the left leg, just above the knee, facing out |
+| Left ankle | Outer side of the left leg, just above the ankle, facing out |
+| Lower back | Middle of the lower back, just above the buttocks |
+
+**Right and left are always the patient's right and left**, not yours when you face the patient.
 
 The card at the top of the Sensors tab shows how many of the 5 positions are covered and which are missing. When all five are covered it shows **Sensors ready** with a green tick.
 

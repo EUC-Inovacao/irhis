@@ -16,7 +16,7 @@ import {
   MovellaSensor,
   getMovellaBleService,
 } from "@services/movellaBleService";
-import { buildSensorTag, normalizeKitId, parseSensorTag } from "@services/sensorTags";
+import { buildSensorTag, normalizeKitId, parseSensorTag, sameKit } from "@services/sensorTags";
 
 /**
  * App-wide sensor state.
@@ -84,9 +84,9 @@ interface SensorContextValue {
   disconnect: (sensorId: string) => Promise<void>;
   assignTag: (sensorId: string, tag: DeviceTag) => void;
   refresh: () => void;
-  /** Kit this phone belongs to (e.g. "K01"); saved on the phone. */
+  /** Kit this phone belongs to (e.g. "K01" or "K01-XSens01"); saved on the phone. */
   kitId: string;
-  /** Change the kit; returns false if the value is not a valid kit id. */
+  /** Change the kit; returns false if the value is not a valid kit name. */
   setKitId: (kitId: string) => Promise<boolean>;
   /** Blink the sensor's LED so it can be found physically. */
   identify: (sensorId: string) => Promise<void>;
@@ -123,7 +123,7 @@ export const SensorProvider = ({ children }: { children: ReactNode }) => {
     for (const sensor of bleService.getSensors()) {
       if (!sensor.connected || sensor.deviceTag !== undefined) continue;
       const registered = parseSensorTag(sensor.hardwareDeviceTag);
-      if (registered && registered.kitId === kitIdRef.current) {
+      if (registered && sameKit(registered.kitId, kitIdRef.current)) {
         bleService.setDeviceTag(sensor.id, registered.position);
       }
     }

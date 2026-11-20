@@ -14,7 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "@theme/ThemeContext";
 import { DeviceTag, MovellaSensor } from "@services/movellaBleService";
-import { parseSensorTag } from "@services/sensorTags";
+import { MAX_KIT_ID_LENGTH, parseSensorTag, sameKit } from "@services/sensorTags";
 import { REQUIRED_TAGS, deviceTagLabelKey, useSensors } from "@context/SensorContext";
 import ErrorBoundary from "@components/ErrorBoundary";
 
@@ -39,7 +39,7 @@ const RegisterKitScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
     const map = new Map<DeviceTag, MovellaSensor>();
     for (const s of connectedSensors) {
       const parsed = parseSensorTag(s.hardwareDeviceTag);
-      if (parsed && parsed.kitId === kitId) map.set(parsed.position, s);
+      if (parsed && sameKit(parsed.kitId, kitId)) map.set(parsed.position, s);
     }
     return map;
   }, [connectedSensors, kitId]);
@@ -85,7 +85,7 @@ const RegisterKitScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
 
   const renderSensor = (sensor: MovellaSensor) => {
     const parsed = parseSensorTag(sensor.hardwareDeviceTag);
-    const ofThisKit = parsed && parsed.kitId === kitId;
+    const ofThisKit = parsed && sameKit(parsed.kitId, kitId);
     const isBusy = busy === sensor.id;
     return (
       <View
@@ -164,9 +164,9 @@ const RegisterKitScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
               <TextInput
                 value={kitInput}
                 onChangeText={setKitInput}
-                autoCapitalize="characters"
+                autoCapitalize="none"
                 autoCorrect={false}
-                maxLength={4}
+                maxLength={MAX_KIT_ID_LENGTH}
                 style={[styles.kitInput, { color: colors.text, borderColor: colors.mediumGray }]}
                 placeholder="K01"
                 placeholderTextColor={colors.textSecondary}
@@ -188,6 +188,7 @@ const RegisterKitScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>{t("sensors.registerHowTitle")}</Text>
             <Text style={[styles.help, { color: colors.textSecondary }]}>{t("sensors.registerHowSteps")}</Text>
+            <Text style={[styles.help, { color: colors.textSecondary, marginTop: 8 }]}>{t("sensors.placementHint")}</Text>
           </View>
 
           {/* Sensors */}
