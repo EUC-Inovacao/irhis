@@ -13,7 +13,7 @@ const ExerciseDetailScreen = ({ route, navigation }: any) => {
     };
 
     return (
-        <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+        <SafeAreaView edges={["left", "right", "bottom"]} style={[styles.safeArea, { backgroundColor: colors.background }]}>
             <View style={styles.container}>
                 <Text style={[styles.title, { color: colors.text }]}>{exercise.name}</Text>
                 

@@ -130,7 +130,7 @@ const PatientListScreen = ({ navigation }: any) => {
   return (
     <SafeAreaView
       style={[styles.safeArea, { backgroundColor: colors.background }]}
-      edges={['top', 'bottom']}
+      edges={['left', 'right', 'bottom']}
     >
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>

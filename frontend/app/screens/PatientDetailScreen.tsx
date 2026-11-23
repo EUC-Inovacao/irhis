@@ -368,7 +368,7 @@ const PatientDetailScreen = ({ route, navigation }: any) => {
 
   if (!patientData) {
     return (
-      <SafeAreaView
+      <SafeAreaView edges={["left", "right", "bottom"]}
         style={[styles.safeArea, { backgroundColor: colors.background }]}
       >
         <View style={styles.container}>

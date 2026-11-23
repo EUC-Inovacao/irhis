@@ -207,7 +207,7 @@ const CreatePatientScreen = ({ navigation }: any) => {
 
     if (loading) {
         return (
-            <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+            <SafeAreaView edges={["left", "right", "bottom"]} style={[styles.safeArea, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
                 <ActivityIndicator size="large" color={colors.primary} />
             </SafeAreaView>
         );

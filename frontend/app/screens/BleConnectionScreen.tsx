@@ -661,7 +661,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
 
   return (
     <ErrorBoundary>
-      <SafeAreaView
+      <SafeAreaView edges={["left", "right", "bottom"]}
         style={[styles.container, { backgroundColor: colors.background }]}
       >
       <ScrollView

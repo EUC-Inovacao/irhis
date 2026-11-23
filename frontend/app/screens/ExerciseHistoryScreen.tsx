@@ -106,7 +106,7 @@ useFocusEffect(
   };
 
   return (
-    <SafeAreaView
+    <SafeAreaView edges={["left", "right"]}
       style={[styles.safeArea, { backgroundColor: colors.background }]}
     >
       <View style={styles.container}>

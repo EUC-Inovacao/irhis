@@ -73,7 +73,7 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
 
   if (loading) {
     return (
-      <SafeAreaView
+      <SafeAreaView edges={["left", "right", "bottom"]}
         style={[styles.safeArea, { backgroundColor: colors.background }]}
       >
         <View style={styles.loadingContainer}>
@@ -88,7 +88,7 @@ const SessionDetailScreen = ({ route, navigation }: any) => {
 
   if (error || !session) {
     return (
-      <SafeAreaView
+      <SafeAreaView edges={["left", "right", "bottom"]}
         style={[styles.safeArea, { backgroundColor: colors.background }]}
       >
         <View style={styles.errorContainer}>

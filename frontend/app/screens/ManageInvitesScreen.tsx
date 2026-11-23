@@ -91,7 +91,7 @@ const ManageInvitesScreen = ({ navigation }: any) => {
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['left', 'right', 'bottom']}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>{t('manageInvites.title')}</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>

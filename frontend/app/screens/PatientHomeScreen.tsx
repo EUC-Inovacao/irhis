@@ -48,7 +48,7 @@ const PatientHomeScreen = ({ navigation }: any) => {
     if (!patient) {
         if (patientDashboardError) {
             return (
-                <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+                <SafeAreaView edges={["left", "right"]} style={[styles.safeArea, { backgroundColor: colors.background }]}>
                     <View style={[styles.container, styles.errorContainer]}>
                         <Ionicons name="cloud-offline-outline" size={48} color={colors.textSecondary} />
                         <Text style={[styles.errorTitle, { color: colors.text }]}>{t('patientHome.loadFailedTitle')}</Text>
@@ -64,7 +64,7 @@ const PatientHomeScreen = ({ navigation }: any) => {
             );
         }
         return (
-            <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+            <SafeAreaView edges={["left", "right"]} style={[styles.safeArea, { backgroundColor: colors.background }]}>
                 <View style={styles.container}>
                     <Text style={[styles.title, { color: colors.text }]}>
                         {loading ? t('patientHome.loading') : t('patientHome.loadingDashboard')}
