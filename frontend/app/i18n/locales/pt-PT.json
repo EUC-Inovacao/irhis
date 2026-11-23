@@ -503,9 +503,9 @@
     "connect": "Ligar",
     "connected": "Ligado",
     "disconnect": "Desligar",
-    "startScanning": "Iniciar Pesquisa",
+    "startScanning": "Procurar Sensores",
     "scanning": "A pesquisar...",
-    "rescanSensors": "Pesquisar Novamente",
+    "rescanSensors": "Reiniciar Procura",
     "startExercise": "Iniciar Exercício",
     "stopExercise": "Parar Exercício",
     "analyzeExercise": "Analisar Exercício",
@@ -627,7 +627,7 @@
     "manageSensors": "Gerir sensores",
     "goToSensorsTab": "Abra o separador Sensores para ligar e atribuir os sensores.",
     "recordingSensorsTitle": "Sensores",
-    "registerKit": "Registar kit",
+    "registerKit": "Registar Kit",
     "kitTitle": "Nome do kit",
     "kitHelp": "Cada conjunto de 5 sensores é um kit com o seu nome, por exemplo K01 ou K01-XSens01 (até 13 letras, números ou \"-\"). Este telemóvel só se liga aos sensores registados no seu kit.",
     "kitProgress": "{{count}}/{{total}} posições de {{kit}} registadas nos sensores ligados",
@@ -655,6 +655,8 @@
     "connectingKit": "A ligar kit {{kit}}… {{covered}}/{{total}}",
     "kitConnected": "Kit {{kit}} ligado",
     "reconnecting": "A religar…",
-    "searchingKit": "À procura dos sensores…"
+    "searchingKit": "À procura dos sensores…",
+    "countSummary": "{{connected}}/{{total}} sensores ligados",
+    "countSummaryMissing": "{{connected}}/{{total}} sensores ligados · {{missing}} em falta"
   }
 }

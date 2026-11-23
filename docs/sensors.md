@@ -70,16 +70,16 @@ When the **Sensors** tab or the recording screen opens and the sensors are not r
 
 **Dropped sensors.** If a sensor's link drops without the app asking (switched off, out of range, battery), the app retries after 1, 3, 6, 10 and 15 seconds, then keeps scanning for it. The card shows *Reconnecting…*. If the sensor was streaming during a recording, streaming restarts when it reconnects; the recording has a gap for that sensor while it was away.
 
-**Manual disconnects** are respected: a sensor disconnected by hand is not reconnected or auto-connected until it is connected by hand again, or **Connect kit** / **Rescan Sensors** is used.
+**Manual disconnects** are respected: a sensor disconnected by hand is not reconnected or auto-connected until it is connected by hand again, or **Connect kit** / **Restart Search** is used.
 
 ### Manual
 
-1. Open the **Sensors** tab and tap **Start Scanning**. Scanning runs for 10 seconds and lists devices whose name contains *Movella*, *Xsens* or *DOT*, is a registered sensor name, or whose address starts with `D4:22:CD` (Movella's range).
+1. Open the **Sensors** tab and tap **Search Sensors**. Scanning runs for 10 seconds and lists devices whose name contains *Movella*, *Xsens* or *DOT*, is a registered sensor name, or whose address starts with `D4:22:CD` (Movella's range).
 2. Tap **Connect** on each sensor. The card turns green when connected and shows the battery level.
 3. Assign a body position to each connected sensor (registered kit sensors get theirs automatically).
 4. The status card shows **Sensors ready** when connected sensors cover all five positions.
 
-**Rescan Sensors** disconnects everything, clears the list and scans again. While an exercise is being recorded, disconnecting, rescanning and changing positions are blocked.
+**Restart Search** disconnects everything, clears the list and scans again. While an exercise is being recorded, disconnecting, rescanning and changing positions are blocked.
 
 Testing mode on the recording screen allows recording with a single sensor; it is meant for development only.
 

@@ -280,135 +280,148 @@ const SensorsScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
                   {isReady ? t("sensors.readyTitle") : t("sensors.notReadyTitle")}
                 </Text>
                 <Text style={[styles.statusSubtitle, { color: colors.textSecondary }]}>
-                  {t("sensors.positionsCovered", {
-                    covered: coveredCount,
-                    total: REQUIRED_TAGS.length,
-                  })}
-                  {" · "}
-                  {t("sensors.connectedCount", { count: connectedSensors.length })}
+                  {missingTags.length > 0
+                    ? t("sensors.countSummaryMissing", {
+                        connected: coveredCount,
+                        total: REQUIRED_TAGS.length,
+                        missing: missingTags.length,
+                      })
+                    : t("sensors.countSummary", {
+                        connected: coveredCount,
+                        total: REQUIRED_TAGS.length,
+                      })}
                 </Text>
               </View>
             </View>
-            {missingTags.length > 0 && (
-              <View style={styles.missingRow}>
-                <Text style={[styles.missingLabel, { color: colors.textSecondary }]}>
-                  {t("sensors.missing")}
-                </Text>
-                <View style={styles.chips}>
-                  {missingTags.map((tag) => (
-                    <View
-                      key={tag}
-                      style={[styles.chip, { borderColor: colors.warning || "#FF9500" }]}
-                    >
-                      <Text style={[styles.chipText, { color: colors.text }]}>
-                        {t(deviceTagLabelKey(tag))}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
             {isRecording && (
               <Text style={[styles.recordingNote, { color: colors.warning || "#FF9500" }]}>
                 {t("sensors.recordingInProgressMessage")}
               </Text>
             )}
-            <View style={styles.placementHint}>
-              <Ionicons name="body-outline" size={16} color={colors.textSecondary} />
-              <Text style={[styles.placementHintText, { color: colors.textSecondary }]}>
-                {t("sensors.placementHint")}
-              </Text>
-            </View>
           </View>
 
-          {/* Scan controls */}
-          <View style={styles.scanSection}>
-            <TouchableOpacity
-              style={[
-                styles.scanButton,
-                { backgroundColor: isReady ? colors.success : colors.primary },
-              ]}
-              onPress={connectKit}
-              disabled={autoConnecting || isReady || isRecording}
-            >
-              {autoConnecting ? (
-                <ActivityIndicator size="small" color={colors.white} />
+          {/* Controls: 2 x 2 grid
+              [ Search sensors ] [ Restart search ]
+              [ Connect kit    ] [ Register kit   ]  (register: doctors only) */}
+          <View style={styles.controls}>
+            <View style={styles.controlRow}>
+              {!scanning ? (
+                <TouchableOpacity
+                  style={[
+                    styles.controlButton,
+                    styles.controlFilled,
+                    { backgroundColor: isRecording ? colors.mediumGray : colors.primary },
+                  ]}
+                  onPress={startScan}
+                  disabled={isRecording}
+                >
+                  <Ionicons name="search" size={18} color={colors.white} />
+                  <Text style={[styles.controlText, { color: colors.white }]} numberOfLines={2}>
+                    {t("ble.startScanning")}
+                  </Text>
+                </TouchableOpacity>
               ) : (
-                <Ionicons
-                  name={isReady ? "checkmark-circle" : "flash-outline"}
-                  size={20}
-                  color={colors.white}
-                />
+                <TouchableOpacity
+                  style={[
+                    styles.controlButton,
+                    styles.controlFilled,
+                    { backgroundColor: colors.error || "#FF3B30" },
+                  ]}
+                  onPress={stopScan}
+                >
+                  <ActivityIndicator size="small" color={colors.white} />
+                  <Text style={[styles.controlText, { color: colors.white }]} numberOfLines={2}>
+                    {t("ble.scanning")}
+                  </Text>
+                </TouchableOpacity>
               )}
-              <Text style={[styles.scanButtonText, { color: colors.white }]}>
-                {isReady
-                  ? t("sensors.kitConnected", { kit: kitId })
-                  : autoConnecting
-                  ? t("sensors.connectingKit", { kit: kitId, covered: coveredCount, total: REQUIRED_TAGS.length })
-                  : t("sensors.connectKit", { kit: kitId })}
-              </Text>
-            </TouchableOpacity>
-            {!scanning ? (
               <TouchableOpacity
-                style={[styles.scanButton, { backgroundColor: colors.primary }]}
-                onPress={startScan}
-              >
-                <Ionicons name="search" size={20} color={colors.white} />
-                <Text style={[styles.scanButtonText, { color: colors.white }]}>
-                  {t("ble.startScanning")}
-                </Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[styles.scanButton, { backgroundColor: colors.error || "#FF3B30" }]}
-                onPress={stopScan}
-              >
-                <ActivityIndicator size="small" color={colors.white} />
-                <Text style={[styles.scanButtonText, { color: colors.white }]}>
-                  {t("ble.scanning")}
-                </Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              style={[styles.rescanButton, { borderColor: colors.primary }]}
-              onPress={rescan}
-              disabled={scanning || isRecording}
-            >
-              <Ionicons
-                name="refresh"
-                size={16}
-                color={scanning || isRecording ? colors.mediumGray : colors.primary}
-              />
-              <Text
                 style={[
-                  styles.rescanButtonText,
-                  { color: scanning || isRecording ? colors.mediumGray : colors.primary },
+                  styles.controlButton,
+                  { borderColor: scanning || isRecording ? colors.mediumGray : colors.primary },
                 ]}
-              >
-                {t("ble.rescanSensors")}
-              </Text>
-            </TouchableOpacity>
-            {isDoctor && (
-              <TouchableOpacity
-                style={[styles.rescanButton, { borderColor: colors.primary }]}
-                onPress={() => navigation?.navigate("RegisterKit")}
-                disabled={isRecording}
+                onPress={rescan}
+                disabled={scanning || isRecording}
               >
                 <Ionicons
-                  name="pricetags-outline"
-                  size={16}
-                  color={isRecording ? colors.mediumGray : colors.primary}
+                  name="refresh"
+                  size={18}
+                  color={scanning || isRecording ? colors.mediumGray : colors.primary}
                 />
                 <Text
                   style={[
-                    styles.rescanButtonText,
-                    { color: isRecording ? colors.mediumGray : colors.primary },
+                    styles.controlText,
+                    { color: scanning || isRecording ? colors.mediumGray : colors.primary },
                   ]}
+                  numberOfLines={2}
                 >
-                  {t("sensors.registerKit")} ({kitId})
+                  {t("ble.rescanSensors")}
                 </Text>
               </TouchableOpacity>
-            )}
+            </View>
+            <View style={styles.controlRow}>
+              <TouchableOpacity
+                style={[
+                  styles.controlButton,
+                  styles.controlFilled,
+                  {
+                    backgroundColor: isReady
+                      ? colors.success
+                      : isRecording
+                      ? colors.mediumGray
+                      : colors.primary,
+                  },
+                ]}
+                onPress={connectKit}
+                disabled={autoConnecting || isReady || isRecording}
+              >
+                {autoConnecting ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Ionicons
+                    name={isReady ? "checkmark-circle" : "flash-outline"}
+                    size={18}
+                    color={colors.white}
+                  />
+                )}
+                <Text style={[styles.controlText, { color: colors.white }]} numberOfLines={2}>
+                  {isReady
+                    ? t("sensors.kitConnected", { kit: kitId })
+                    : autoConnecting
+                    ? t("sensors.connectingKit", {
+                        kit: kitId,
+                        covered: coveredCount,
+                        total: REQUIRED_TAGS.length,
+                      })
+                    : t("sensors.connectKit", { kit: kitId })}
+                </Text>
+              </TouchableOpacity>
+              {isDoctor && (
+                <TouchableOpacity
+                  style={[
+                    styles.controlButton,
+                    { borderColor: isRecording ? colors.mediumGray : colors.primary },
+                  ]}
+                  onPress={() => navigation?.navigate("RegisterKit")}
+                  disabled={isRecording}
+                >
+                  <Ionicons
+                    name="pricetags-outline"
+                    size={18}
+                    color={isRecording ? colors.mediumGray : colors.primary}
+                  />
+                  <Text
+                    style={[
+                      styles.controlText,
+                      { color: isRecording ? colors.mediumGray : colors.primary },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {t("sensors.registerKit")}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           {!bleAvailable && sensors.length === 0 && !scanning && (
@@ -449,8 +462,8 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { paddingBottom: 120 },
   statusCard: {
-    margin: 16,
-    marginBottom: 0,
+    marginHorizontal: 16,
+    marginTop: 16,
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
@@ -459,46 +472,30 @@ const styles = StyleSheet.create({
   statusTextBlock: { flex: 1 },
   statusTitle: { fontSize: 18, fontWeight: "700" },
   statusSubtitle: { fontSize: 14, marginTop: 2 },
-  missingRow: { marginTop: 12 },
-  missingLabel: { fontSize: 12, marginBottom: 6 },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  chip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  chipText: { fontSize: 12, fontWeight: "500" },
   recordingNote: { marginTop: 12, fontSize: 13, fontWeight: "500" },
-  placementHint: { flexDirection: "row", gap: 6, marginTop: 12, alignItems: "flex-start" },
-  placementHintText: { flex: 1, fontSize: 13, lineHeight: 18 },
-  scanSection: { padding: 16 },
-  scanButton: {
+  controls: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, gap: 12 },
+  controlRow: { flexDirection: "row", gap: 12 },
+  controlButton: {
+    flex: 1,
+    minHeight: 56,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    padding: 16,
-    borderRadius: 12,
-    gap: 8,
-  },
-  scanButtonText: { fontSize: 16, fontWeight: "600" },
-  rescanButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 12,
     paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 1,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
     gap: 8,
     backgroundColor: "transparent",
   },
-  rescanButtonText: { fontSize: 14, fontWeight: "600" },
+  controlFilled: { borderColor: "transparent" },
+  controlText: { fontSize: 15, fontWeight: "600", textAlign: "center", flexShrink: 1 },
   warningBox: {
     flexDirection: "row",
     alignItems: "center",
     padding: 12,
     marginHorizontal: 16,
+    marginTop: 8,
     marginBottom: 8,
     borderRadius: 8,
     backgroundColor: "#FFF3E0",

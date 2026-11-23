@@ -32,12 +32,12 @@ The app does not keep you signed in after it is closed, so you will sign in each
 ## 2. Connect the sensors
 
 1. Tap the **Sensors** tab at the bottom of the screen.
-2. Tap **Start Scanning**. While the app searches, the button shows **Scanning...** (for about 10 seconds).
+2. Tap **Search Sensors**. While the app searches, the button shows **Scanning...** (for about 10 seconds).
 3. As sensors appear in the list, tap **Connect** on each one.
 4. A connected sensor gets a green border and shows **Connected** and its battery level.
 5. Repeat until **all 5 sensors are connected**.
 
-> If a sensor does not appear, tap **Start Scanning** again. If it still does not appear, tap **Rescan Sensors** (this disconnects all sensors and starts again).
+> If a sensor does not appear, tap **Search Sensors** again. If it still does not appear, tap **Restart Search** (this disconnects all sensors and starts again).
 
 ---
 
@@ -104,7 +104,7 @@ At the top of the Record Exercise screen, check that the sensor card says **Sens
 
 | Situation | What to do |
 |---|---|
-| A sensor does not appear when scanning | Check it is switched on and charged. Tap **Start Scanning** again, or **Rescan Sensors**. |
+| A sensor does not appear when scanning | Check it is switched on and charged. Tap **Search Sensors** again, or **Restart Search**. |
 | **Start Exercise** is greyed out | Not all 5 positions are covered. Tap **Manage Sensors** and check that all 5 sensors are connected and have a position. |
 | **No Data Received** appears | One or more sensors lost the connection. Stop, reconnect the sensors in the Sensors tab and record again. |
 | A sensor disconnects during the exercise | Stop the exercise, reconnect the sensor and record again. |

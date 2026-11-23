@@ -503,9 +503,9 @@
     "connect": "Connect",
     "connected": "Connected",
     "disconnect": "Disconnect",
-    "startScanning": "Start Scanning",
+    "startScanning": "Search Sensors",
     "scanning": "Scanning...",
-    "rescanSensors": "Rescan Sensors",
+    "rescanSensors": "Restart Search",
     "startExercise": "Start Exercise",
     "stopExercise": "Stop Exercise",
     "analyzeExercise": "Analyze Exercise",
@@ -627,7 +627,7 @@
     "manageSensors": "Manage Sensors",
     "goToSensorsTab": "Open the Sensors tab to connect and assign the sensors.",
     "recordingSensorsTitle": "Sensors",
-    "registerKit": "Register kit",
+    "registerKit": "Register Kit",
     "kitTitle": "Kit name",
     "kitHelp": "Each set of 5 sensors is a kit with its own name, e.g. K01 or K01-XSens01 (up to 13 letters, digits or \"-\"). This phone only connects to sensors registered to its kit.",
     "kitProgress": "{{count}}/{{total}} positions of {{kit}} registered on the connected sensors",
@@ -655,6 +655,8 @@
     "connectingKit": "Connecting kit {{kit}}… {{covered}}/{{total}}",
     "kitConnected": "Kit {{kit}} connected",
     "reconnecting": "Reconnecting…",
-    "searchingKit": "Looking for your sensors…"
+    "searchingKit": "Looking for your sensors…",
+    "countSummary": "{{connected}}/{{total}} sensors connected",
+    "countSummaryMissing": "{{connected}}/{{total}} sensors connected · {{missing}} missing"
   }
 }
