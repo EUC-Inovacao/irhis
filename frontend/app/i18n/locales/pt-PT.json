@@ -650,6 +650,11 @@
     "registerVerifyFailedTitle": "Registo não confirmado",
     "registerVerifyFailedMessage": "O sensor devia chamar-se {{expected}} mas indica {{actual}}. Tente novamente; se continuar a falhar, desligue e volte a ligar o sensor.",
     "placementHint": "Onde colocar os sensores: no lado de fora de cada perna, logo acima do joelho e logo acima do tornozelo, virados para fora; o quinto no meio do fundo das costas, logo acima das nádegas. Direito e esquerdo são os lados do paciente.",
-    "thisPhoneKit": "este telemóvel: {{kit}}"
+    "thisPhoneKit": "este telemóvel: {{kit}}",
+    "connectKit": "Ligar kit {{kit}}",
+    "connectingKit": "A ligar kit {{kit}}… {{covered}}/{{total}}",
+    "kitConnected": "Kit {{kit}} ligado",
+    "reconnecting": "A religar…",
+    "searchingKit": "À procura dos sensores…"
   }
 }

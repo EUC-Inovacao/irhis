@@ -60,9 +60,23 @@ Beyond the position itself, the analysis needs:
 
 ## Connecting (in the app)
 
-1. Open the **Sensors** tab and tap **Start Scanning**. Scanning runs for 10 seconds and lists devices whose name contains *Movella*, *Xsens* or *DOT*, or whose address starts with `D4:22:CD` (Movella's range).
+### Automatic (registered kit)
+
+When the **Sensors** tab or the recording screen opens and the sensors are not ready, the app connects the phone's kit by itself (the **Connect kit** button does the same):
+
+1. It scans for up to 30 seconds.
+2. A sensor belongs to the kit when its advertised name, the name read from it, or the phone's saved list of kit sensors says `<kit>-<position>` with this phone's kit. The saved list (`irhis.kitSensors` on the phone) is filled when a sensor is registered or connects with a kit name; it also covers iOS, which can keep showing a sensor's old name.
+3. Kit sensors are connected one at a time, skipping positions already covered, and get their position automatically. The scan stops once all five positions are covered.
+
+**Dropped sensors.** If a sensor's link drops without the app asking (switched off, out of range, battery), the app retries after 1, 3, 6, 10 and 15 seconds, then keeps scanning for it. The card shows *Reconnecting…*. If the sensor was streaming during a recording, streaming restarts when it reconnects; the recording has a gap for that sensor while it was away.
+
+**Manual disconnects** are respected: a sensor disconnected by hand is not reconnected or auto-connected until it is connected by hand again, or **Connect kit** / **Rescan Sensors** is used.
+
+### Manual
+
+1. Open the **Sensors** tab and tap **Start Scanning**. Scanning runs for 10 seconds and lists devices whose name contains *Movella*, *Xsens* or *DOT*, is a registered sensor name, or whose address starts with `D4:22:CD` (Movella's range).
 2. Tap **Connect** on each sensor. The card turns green when connected and shows the battery level.
-3. Assign a body position to each connected sensor.
+3. Assign a body position to each connected sensor (registered kit sensors get theirs automatically).
 4. The status card shows **Sensors ready** when connected sensors cover all five positions.
 
 **Rescan Sensors** disconnects everything, clears the list and scans again. While an exercise is being recorded, disconnecting, rescanning and changing positions are blocked.

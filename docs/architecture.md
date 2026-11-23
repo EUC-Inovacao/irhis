@@ -70,7 +70,7 @@ Sensors are managed in the **Sensors** tab through `SensorContext`, not inside t
 3. It also computes **readiness**: the app is ready to record when connected sensors cover all five body positions.
 4. The recording screen only reads readiness and listens for measurement data. While a recording is running it sets a lock, and the Sensors tab blocks disconnects, rescans and tag changes.
 
-`SensorContext` is where automatic reconnection and registration of known sensors will be added.
+`SensorContext` also connects the phone's registered kit automatically and reconnects sensors whose link drops (see [sensors.md](sensors.md#automatic-registered-kit)).
 
 ### Recording and analysis flow
 

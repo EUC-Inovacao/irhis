@@ -1,4 +1,5 @@
 import React, { useCallback } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   View,
   Text,
@@ -46,13 +47,26 @@ const SensorsScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
     disconnect,
     assignTag,
     kitId,
+    connectKit,
+    autoConnecting,
+    reconnecting,
   } = useSensors();
+
+  // Connect this phone's kit automatically whenever the tab is opened
+  useFocusEffect(
+    useCallback(() => {
+      if (!isReady && !isRecording && !scanning) connectKit();
+      // Only on focus: re-running on every state change would restart scans
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+  );
 
   const coveredCount = REQUIRED_TAGS.length - missingTags.length;
 
   const renderSensor = useCallback(
     (item: MovellaSensor) => {
       const isConnecting = connecting.has(item.id);
+      const isReconnecting = reconnecting.has(item.id);
       return (
         <View
           key={item.id}
@@ -116,6 +130,14 @@ const SensorsScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
               </View>
             </View>
             <View style={styles.sensorStatusColumn}>
+              {!item.connected && isReconnecting && (
+                <View style={styles.connectedBadge}>
+                  <ActivityIndicator size="small" color={colors.warning || "#FF9500"} />
+                  <Text style={[styles.statusText, { color: colors.warning || "#FF9500" }]}>
+                    {t("sensors.reconnecting")}
+                  </Text>
+                </View>
+              )}
               {item.connected && (
                 <View style={styles.connectedBadge}>
                   <View style={[styles.statusDot, { backgroundColor: colors.success }]} />
@@ -301,6 +323,31 @@ const SensorsScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
 
           {/* Scan controls */}
           <View style={styles.scanSection}>
+            <TouchableOpacity
+              style={[
+                styles.scanButton,
+                { backgroundColor: isReady ? colors.success : colors.primary },
+              ]}
+              onPress={connectKit}
+              disabled={autoConnecting || isReady || isRecording}
+            >
+              {autoConnecting ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Ionicons
+                  name={isReady ? "checkmark-circle" : "flash-outline"}
+                  size={20}
+                  color={colors.white}
+                />
+              )}
+              <Text style={[styles.scanButtonText, { color: colors.white }]}>
+                {isReady
+                  ? t("sensors.kitConnected", { kit: kitId })
+                  : autoConnecting
+                  ? t("sensors.connectingKit", { kit: kitId, covered: coveredCount, total: REQUIRED_TAGS.length })
+                  : t("sensors.connectKit", { kit: kitId })}
+              </Text>
+            </TouchableOpacity>
             {!scanning ? (
               <TouchableOpacity
                 style={[styles.scanButton, { backgroundColor: colors.primary }]}

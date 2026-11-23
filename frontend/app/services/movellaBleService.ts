@@ -113,6 +113,8 @@ export interface BleServiceCallbacks {
   onSensorDiscovered?: (sensor: MovellaSensor) => void;
   onSensorConnected?: (sensorId: string) => void;
   onSensorDisconnected?: (sensorId: string) => void;
+  /** The link dropped without the app asking (sensor off, out of range). Fired after onSensorDisconnected. */
+  onSensorConnectionLost?: (sensorId: string) => void;
   onMeasurementData?: (sensorId: string, data: MeasurementData) => void;
   onFusionMeasurementData?: (sensorId: string, data: FusionMeasurementData) => void;
   onBatteryLevel?: (sensorId: string, level: number) => void;
@@ -127,6 +129,19 @@ export interface BleServiceCallbacks {
 function cleanTagBytesText(text: string): string {
   return text.replace(/[^\x20-\x7E]/g, "").trim();
 }
+
+/**
+ * True when an advertised name looks like a registered sensor ("<kit>-<code>",
+ * see sensorTags.ts). Registered sensors advertise that name instead of
+ * "Movella DOT", so the scan filter must accept it. Kept local (no import of
+ * sensorTags.ts) to avoid a circular import.
+ */
+function looksLikeRegisteredName(name: string): boolean {
+  return /^[\x20-\x7E]{1,13}-(RTHIGH|RSHANK|LTHIGH|LSHANK|PELVIS|RT|RS|LT|LS|PV)$/i.test(name.trim());
+}
+
+/** Max time for one BLE connection attempt. */
+const CONNECT_TIMEOUT_MS = 15000;
 
 /**
  * Convert Uint8Array to hex string for logging
@@ -236,6 +251,7 @@ export class MovellaBleService {
     onSensorDiscovered: (sensor) => this.emit("onSensorDiscovered", sensor),
     onSensorConnected: (sensorId) => this.emit("onSensorConnected", sensorId),
     onSensorDisconnected: (sensorId) => this.emit("onSensorDisconnected", sensorId),
+    onSensorConnectionLost: (sensorId) => this.emit("onSensorConnectionLost", sensorId),
     onMeasurementData: (sensorId, data) => this.emit("onMeasurementData", sensorId, data),
     onFusionMeasurementData: (sensorId, data) => this.emit("onFusionMeasurementData", sensorId, data),
     onBatteryLevel: (sensorId, level) => this.emit("onBatteryLevel", sensorId, level),
@@ -257,6 +273,9 @@ export class MovellaBleService {
     }
   }
   private isScanning = false;
+  private scanStopTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Last time a known, disconnected sensor was reported as seen again. */
+  private lastSeenReported: Map<string, number> = new Map();
   private isInitialized = false;
 
   // BLE Manager instance (react-native-ble-plx)
@@ -274,6 +293,14 @@ export class MovellaBleService {
   private messageSubscriptions: Map<string, any> = new Map();
   // Pending resolvers for hardware tag requests
   private hardwareTagResolvers: Map<string, (tag: string | null) => void> = new Map();
+  /** onDisconnected subscription per connected sensor (detects dropped links). */
+  private disconnectSubscriptions: Map<string, any> = new Map();
+  /** Sensors the app disconnected on purpose; their disconnect is not a "lost" link. */
+  private intentionalDisconnects: Set<string> = new Set();
+  /** Sensors currently streaming, with their payload mode. */
+  private activeMeasurements: Map<string, PayloadMode> = new Map();
+  /** Sensors that were streaming when their link dropped (can be resumed after reconnecting). */
+  private interruptedMeasurements: Map<string, PayloadMode> = new Map();
 
   /**
    * Reset BLE service state: stop measurements, disconnect, clear caches
@@ -295,6 +322,11 @@ export class MovellaBleService {
     }
 
     const sensors = Array.from(this.sensors.values());
+    sensors.forEach((s) => this.intentionalDisconnects.add(s.id));
+    this.disconnectSubscriptions.forEach((sub) => {
+      try { sub.remove(); } catch (_) { /* already invalid */ }
+    });
+    this.disconnectSubscriptions.clear();
 
     // Stop measurement and disconnect devices sequentially (Android BLE struggles with concurrent ops)
     for (let i = 0; i < sensors.length; i++) {
@@ -334,6 +366,8 @@ export class MovellaBleService {
     this.hardwareTagResolvers.clear();
     this.deviceCache.clear();
     this.stoppingSensors.clear();
+    this.activeMeasurements.clear();
+    this.interruptedMeasurements.clear();
     this.sensors.clear();
     this.scanSubscription = null;
 
@@ -559,10 +593,13 @@ export class MovellaBleService {
    */
   private handleDiscoveredDevice(device: Device): void {
     const id = device.id;
-    const name = device.name || device.localName || '';
+    // Prefer the advertised name: iOS caches device.name, so a renamed
+    // (registered) sensor can keep showing its old name there.
+    const name = device.localName || device.name || '';
     
-    // Filter for Movella DOT devices
+    // Filter for Movella DOT devices (default names, registered names, Xsens MAC prefix)
     const isMovellaDot = 
+      looksLikeRegisteredName(name) ||
       name.toLowerCase().includes('movella') ||
       name.toLowerCase().includes('xsens') ||
       name.toLowerCase().includes('dot') ||
@@ -578,6 +615,15 @@ export class MovellaBleService {
       if (existingSensor && name && name !== existingSensor.name) {
         existingSensor.name = name;
         this.sensors.set(id, existingSensor);
+      }
+      // A known sensor advertising again while disconnected is available to
+      // (re)connect: report it, at most every few seconds per sensor.
+      if (existingSensor && !existingSensor.connected) {
+        const now = Date.now();
+        if (now - (this.lastSeenReported.get(id) ?? 0) > 3000) {
+          this.lastSeenReported.set(id, now);
+          this.callbacks.onSensorDiscovered?.(existingSensor);
+        }
       }
       return;
     }
@@ -668,7 +714,7 @@ export class MovellaBleService {
    * Start scanning for Movella DOT sensors (react-native-ble-plx)
    * Filters by device name "Movella DOT" or "Xsens Dot" and MAC address range D4:22:CD:XX:XX:XX
    */
-  async startScanning(): Promise<void> {
+  async startScanning(durationMs: number = 10000): Promise<void> {
     console.log("🔍 [BLE] startScanning() called");
     console.log("🔍 [BLE] isAvailable():", this.isAvailable());
     console.log("🔍 [BLE] isInitialized:", this.isInitialized);
@@ -739,12 +785,14 @@ export class MovellaBleService {
 
       console.log("✅ [BLE] Scan started successfully!");
       
-      // Auto-stop after 10 seconds
-      setTimeout(() => {
+      // Auto-stop after durationMs (a newer scan replaces this timer)
+      if (this.scanStopTimer) clearTimeout(this.scanStopTimer);
+      this.scanStopTimer = setTimeout(() => {
+        this.scanStopTimer = null;
         if (this.isScanning) {
           this.stopScanning().catch(console.error);
         }
-      }, 10000);
+      }, durationMs);
     } catch (error) {
       this.isScanning = false;
       const err = error instanceof Error ? error : new Error(String(error));
@@ -792,16 +840,19 @@ export class MovellaBleService {
       return;
     }
 
+    this.intentionalDisconnects.delete(sensorId);
+
     try {
-      // Get device from cache (stored during scan)
-      const bleDevice = this.deviceCache.get(sensorId);
-      if (!bleDevice) {
-        throw new Error(`Device ${sensorId} not found in cache. Please scan first.`);
-      }
-      
-      // Connect to device
+      // Device from the scan cache; without it (e.g. after a manual disconnect on
+      // Android) connect by id, which works for sensors seen before.
+      let bleDevice = this.deviceCache.get(sensorId);
       console.log(`🔍 [BLE] Connecting to device ${sensorId}...`);
-      await bleDevice.connect();
+      if (bleDevice) {
+        await bleDevice.connect({ timeout: CONNECT_TIMEOUT_MS });
+      } else {
+        bleDevice = await this.bleManager.connectToDevice(sensorId, { timeout: CONNECT_TIMEOUT_MS });
+        this.deviceCache.set(sensorId, bleDevice);
+      }
       
       // Wait a bit for connection to stabilize
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -812,6 +863,7 @@ export class MovellaBleService {
       
       sensor.connected = true;
       this.sensors.set(sensorId, sensor);
+      this.watchConnection(sensorId, bleDevice);
       
       // Read device info and battery level
       try {
@@ -849,6 +901,13 @@ export class MovellaBleService {
     if (!sensor || !sensor.connected) return;
 
     const device = this.deviceCache.get(sensorId);
+    this.intentionalDisconnects.add(sensorId);
+    this.interruptedMeasurements.delete(sensorId);
+    const disconnectSub = this.disconnectSubscriptions.get(sensorId);
+    if (disconnectSub) {
+      try { disconnectSub.remove(); } catch (_) { /* already invalid */ }
+      this.disconnectSubscriptions.delete(sensorId);
+    }
 
     try {
       if (Platform.OS === "android") {
@@ -1380,6 +1439,9 @@ export class MovellaBleService {
       console.log(`✅ [BLE] Control message written successfully to ${sensorId}`);
       console.log(`✅ [BLE] Started measurement on ${sensorId} with payload mode ${payloadMode}`);
       
+      this.activeMeasurements.set(sensorId, payloadMode);
+      this.interruptedMeasurements.delete(sensorId);
+
       // Start heartbeat logging
       this.startHeartbeatLogging(sensorId);
     } catch (error) {
@@ -1394,6 +1456,8 @@ export class MovellaBleService {
    */
   async stopMeasurement(sensorId: string): Promise<void> {
     console.log(`🛑 [BLE] stopMeasurement() called for ${sensorId}`);
+    this.activeMeasurements.delete(sensorId);
+    this.interruptedMeasurements.delete(sensorId);
     
     if (!this.isAvailable() || !this.bleManager) {
       console.warn(`⚠️ [BLE] BLE not available or manager is null`);
@@ -1763,6 +1827,83 @@ export class MovellaBleService {
   /**
    * Assign device tag to sensor (for sensor mapping)
    */
+  /**
+   * Watch a connected sensor for a dropped link. A drop the app did not ask for
+   * (sensor switched off, out of range, battery) marks the sensor disconnected
+   * and fires onSensorDisconnected + onSensorConnectionLost, so SensorContext
+   * can reconnect it.
+   */
+  private watchConnection(sensorId: string, device: Device): void {
+    const previous = this.disconnectSubscriptions.get(sensorId);
+    if (previous) {
+      try { previous.remove(); } catch (_) { /* already invalid */ }
+    }
+    try {
+      const subscription = device.onDisconnected((error) => {
+        this.disconnectSubscriptions.delete(sensorId);
+        if (this.intentionalDisconnects.has(sensorId)) return;
+        this.handleConnectionLost(sensorId, error);
+      });
+      this.disconnectSubscriptions.set(sensorId, subscription);
+    } catch (error) {
+      console.warn(`⚠️ [BLE] Could not watch connection of ${sensorId}:`, error);
+    }
+  }
+
+  private handleConnectionLost(sensorId: string, error: unknown): void {
+    console.log(`📴 [BLE] Connection lost for ${sensorId}`, error ?? "");
+    this.stopHeartbeatLogging(sensorId);
+    const mode = this.activeMeasurements.get(sensorId);
+    if (mode !== undefined) {
+      this.activeMeasurements.delete(sensorId);
+      this.interruptedMeasurements.set(sensorId, mode);
+    }
+    // The native subscriptions die with the link; drop our references
+    this.notificationSubscriptions.delete(sensorId);
+    this.messageSubscriptions.delete(sensorId);
+    this.hardwareTagResolvers.delete(sensorId);
+
+    const sensor = this.sensors.get(sensorId);
+    // The measurement monitor may already have reported the disconnect
+    const wasConnected = !!sensor?.connected;
+    if (sensor) {
+      sensor.connected = false;
+      this.sensors.set(sensorId, sensor);
+    }
+    const notify = () => {
+      if (wasConnected) this.callbacks.onSensorDisconnected?.(sensorId);
+      this.callbacks.onSensorConnectionLost?.(sensorId);
+    };
+    if (Platform.OS === "android") {
+      InteractionManager.runAfterInteractions(() => setTimeout(notify, 300));
+    } else {
+      notify();
+    }
+  }
+
+  /**
+   * Restart streaming on a sensor whose link dropped while it was streaming.
+   * Returns true when streaming was restarted.
+   */
+  async resumeInterruptedMeasurement(sensorId: string): Promise<boolean> {
+    const mode = this.interruptedMeasurements.get(sensorId);
+    if (mode === undefined) return false;
+    const sensor = this.sensors.get(sensorId);
+    if (!sensor?.connected) return false;
+    await this.startMeasurement(sensorId, mode);
+    return true;
+  }
+
+  /** Forget streams interrupted by dropped links (e.g. when a recording ends). */
+  clearInterruptedMeasurements(): void {
+    this.interruptedMeasurements.clear();
+  }
+
+  /** Whether a scan is running. */
+  isScanningNow(): boolean {
+    return this.isScanning;
+  }
+
   setDeviceTag(sensorId: string, deviceTag: DeviceTag): void {
     const sensor = this.sensors.get(sensorId);
     if (sensor) {

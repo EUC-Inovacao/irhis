@@ -650,6 +650,11 @@
     "registerVerifyFailedTitle": "Registration not confirmed",
     "registerVerifyFailedMessage": "The sensor should be named {{expected}} but reports {{actual}}. Try again; if it keeps failing, switch the sensor off and on.",
     "placementHint": "Where the sensors go: on the outer side of each leg, just above the knee and just above the ankle, facing out; the fifth in the middle of the lower back, just above the buttocks. Right and left are the patient's right and left.",
-    "thisPhoneKit": "this phone: {{kit}}"
+    "thisPhoneKit": "this phone: {{kit}}",
+    "connectKit": "Connect kit {{kit}}",
+    "connectingKit": "Connecting kit {{kit}}… {{covered}}/{{total}}",
+    "kitConnected": "Kit {{kit}} connected",
+    "reconnecting": "Reconnecting…",
+    "searchingKit": "Looking for your sensors…"
   }
 }

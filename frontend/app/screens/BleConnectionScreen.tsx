@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "@theme/ThemeContext";
-import { useRoute } from "@react-navigation/native";
+import { useFocusEffect, useRoute } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -117,7 +117,25 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
   const params = route.params ?? {};
   const [bleService] = useState<MovellaBleService>(getMovellaBleService());
   // Connection state comes from the app-wide SensorContext (Sensors tab)
-  const { sensors, connectedSensors, missingTags, isReady, setRecording } = useSensors();
+  const {
+    sensors,
+    connectedSensors,
+    missingTags,
+    isReady,
+    setRecording,
+    connectKit,
+    autoConnecting,
+    isRecording,
+  } = useSensors();
+
+  // Connect this phone's kit automatically when the recording screen opens
+  useFocusEffect(
+    useCallback(() => {
+      if (!isReady && !isRecording) connectKit();
+      // Only on focus
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+  );
 
   // Exercise state
   const [isExerciseActive, setIsExerciseActive] = useState(false);
@@ -680,6 +698,11 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
             <Text style={[styles.sensorStatusSubtitle, { color: colors.textSecondary }]}>
               {t("sensors.connectedCount", { count: connectedCount })}
             </Text>
+            {!isReady && autoConnecting && (
+              <Text style={[styles.sensorStatusSubtitle, { color: colors.primary }]}>
+                {t("sensors.searchingKit")}
+              </Text>
+            )}
           </View>
           <TouchableOpacity
             style={[
