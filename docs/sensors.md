@@ -94,7 +94,7 @@ Testing mode on the recording screen allows recording with a single sensor; it i
 
 The analysis uses the **quaternions directly**. Earlier versions converted to Euler angles and back, which lost precision; that path is only kept as a fallback for old CSV files.
 
-Measurements are started on the sensors one after another (with a 150 ms pause between sensors on Android, where the Bluetooth stack cannot handle parallel requests). Each sensor's timestamps are then counted from its own first sample. See [sensor-limitations.md](sensor-limitations.md#timing-between-sensors) for what this means.
+Measurements are started on the sensors one after another (with a 150 ms pause between sensors on Android, where the Bluetooth stack cannot handle parallel requests). The recording screen then puts all sensors on the phone's clock, so samples taken at the same moment line up across sensors. See [sensor-limitations.md](sensor-limitations.md#timing-between-sensors) for what this means.
 
 ### Status flags
 

@@ -84,11 +84,15 @@ At the top of the Record Exercise screen, check that the sensor card says **Sens
 ## 6. Record the exercise
 
 1. Ask the patient to stand upright in the starting position and **stay completely still for about 2 seconds**. The app uses these first seconds as the reference.
-2. Tap **Start Exercise**. The app confirms that it is recording from all sensors.
+2. Tap **Start Exercise**. Recording starts straight away.
 3. The patient performs the exercise.
-4. When finished, tap **Stop Exercise**.
+4. When finished, tap the large **Stop Exercise** button.
 
-> While recording, the screen shows **Recording exercise data...** and the number of packets received from each sensor. Sensor connections cannot be changed during a recording.
+> While recording, the screen shows only the number of **repetitions**, the elapsed time and whether all sensors are working. If a sensor disconnects, the screen says so and the app reconnects it by itself. Sensor connections cannot be changed during a recording.
+>
+> The live count is a guide for the patient. The repetitions saved with the session come from the full analysis after the recording and can differ slightly.
+>
+> **Testing mode** (developers) shows the detailed view instead: packets received per sensor and live sensor values.
 
 ---
 

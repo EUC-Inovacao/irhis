@@ -63,7 +63,9 @@ Angles are referenced to the first 1–2 seconds of each recording (see [sensors
 
 ### Timing between sensors
 
-The app starts the sensors one after another (150 ms apart on Android), and each sensor's time axis starts at zero at its own first sample. The app does not run Movella's sensor synchronisation. As a result, streams from different sensors can be offset by up to about half a second. This mainly affects anything that combines sensors at the same instant: knee and hip angles and centre of mass. Fixing it means either using Movella's synchronisation or aligning streams by the phone's receive time.
+The app starts the sensors one after another (150 ms apart on Android), and each sensor has its own clock. Since November 2026 the recording screen puts every sensor on the phone's clock (`app/analysis/clockSync.ts`): for each sensor it tracks the smallest gap between the sensor's timestamp and the moment the phone receives the packet, which is the clock difference plus the fastest Bluetooth delivery time. The remaining error between sensors is the difference in that fastest delivery time, typically 10 to 30 ms (one Bluetooth connection interval), instead of up to about half a second before. The 32-bit sensor clock wrap (about 71 minutes) and a sensor restarting mid-recording are handled.
+
+Movella's own synchronisation (all sensors on one sensor clock) is not used: it needs every sensor to be disconnected and reconnected around a 14-second sync period, and disconnecting is the step that is unreliable on Android. ZIP/CSV uploads still use each sensor's own clock.
 
 ### Drift during long recordings
 

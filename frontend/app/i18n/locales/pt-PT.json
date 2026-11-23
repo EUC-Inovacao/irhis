@@ -573,7 +573,11 @@
     "alertAssignDeviceTag": "Atribuir Etiqueta de Dispositivo",
     "assignDeviceTagMessage": "Atribua uma etiqueta de dispositivo a este sensor antes de exportar o CSV.",
     "failedCsvPreview": "Falha ao gerar a pré-visualização CSV para este sensor.",
-    "noRecordedSamples": "Ainda não existem amostras gravadas para este sensor."
+    "noRecordedSamples": "Ainda não existem amostras gravadas para este sensor.",
+    "liveReps": "Repetições",
+    "liveSensorsOk": "Todos os sensores a funcionar",
+    "liveSensorReconnecting": "Um sensor desligou-se. A religar…",
+    "liveSensorLost": "Um sensor desligou-se. Verifique se está ligado."
   },
   "analysisResults": {
     "title": "Resultados da Análise Local",

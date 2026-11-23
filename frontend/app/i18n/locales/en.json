@@ -573,7 +573,11 @@
     "alertAssignDeviceTag": "Assign Device Tag",
     "assignDeviceTagMessage": "Please assign a device tag to this sensor before exporting the CSV.",
     "failedCsvPreview": "Failed to generate CSV preview for this sensor.",
-    "noRecordedSamples": "No recorded samples found for this sensor yet."
+    "noRecordedSamples": "No recorded samples found for this sensor yet.",
+    "liveReps": "Repetitions",
+    "liveSensorsOk": "All sensors working",
+    "liveSensorReconnecting": "A sensor disconnected. Reconnecting…",
+    "liveSensorLost": "A sensor disconnected. Check that it is switched on."
   },
   "analysisResults": {
     "title": "Local Analysis Results",

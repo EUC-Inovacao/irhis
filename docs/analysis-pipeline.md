@@ -13,7 +13,7 @@ All movement analysis runs **on the phone**, in TypeScript, with no network call
 
 ## 1. Input
 
-The recording screen builds a `Session` directly from the live Bluetooth data: for each body position (tags 1–5), a list of timestamps (seconds from that sensor's first sample) and orientation quaternions `[w, x, y, z]`. CSV files go through `zipReader.ts` and end up in the same structure.
+The recording screen builds a `Session` directly from the live Bluetooth data: for each body position (tags 1–5), a list of timestamps (seconds on a clock shared by all sensors, see [sensor-limitations.md](sensor-limitations.md#timing-between-sensors)) and orientation quaternions `[w, x, y, z]`. CSV files go through `zipReader.ts` and end up in the same structure.
 
 Required sensors are checked first; any that are missing are listed in `missingSensors` and the metrics that need them are left at 0.
 

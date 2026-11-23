@@ -35,6 +35,20 @@ import { usePatients } from "@context/PatientContext";
 import { deviceTagLabelKey, useSensors } from "@context/SensorContext";
 import ErrorBoundary from "@components/ErrorBoundary";
 import LocalAnalysisResults from "@components/LocalAnalysisResults";
+import { LiveRepTracker } from "../analysis/liveReps";
+import {
+  SensorClock,
+  alignStreams,
+  createSensorClock,
+  trackSample,
+} from "../analysis/clockSync";
+
+/** mm:ss */
+function formatElapsed(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const sec = Math.floor(totalSeconds % 60);
+  return `${m}:${sec.toString().padStart(2, "0")}`;
+}
 
 /**
  * Exercise recording screen.
@@ -56,7 +70,9 @@ interface BleConnectionScreenProps {
 function buildSessionFromBleData(
   exerciseData: Map<string, FusionMeasurementData[]>,
   deviceTagMap: Map<string, DeviceTag>,
-  _startTime: Date
+  _startTime: Date,
+  /** Per-sensor times (s) on a shared clock (clockSync.ts); falls back to each sensor's own clock. */
+  alignedTimes?: Map<string, number[]>
 ): Session {
   const streams: Record<number, SensorStream> = {};
 
@@ -66,13 +82,16 @@ function buildSessionFromBleData(
 
     const tag = typeof tagEnum === "number" ? tagEnum : Number(tagEnum);
     const firstTime = data[0].SampleTimeFine;
+    const shared = alignedTimes?.get(sensorId);
+    const useShared = !!shared && shared.length === data.length;
 
     const quats: [number, number, number, number][] = [];
     const times: number[] = [];
 
-    for (const sample of data) {
-      // Time in seconds relative to first sample
-      times.push((sample.SampleTimeFine - firstTime) / 1e6);
+    for (let i = 0; i < data.length; i++) {
+      const sample = data[i];
+      // Shared clock when available, else seconds from this sensor's first sample
+      times.push(useShared ? shared![i] : (sample.SampleTimeFine - firstTime) / 1e6);
 
       if (sample.quaternion) {
         // Use original BLE quaternion — no conversion needed
@@ -126,6 +145,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
     connectKit,
     autoConnecting,
     isRecording,
+    reconnecting,
   } = useSensors();
 
   // Connect this phone's kit automatically when the recording screen opens
@@ -173,93 +193,101 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
   const firstTimestampsRef = useRef<Map<string, number>>(new Map());
   const exerciseDataRef = useRef<Map<string, FusionMeasurementData[]>>(new Map());
   const isExerciseActiveRef = useRef(false);
+  const testingModeRef = useRef(false);
+  testingModeRef.current = testingMode;
+  // Shared clock (clockSync.ts): per-sensor clock state and unwrapped sensor times
+  const clocksRef = useRef<Map<string, SensorClock>>(new Map());
+  const sensorUsRef = useRef<Map<string, number[]>>(new Map());
+  // Live feedback for the patient
+  const repTrackerRef = useRef(new LiveRepTracker());
+  const tagByIdRef = useRef<Map<string, DeviceTag>>(new Map());
+  const [liveReps, setLiveReps] = useState(0);
+  const [elapsedSec, setElapsedSec] = useState(0);
 
   useEffect(() => {
     // Only listen for measurement data here. Discovery, connection, battery and
     // BLE errors are handled app-wide by SensorContext.
     const unsubscribe = bleService.addListener({
       onFusionMeasurementData: (sensorId, data) => {
-        console.log(`📥 [UI] onFusionMeasurementData callback invoked for ${sensorId}`);
-        console.log(`📥 [UI] Data received: PacketCounter=${data.PacketCounter}, SampleTimeFine=${data.SampleTimeFine}, Euler=[${data.Euler_X.toFixed(2)}, ${data.Euler_Y.toFixed(2)}, ${data.Euler_Z.toFixed(2)}]`);
-        
+        // Runs for every packet (5 sensors x 60 Hz): keep it light, no per-packet
+        // logging or React state updates outside testing mode.
         if (isExerciseActiveRef.current) {
-          // Get sensor info for logging - need to get from service since sensors state might be stale
-          const allSensors = bleService.getSensors();
-          const sensor = allSensors.find(s => s.id === sensorId);
-          const sensorName = sensor?.name || `Sensor ${sensorId.substring(0, 8)}`;
-          const deviceTagName = sensor?.deviceTag ? getDeviceTagName(sensor.deviceTag) : t("ble.tagNotAssigned");
-          
-          console.log(`📥 [UI] Processing data for ${sensorName} (${deviceTagName})`);
-          
-          // Get or set first timestamp for this sensor
-          let firstTimestamp = firstTimestampsRef.current.get(sensorId);
-          if (!firstTimestamp) {
-            firstTimestamp = data.SampleTimeFine;
-            firstTimestampsRef.current.set(sensorId, firstTimestamp);
-            console.log(`📥 [UI] First timestamp for ${sensorId}: ${firstTimestamp}`);
+          const receivedMs = Date.now();
+
+          // Shared clock: unwrap the sensor clock and track its offset to the phone clock
+          let clock = clocksRef.current.get(sensorId);
+          if (!clock) {
+            clock = createSensorClock();
+            clocksRef.current.set(sensorId, clock);
           }
-          
-          // Add packet counter and adjust SampleTimeFine relative to first timestamp
-          const currentData = exerciseDataRef.current.get(sensorId) || [];
-          const counter = currentData.length + 1;
-          const relativeTime = data.SampleTimeFine - firstTimestamp;
-          
-          console.log(`📥 [UI] Packet counter: ${counter}, relative time: ${relativeTime}`);
-          
-          const adjustedData: FusionMeasurementData = {
+          const sensorUs = trackSample(clock, data.SampleTimeFine, receivedMs);
+          let usList = sensorUsRef.current.get(sensorId);
+          if (!usList) {
+            usList = [];
+            sensorUsRef.current.set(sensorId, usList);
+          }
+          usList.push(sensorUs);
+
+          let firstTimestamp = firstTimestampsRef.current.get(sensorId);
+          if (firstTimestamp === undefined) {
+            firstTimestamp = sensorUs;
+            firstTimestampsRef.current.set(sensorId, firstTimestamp);
+          }
+
+          // Append in place (copying the array on every packet grows quadratically)
+          let samples = exerciseDataRef.current.get(sensorId);
+          if (!samples) {
+            samples = [];
+            exerciseDataRef.current.set(sensorId, samples);
+          }
+          const counter = samples.length + 1;
+          samples.push({
             ...data,
             PacketCounter: counter,
-            SampleTimeFine: relativeTime,
-          };
-          
-          // Update ref
-          const newMap = new Map(exerciseDataRef.current);
-          newMap.set(sensorId, [...currentData, adjustedData]);
-          exerciseDataRef.current = newMap;
-          
-          // Update state
-          setExerciseData(newMap);
-          setPacketCounters((prev) => {
-            const newMap = new Map(prev);
-            newMap.set(sensorId, counter);
-            return newMap;
+            SampleTimeFine: sensorUs - firstTimestamp,
           });
-          
-          console.log(`📥 [UI] Updated exerciseDataRef, total packets for ${sensorId}: ${counter}`);
-          
-          // Add to real-time logs (limit to 100 entries)
-          const now = new Date();
-          const timestamp = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}.${now.getMilliseconds().toString().padStart(3, '0')}`;
-          
-          setRealTimeLogs((prevLogs) => {
-            const newLogs = [...prevLogs, {
-              timestamp,
-              sensorId,
-              sensorName,
-              deviceTag: deviceTagName,
-              packetCounter: counter,
-              euler: {
-                x: data.Euler_X,
-                y: data.Euler_Y,
-                z: data.Euler_Z,
+
+          // Live repetition count
+          let tag = tagByIdRef.current.get(sensorId);
+          if (tag === undefined) {
+            tag = bleService.getSensors().find((s) => s.id === sensorId)?.deviceTag;
+            if (tag !== undefined) tagByIdRef.current.set(sensorId, tag);
+          }
+          if (tag !== undefined && data.quaternion) {
+            const q = data.quaternion;
+            repTrackerRef.current.push(Number(tag), receivedMs / 1000, [q.w, q.x, q.y, q.z]);
+          }
+
+          // Developer view only
+          if (testingModeRef.current) {
+            setPacketCounters((prev) => {
+              const next = new Map(prev);
+              next.set(sensorId, counter);
+              return next;
+            });
+            const allSensors = bleService.getSensors();
+            const sensor = allSensors.find((s) => s.id === sensorId);
+            const sensorName = sensor?.name || `Sensor ${sensorId.substring(0, 8)}`;
+            const deviceTagName = sensor?.deviceTag ? getDeviceTagName(sensor.deviceTag) : t("ble.tagNotAssigned");
+            const now = new Date();
+            const timestamp = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}.${now.getMilliseconds().toString().padStart(3, '0')}`;
+            setRealTimeLogs((prevLogs) => [
+              ...prevLogs.slice(-99),
+              {
+                timestamp,
+                sensorId,
+                sensorName,
+                deviceTag: deviceTagName,
+                packetCounter: counter,
+                euler: { x: data.Euler_X, y: data.Euler_Y, z: data.Euler_Z },
+                freeAcc: { x: data.FreeAcc_X, y: data.FreeAcc_Y, z: data.FreeAcc_Z },
               },
-              freeAcc: {
-                x: data.FreeAcc_X,
-                y: data.FreeAcc_Y,
-                z: data.FreeAcc_Z,
-              },
-            }];
-            
-            // Keep only last 100 entries
-            return newLogs.slice(-100);
-          });
-          
-          // Auto-scroll to bottom
-          setTimeout(() => {
-            logsScrollViewRef.current?.scrollToEnd({ animated: true });
-          }, 100);
-          
-          // Reset no data warning flag
+            ]);
+            setTimeout(() => {
+              logsScrollViewRef.current?.scrollToEnd({ animated: true });
+            }, 100);
+          }
+
           noDataWarningShownRef.current = false;
         } else {
           console.warn(`⚠️ [UI] Received data but exercise is not active (isExerciseActiveRef.current=${isExerciseActiveRef.current})`);
@@ -292,6 +320,17 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
       }
     };
   }, [bleService, setRecording]);
+
+  // Live feedback: refresh the count and the clock a few times a second
+  useEffect(() => {
+    if (!isExerciseActive) return;
+    const started = Date.now();
+    const timer = setInterval(() => {
+      setLiveReps(repTrackerRef.current.reps);
+      setElapsedSec((Date.now() - started) / 1000);
+    }, 300);
+    return () => clearInterval(timer);
+  }, [isExerciseActive]);
 
   // Ready to record: all 5 body positions covered (normal), or 1+ sensor (testing mode)
   const hasAllSensorsConnected = useCallback(
@@ -334,6 +373,16 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
       setExerciseData(new Map());
       exerciseDataRef.current = new Map();
       firstTimestampsRef.current = new Map();
+      clocksRef.current = new Map();
+      sensorUsRef.current = new Map();
+      repTrackerRef.current = new LiveRepTracker();
+      tagByIdRef.current = new Map(
+        connectedSensors
+          .filter((s) => s.deviceTag !== undefined)
+          .map((s) => [s.id, s.deviceTag as DeviceTag])
+      );
+      setLiveReps(0);
+      setElapsedSec(0);
       setPacketCounters(new Map());
       setRealTimeLogs([]);
       noDataWarningShownRef.current = false;
@@ -369,8 +418,6 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
           noDataWarningShownRef.current = true;
         }
       }, 5000);
-      
-      Alert.alert(t("ble.alertExerciseStarted"), t("ble.exerciseStartedMessage"));
     } catch (error) {
       console.error("❌ [UI] Error starting exercise:", error);
       console.error("❌ [UI] Error details:", error instanceof Error ? error.stack : String(error));
@@ -387,6 +434,8 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
     isExerciseActiveRef.current = false;
     setRecording(false);
     const sensorCount = exerciseDataRef.current.size;
+    // Recorded data is kept in a ref while recording; publish it once for the sensor list
+    setExerciseData(new Map(exerciseDataRef.current));
 
     const doStop = async () => {
       try {
@@ -478,7 +527,25 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
       // Build Session directly from BLE data — no ZIP/CSV serialisation needed.
       // This avoids the quat→Euler→quat round-trip that was introduced by the CSV export path.
       console.log("🔬 [UI] Building session from BLE data...");
-      const session = buildSessionFromBleData(exerciseDataRef.current, deviceTagMap, exerciseStartTime);
+      const clockStreams = new Map<string, { clock: SensorClock; sensorUs: number[] }>();
+      for (const sensorId of Array.from(deviceTagMap.keys())) {
+        const clock = clocksRef.current.get(sensorId);
+        const sensorUs = sensorUsRef.current.get(sensorId);
+        if (clock && sensorUs) clockStreams.set(sensorId, { clock, sensorUs });
+      }
+      const alignedTimes = clockStreams.size === deviceTagMap.size ? alignStreams(clockStreams) : undefined;
+      if (alignedTimes) {
+        const starts = Array.from(alignedTimes.entries()).map(
+          ([id, t]) => `${getDeviceTagName(deviceTagMap.get(id))}: +${((t[0] ?? 0) * 1000).toFixed(0)} ms`
+        );
+        console.log(`🔬 [UI] Stream start offsets on the shared clock: ${starts.join(", ")}`);
+      }
+      const session = buildSessionFromBleData(
+        exerciseDataRef.current,
+        deviceTagMap,
+        exerciseStartTime,
+        alignedTimes
+      );
       console.log(`🔬 [UI] Session built, streams: ${Object.keys(session.streams).join(', ')}`);
 
       // Analyze with local API
@@ -675,6 +742,57 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
         </Text>
       </View>
 
+      {/* While recording (not testing mode): only what the patient needs */}
+      {isExerciseActive && !testingMode && (
+        <View style={[styles.livePanel, { backgroundColor: colors.card }]}>
+          <Text style={[styles.liveLabel, { color: colors.textSecondary }]}>
+            {t("ble.liveReps")}
+          </Text>
+          <Text
+            style={[styles.liveReps, { color: colors.primary }]}
+            accessibilityLabel={`${t("ble.liveReps")}: ${liveReps}`}
+          >
+            {liveReps}
+          </Text>
+          <View style={styles.liveTimeRow}>
+            <Ionicons name="time-outline" size={22} color={colors.textSecondary} />
+            <Text style={[styles.liveTime, { color: colors.text }]}>
+              {formatElapsed(elapsedSec)}
+            </Text>
+          </View>
+          <View style={styles.liveStatusRow}>
+            <Ionicons
+              name={isReady ? "checkmark-circle" : "alert-circle"}
+              size={22}
+              color={isReady ? colors.success : colors.warning || "#FF9500"}
+            />
+            <Text
+              style={[
+                styles.liveStatusText,
+                { color: isReady ? colors.textSecondary : colors.warning || "#FF9500" },
+              ]}
+            >
+              {isReady
+                ? t("ble.liveSensorsOk")
+                : reconnecting.size > 0
+                ? t("ble.liveSensorReconnecting")
+                : t("ble.liveSensorLost")}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.liveStopButton, { backgroundColor: colors.error || "#FF3B30" }]}
+            onPress={handleStopExercise}
+          >
+            <Ionicons name="stop" size={28} color={colors.white} />
+            <Text style={[styles.liveStopText, { color: colors.white }]}>
+              {t("ble.stopExercise")}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {!(isExerciseActive && !testingMode) && (
+      <>
       {/* Sensor status: connection is managed in the Sensors tab */}
       <View
         style={[
@@ -923,6 +1041,9 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
             </View>
           )}
       </View>
+
+      </>
+      )}
 
       {/* Analysis Section */}
       {bleAnalysisResult && (
@@ -1337,6 +1458,31 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontStyle: "italic",
   },
+  livePanel: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    paddingVertical: 32,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    alignItems: "center",
+  },
+  liveLabel: { fontSize: 22, fontWeight: "600" },
+  liveReps: { fontSize: 120, fontWeight: "800", lineHeight: 136, marginVertical: 8 },
+  liveTimeRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  liveTime: { fontSize: 32, fontWeight: "600", fontVariant: ["tabular-nums"] },
+  liveStatusRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 24 },
+  liveStatusText: { fontSize: 18, fontWeight: "500", flexShrink: 1, textAlign: "center" },
+  liveStopButton: {
+    marginTop: 32,
+    alignSelf: "stretch",
+    minHeight: 72,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
+  liveStopText: { fontSize: 24, fontWeight: "700" },
   testingModeContainer: {
     marginBottom: 16,
     padding: 12,
