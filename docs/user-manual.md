@@ -55,7 +55,7 @@ Under each connected sensor, tap the position it will be worn on:
 
 **Right and left are always the patient's right and left**, not yours when you face the patient.
 
-The card at the top of the Sensors tab shows how many of the 5 positions are covered and which are missing. When all five are covered it shows **Sensors ready** with a green tick.
+The card at the top of the Sensors tab shows how many of the 5 sensors are connected and how many are missing. When all five are covered it shows **Sensors ready** with a green tick.
 
 ---
 
@@ -77,7 +77,7 @@ The card at the top of the Sensors tab shows how many of the 5 positions are cov
 
 > Choosing the patient (clinicians) and the exercise is required. Without them the app will not open the recording screen.
 
-At the top of the Record Exercise screen, check that the sensor card says **Sensors ready**. If it does not, tap **Manage Sensors** to fix the connections or positions, then go back.
+At the top of the Record Exercise screen, check that the sensor card says **Sensors ready** (tap **Show sensors** to see each sensor). If it does not, tap **Manage Sensors** to fix the connections or positions, then go back.
 
 ---
 
@@ -91,16 +91,19 @@ At the top of the Record Exercise screen, check that the sensor card says **Sens
 > While recording, the screen shows only the number of **repetitions**, the elapsed time and whether all sensors are working. If a sensor disconnects, the screen says so and the app reconnects it by itself. Sensor connections cannot be changed during a recording.
 >
 > The live count is a guide for the patient. The repetitions saved with the session come from the full analysis after the recording and can differ slightly.
->
-> **Testing mode** (developers) shows the detailed view instead: packets received per sensor and live sensor values.
+
 
 ---
 
-## 7. Analyse and save
+## 7. Analyse and submit
 
-1. Tap **Analyze Exercise**.
-2. Wait while the app shows **Analyzing...**.
-3. When **Analysis Complete** appears, the results are saved to the patient's record.
+Analysing and saving are two separate steps, so the results can be checked before they reach the patient's record.
+
+1. Tap **Analyze Exercise** and wait while the app shows **Analyzing...**. The results appear on the screen. Nothing is saved yet.
+2. Check the results. If something is clearly wrong (for example a sensor was missing), record the exercise again instead.
+3. Tap **Submit Exercise**. When **Exercise submitted** appears, the session is saved and visible to the clinician. The button turns green and cannot be pressed again, so the same session is not sent twice.
+
+If submitting fails (for example without internet), the results stay on the screen and **Submit Exercise** can be tapped again.
 
 ---
 

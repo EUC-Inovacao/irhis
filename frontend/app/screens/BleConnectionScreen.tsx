@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
-  Switch,
   Modal,
   Platform,
   ToastAndroid,
@@ -161,23 +160,10 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
   const [isExerciseActive, setIsExerciseActive] = useState(false);
   const [exerciseData, setExerciseData] = useState<Map<string, FusionMeasurementData[]>>(new Map());
   const [exerciseStartTime, setExerciseStartTime] = useState<Date | null>(null);
-  const [packetCounters, setPacketCounters] = useState<Map<string, number>>(new Map());
   const [canAnalyze, setCanAnalyze] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [bleAnalysisResult, setBleAnalysisResult] = useState<AnalysisResult | null>(null);
   
-  // Testing Mode and Real-time Logs
-  const [testingMode, setTestingMode] = useState(false);
-  const [realTimeLogs, setRealTimeLogs] = useState<Array<{
-    timestamp: string;
-    sensorId: string;
-    sensorName: string;
-    deviceTag: string;
-    packetCounter: number;
-    euler: { x: number; y: number; z: number };
-    freeAcc: { x: number; y: number; z: number };
-  }>>([]);
-  const logsScrollViewRef = useRef<ScrollView>(null);
   const noDataWarningShownRef = useRef(false);
 
   // CSV Modal state
@@ -193,8 +179,6 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
   const firstTimestampsRef = useRef<Map<string, number>>(new Map());
   const exerciseDataRef = useRef<Map<string, FusionMeasurementData[]>>(new Map());
   const isExerciseActiveRef = useRef(false);
-  const testingModeRef = useRef(false);
-  testingModeRef.current = testingMode;
   // Shared clock (clockSync.ts): per-sensor clock state and unwrapped sensor times
   const clocksRef = useRef<Map<string, SensorClock>>(new Map());
   const sensorUsRef = useRef<Map<string, number[]>>(new Map());
@@ -202,6 +186,11 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
   const repTrackerRef = useRef(new LiveRepTracker());
   const tagByIdRef = useRef<Map<string, DeviceTag>>(new Map());
   const [liveReps, setLiveReps] = useState(0);
+  const exerciseEndTimeRef = useRef<Date | null>(null);
+  // Analysis and submission are separate steps
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [sensorDetailsOpen, setSensorDetailsOpen] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
 
   useEffect(() => {
@@ -258,36 +247,6 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
             repTrackerRef.current.push(Number(tag), receivedMs / 1000, [q.w, q.x, q.y, q.z]);
           }
 
-          // Developer view only
-          if (testingModeRef.current) {
-            setPacketCounters((prev) => {
-              const next = new Map(prev);
-              next.set(sensorId, counter);
-              return next;
-            });
-            const allSensors = bleService.getSensors();
-            const sensor = allSensors.find((s) => s.id === sensorId);
-            const sensorName = sensor?.name || `Sensor ${sensorId.substring(0, 8)}`;
-            const deviceTagName = sensor?.deviceTag ? getDeviceTagName(sensor.deviceTag) : t("ble.tagNotAssigned");
-            const now = new Date();
-            const timestamp = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}.${now.getMilliseconds().toString().padStart(3, '0')}`;
-            setRealTimeLogs((prevLogs) => [
-              ...prevLogs.slice(-99),
-              {
-                timestamp,
-                sensorId,
-                sensorName,
-                deviceTag: deviceTagName,
-                packetCounter: counter,
-                euler: { x: data.Euler_X, y: data.Euler_Y, z: data.Euler_Z },
-                freeAcc: { x: data.FreeAcc_X, y: data.FreeAcc_Y, z: data.FreeAcc_Z },
-              },
-            ]);
-            setTimeout(() => {
-              logsScrollViewRef.current?.scrollToEnd({ animated: true });
-            }, 100);
-          }
-
           noDataWarningShownRef.current = false;
         } else {
           console.warn(`⚠️ [UI] Received data but exercise is not active (isExerciseActiveRef.current=${isExerciseActiveRef.current})`);
@@ -332,32 +291,13 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
     return () => clearInterval(timer);
   }, [isExerciseActive]);
 
-  // Ready to record: all 5 body positions covered (normal), or 1+ sensor (testing mode)
-  const hasAllSensorsConnected = useCallback(
-    (testMode: boolean = false): boolean =>
-      testMode ? connectedSensors.length >= 1 : isReady,
-    [connectedSensors, isReady]
-  );
-
   const openSensorSetup = useCallback(() => {
     navigation?.navigate("SensorSetup");
   }, [navigation]);
 
   const handleStartExercise = async () => {
-    console.log(`🎬 [UI] handleStartExercise() called, testingMode: ${testingMode}`);
-    
-    if (!hasAllSensorsConnected(testingMode)) {
-      if (testingMode) {
-        Alert.alert(
-          t("ble.alertSensorsRequired"),
-          t("ble.sensorsRequiredTesting")
-        );
-      } else {
-        Alert.alert(
-          t("ble.alertSensorsRequired"),
-          t("ble.sensorsRequiredAll")
-        );
-      }
+    if (!isReady) {
+      Alert.alert(t("ble.alertSensorsRequired"), t("ble.sensorsRequiredAll"));
       return;
     }
 
@@ -383,8 +323,8 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
       );
       setLiveReps(0);
       setElapsedSec(0);
-      setPacketCounters(new Map());
-      setRealTimeLogs([]);
+      exerciseEndTimeRef.current = null;
+      setSubmitted(false);
       noDataWarningShownRef.current = false;
       setIsExerciseActive(true);
       isExerciseActiveRef.current = true;
@@ -434,6 +374,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
     isExerciseActiveRef.current = false;
     setRecording(false);
     const sensorCount = exerciseDataRef.current.size;
+    exerciseEndTimeRef.current = new Date();
     // Recorded data is kept in a ref while recording; publish it once for the sensor list
     setExerciseData(new Map(exerciseDataRef.current));
 
@@ -473,9 +414,6 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
     }
   };
 
-  const handleClearLogs = () => {
-    setRealTimeLogs([]);
-  };
 
   const handleAnalyzeExercise = async () => {
     if (isAnalyzing) return;
@@ -572,59 +510,16 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
 
       setBleAnalysisResult(result);
 
-      // Auto-save to Azure (same as ZIP upload flow)
-      if (user) {
-        const patientId = user.role === "patient" ? user.id : params.patientId;
-        const exerciseTypeId = params.exerciseTypeId;
-        const exerciseName = params.exerciseName;
-
-        if (patientId && exerciseTypeId) {
-          try {
-            const endTime = new Date();
-            const session = await createSessionFromAnalysisResult(result, {
-              patientId,
-              exerciseTypeId,
-              exerciseName,
-              startTime: exerciseStartTime,
-              endTime,
-            });
-            if (session) {
-              console.log("🔬 [UI] Session saved to server:", session.id);
-              setCanAnalyze(false);
-              // Refresh dashboard before alert so data is ready when user navigates back
-              await Promise.all([
-                fetchPatients(),
-                fetchAssignedExercises(patientId),
-              ]);
-              Alert.alert(
-                t("ble.alertAnalysisComplete"),
-                t("ble.resultsSaved", { missing: result.missingSensors.length > 0 ? result.missingSensors.join(", ") : t("ble.missingSensorsNone") })
-              );
-            } else {
-              Alert.alert(
-                t("ble.alertAnalysisComplete"),
-                t("ble.saveFailed", { missing: result.missingSensors.length > 0 ? result.missingSensors.join(", ") : t("ble.missingSensorsNone") })
-              );
-            }
-          } catch (saveError) {
-            console.error("Error saving BLE results to server:", saveError);
-            Alert.alert(
-              t("ble.alertAnalysisComplete"),
-              t("ble.couldNotSave", { error: saveError instanceof Error ? saveError.message : String(saveError) })
-            );
-          }
-        } else {
-          Alert.alert(
-            t("ble.alertAnalysisComplete"),
-            t("ble.completedNotSaved", { missing: result.missingSensors.length > 0 ? result.missingSensors.join(", ") : t("ble.missingSensorsNone") })
-          );
-        }
-      } else {
-        Alert.alert(
-          t("ble.alertAnalysisComplete"),
-          t("ble.completedSuccessfully", { missing: result.missingSensors.length > 0 ? result.missingSensors.join(", ") : t("ble.missingSensorsNone") })
-        );
-      }
+      setCanAnalyze(false);
+      setSubmitted(false);
+      setAnalysisSectionCollapsed(false);
+      // Saving is a separate step: the user reviews the results, then submits
+      Alert.alert(
+        t("ble.alertAnalysisComplete"),
+        t("ble.analysisReadyToSubmit", {
+          missing: result.missingSensors.length > 0 ? result.missingSensors.join(", ") : t("ble.missingSensorsNone"),
+        })
+      );
     } catch (error) {
       console.error("❌ [UI] Error analyzing exercise:", error);
       console.error("❌ [UI] Error type:", typeof error);
@@ -636,6 +531,44 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
       );
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  /** Send the analysed exercise to the backend (separate from the analysis). */
+  const handleSubmitExercise = async () => {
+    if (isSubmitting || submitted || !bleAnalysisResult || !exerciseStartTime) return;
+    const patientId = user?.role === "patient" ? user.id : params.patientId;
+    const exerciseTypeId = params.exerciseTypeId;
+    if (!user || !patientId || !exerciseTypeId) {
+      Alert.alert(t("ble.alertError"), t("ble.submitMissingContext"));
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const session = await createSessionFromAnalysisResult(bleAnalysisResult, {
+        patientId,
+        exerciseTypeId,
+        exerciseName: params.exerciseName,
+        startTime: exerciseStartTime,
+        endTime: exerciseEndTimeRef.current ?? new Date(),
+      });
+      if (!session) {
+        Alert.alert(t("ble.alertError"), t("ble.submitFailed"));
+        return;
+      }
+      console.log("📤 [UI] Exercise submitted:", session.id);
+      setSubmitted(true);
+      // Refresh dashboard data so it is up to date when the user goes back
+      await Promise.all([fetchPatients(), fetchAssignedExercises(patientId)]);
+      Alert.alert(t("ble.alertSubmitted"), t("ble.submittedMessage"));
+    } catch (error) {
+      console.error("❌ [UI] Error submitting exercise:", error);
+      Alert.alert(
+        t("ble.alertError"),
+        t("ble.couldNotSave", { error: error instanceof Error ? error.message : String(error) })
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -743,7 +676,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
       </View>
 
       {/* While recording (not testing mode): only what the patient needs */}
-      {isExerciseActive && !testingMode && (
+      {isExerciseActive && (
         <View style={[styles.livePanel, { backgroundColor: colors.card }]}>
           <Text style={[styles.liveLabel, { color: colors.textSecondary }]}>
             {t("ble.liveReps")}
@@ -791,7 +724,7 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
         </View>
       )}
 
-      {!(isExerciseActive && !testingMode) && (
+      {!isExerciseActive && (
       <>
       {/* Sensor status: connection is managed in the Sensors tab */}
       <View
@@ -837,16 +770,36 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
           </TouchableOpacity>
         </View>
 
-        {!isReady && missingTags.length > 0 && (
-          <Text style={[styles.sensorStatusMissing, { color: colors.textSecondary }]}>
-            {t("sensors.missing")} {missingTags.map((tag) => getDeviceTagName(tag)).join(", ")}
-          </Text>
-        )}
-
         {connectedSensors.length > 0 ? (
-          <View style={styles.sensorRows}>
-            {connectedSensors.map(renderSensorItem)}
-          </View>
+          <>
+            <TouchableOpacity
+              style={styles.sensorDetailsToggle}
+              onPress={() => setSensorDetailsOpen((open) => !open)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: sensorDetailsOpen }}
+            >
+              <Text style={[styles.sensorDetailsToggleText, { color: colors.primary }]}>
+                {sensorDetailsOpen ? t("ble.hideSensorDetails") : t("ble.showSensorDetails")}
+              </Text>
+              <Ionicons
+                name={sensorDetailsOpen ? "chevron-up" : "chevron-down"}
+                size={18}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+            {sensorDetailsOpen && (
+              <>
+                {!isReady && missingTags.length > 0 && (
+                  <Text style={[styles.sensorStatusMissing, { color: colors.textSecondary }]}>
+                    {t("sensors.missing")} {missingTags.map((tag) => getDeviceTagName(tag)).join(", ")}
+                  </Text>
+                )}
+                <View style={styles.sensorRows}>
+                  {connectedSensors.map(renderSensorItem)}
+                </View>
+              </>
+            )}
+          </>
         ) : (
           <Text style={[styles.sensorStatusMissing, { color: colors.textSecondary }]}>
             {t("sensors.goToSensorsTab")}
@@ -871,36 +824,16 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
           </TouchableOpacity>
           {!exerciseSectionCollapsed && (
             <View style={styles.exerciseSectionContent}>
-          {/* Testing Mode Toggle */}
-          <View style={styles.testingModeContainer}>
-            <View style={styles.testingModeRow}>
-              <Text style={[styles.testingModeLabel, { color: colors.text }]}>
-                {t("ble.testingMode")}
-              </Text>
-              <Switch
-                value={testingMode}
-                onValueChange={setTestingMode}
-                trackColor={{ false: colors.mediumGray, true: colors.primary + '80' }}
-                thumbColor={testingMode ? colors.primary : colors.white}
-              />
-            </View>
-            <Text style={[styles.testingModeHint, { color: colors.textSecondary }]}>
-              {testingMode 
-                ? "Exercise can start with 1+ sensors" 
-                : "Requires all 5 sensors"}
-            </Text>
-          </View>
-          
           {!isExerciseActive ? (
             <TouchableOpacity
               style={[
                 styles.exerciseButton,
                 {
-                  backgroundColor: hasAllSensorsConnected(testingMode) ? colors.primary : colors.mediumGray,
+                  backgroundColor: isReady ? colors.primary : colors.mediumGray,
                 },
               ]}
               onPress={handleStartExercise}
-              disabled={!hasAllSensorsConnected(testingMode)}
+              disabled={!isReady}
             >
               <Ionicons name="play" size={20} color={colors.white} />
               <Text style={[styles.exerciseButtonText, { color: colors.white }]}>
@@ -920,92 +853,6 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
                 {t("ble.stopExercise")}
               </Text>
             </TouchableOpacity>
-          )}
-          
-          {isExerciseActive && (
-            <>
-              <View style={styles.exerciseIndicator}>
-                <ActivityIndicator size="small" color={colors.primary} />
-                <Text style={[styles.exerciseIndicatorText, { color: colors.text }]}>
-                  {t("ble.recordingData")}
-                </Text>
-              </View>
-              
-              {/* Packet Counters */}
-              {Array.from(packetCounters.entries()).length > 0 && (
-                <View style={styles.packetCountersContainer}>
-                  <Text style={[styles.packetCountersTitle, { color: colors.text }]}>
-                    {t("ble.packetsReceived")}
-                  </Text>
-                        {sensors
-                          .filter(s => s.connected && packetCounters.has(s.id))
-                          .map((sensor) => (
-                            <View key={sensor.id} style={styles.packetCounterRow}>
-                              <Text style={[styles.packetCounterLabel, { color: colors.textSecondary }]}>
-                                {sensor.name || `Sensor ${sensor.id.substring(0, 8)}`} (Tag {sensor.deviceTag}):
-                              </Text>
-                              <Text style={[styles.packetCounterValue, { color: colors.primary }]}>
-                                {packetCounters.get(sensor.id) || 0}
-                              </Text>
-                            </View>
-                          ))}
-                </View>
-              )}
-              
-              {/* Real-time Logs */}
-              <View style={styles.logsContainer}>
-                <View style={styles.logsHeader}>
-                  <Text style={[styles.logsTitle, { color: colors.text }]}>
-                    {t("ble.realTimeLogs")}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={handleClearLogs}
-                    style={styles.clearLogsButton}
-                  >
-                    <Text style={[styles.clearLogsButtonText, { color: colors.primary }]}>
-                      {t("ble.clearLogs")}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-                <ScrollView
-                  ref={logsScrollViewRef}
-                  style={styles.logsScrollView}
-                  contentContainerStyle={styles.logsContent}
-                  showsVerticalScrollIndicator={true}
-                >
-                  {realTimeLogs.length === 0 ? (
-                    <Text style={[styles.noLogsText, { color: colors.textSecondary }]}>
-                      {t("ble.waitingForData")}
-                    </Text>
-                  ) : (
-                    realTimeLogs.map((log, index) => (
-                      <View key={index} style={[styles.logEntry, { borderBottomColor: colors.border }]}>
-                        <View style={styles.logHeader}>
-                          <Text style={[styles.logTimestamp, { color: colors.textSecondary }]}>
-                            {log.timestamp}
-                          </Text>
-                          <Text style={[styles.logSensorName, { color: colors.text }]}>
-                            {log.sensorName}
-                          </Text>
-                          <Text style={[styles.logDeviceTag, { color: colors.primary }]}>
-                            {log.deviceTag}
-                          </Text>
-                          <Text style={[styles.logPacketCounter, { color: colors.textSecondary }]}>
-                            #{log.packetCounter}
-                          </Text>
-                        </View>
-                        <Text style={[styles.logData, { color: colors.textSecondary }]}>
-                          Euler: {log.euler.x.toFixed(2)}, {log.euler.y.toFixed(2)}, {log.euler.z.toFixed(2)}
-                        </Text>
-                        <Text style={[styles.logData, { color: colors.textSecondary }]}>
-                          FreeAcc: {log.freeAcc.x.toFixed(2)}, {log.freeAcc.y.toFixed(2)}, {log.freeAcc.z.toFixed(2)}
-                        </Text>
-                      </View>
-                    ))
-                  )}
-                </ScrollView>
-              </View>
-            </>
           )}
           
           {canAnalyze && (
@@ -1031,7 +878,42 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
             </TouchableOpacity>
           )}
           
-          {!hasAllSensorsConnected(testingMode) && connectedCount > 0 && !testingMode && (
+          {bleAnalysisResult && !canAnalyze && (
+            <TouchableOpacity
+              style={[
+                styles.analyzeButton,
+                {
+                  backgroundColor: submitted
+                    ? colors.success || "#34C759"
+                    : isSubmitting
+                    ? colors.gray?.[400] ?? "#9E9E9E"
+                    : colors.primary,
+                  opacity: isSubmitting ? 0.7 : 1,
+                },
+              ]}
+              onPress={handleSubmitExercise}
+              disabled={isSubmitting || submitted}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Ionicons
+                  name={submitted ? "checkmark-circle" : "cloud-upload-outline"}
+                  size={20}
+                  color={colors.white}
+                />
+              )}
+              <Text style={[styles.analyzeButtonText, { color: colors.white }]}>
+                {submitted
+                  ? t("ble.exerciseSubmitted")
+                  : isSubmitting
+                  ? t("ble.submittingExercise")
+                  : t("ble.submitExercise")}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {!isReady && connectedCount > 0 && (
             <Text style={[styles.sensorWarning, { color: colors.warning || "#FF9500" }]}>
               {connectedCount >= 5
                 ? t("ble.assignTagsToStart")
@@ -1430,16 +1312,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  exerciseIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    marginBottom: 12,
-  },
-  exerciseIndicatorText: {
-    fontSize: 14,
-  },
   analyzeButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -1458,6 +1330,15 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontStyle: "italic",
   },
+  sensorDetailsToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 4,
+    marginTop: 12,
+    paddingVertical: 4,
+  },
+  sensorDetailsToggleText: { fontSize: 14, fontWeight: "600" },
   livePanel: {
     marginHorizontal: 16,
     marginTop: 16,
@@ -1483,130 +1364,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   liveStopText: { fontSize: 24, fontWeight: "700" },
-  testingModeContainer: {
-    marginBottom: 16,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: "#F5F5F5",
-    borderWidth: 1,
-    borderColor: "#E5E5E5",
-  },
-  testingModeRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  testingModeLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  testingModeHint: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-  packetCountersContainer: {
-    marginTop: 12,
-    marginBottom: 12,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: "#F5F5F5",
-  },
-  packetCountersTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
-  packetCounterRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  packetCounterLabel: {
-    fontSize: 12,
-    flex: 1,
-  },
-  packetCounterValue: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
   // Restored: dropped by mistake in 934b681 (live log + CSV preview modal)
-  logsContainer: {
-    marginTop: 12,
-    marginBottom: 12,
-    maxHeight: 300,
-    borderRadius: 8,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E5E5E5",
-  },
-  logsHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E5E5",
-  },
-  logsTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  clearLogsButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  clearLogsButtonText: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  logsScrollView: {
-    maxHeight: 250,
-  },
-  logsContent: {
-    padding: 8,
-  },
-  noLogsText: {
-    fontSize: 12,
-    textAlign: "center",
-    padding: 20,
-    fontStyle: "italic",
-  },
-  logEntry: {
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    borderBottomWidth: 1,
-    marginBottom: 4,
-  },
-  logHeader: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    marginBottom: 4,
-    gap: 8,
-  },
-  logTimestamp: {
-    fontSize: 11,
-    fontFamily: "monospace",
-  },
-  logSensorName: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  logDeviceTag: {
-    fontSize: 11,
-    fontWeight: "500",
-  },
-  logPacketCounter: {
-    fontSize: 11,
-    fontFamily: "monospace",
-  },
-  logData: {
-    fontSize: 11,
-    fontFamily: "monospace",
-    marginTop: 2,
-  },
   modalContainer: {
     flex: 1,
   },

@@ -81,7 +81,7 @@ When the **Sensors** tab or the recording screen opens and the sensors are not r
 
 **Restart Search** disconnects everything, clears the list and scans again. While an exercise is being recorded, disconnecting, rescanning and changing positions are blocked.
 
-Testing mode on the recording screen allows recording with a single sensor; it is meant for development only.
+Recording always needs all five positions covered.
 
 ## What the app streams
 

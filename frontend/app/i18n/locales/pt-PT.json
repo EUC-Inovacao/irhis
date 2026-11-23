@@ -577,7 +577,17 @@
     "liveReps": "Repetições",
     "liveSensorsOk": "Todos os sensores a funcionar",
     "liveSensorReconnecting": "Um sensor desligou-se. A religar…",
-    "liveSensorLost": "Um sensor desligou-se. Verifique se está ligado."
+    "liveSensorLost": "Um sensor desligou-se. Verifique se está ligado.",
+    "submitExercise": "Submeter Exercício",
+    "submittingExercise": "A submeter...",
+    "exerciseSubmitted": "Exercício submetido",
+    "alertSubmitted": "Exercício submetido",
+    "submittedMessage": "O exercício foi guardado e já está visível para o clínico.",
+    "submitFailed": "Não foi possível submeter o exercício. Verifique a ligação à internet e tente novamente.",
+    "submitMissingContext": "Falta o doente ou o exercício. Volte atrás, escolha-os e grave novamente.",
+    "analysisReadyToSubmit": "Reveja os resultados abaixo e toque em Submeter Exercício para os guardar.\n\nSensores em falta: {{missing}}",
+    "showSensorDetails": "Ver sensores",
+    "hideSensorDetails": "Esconder sensores"
   },
   "analysisResults": {
     "title": "Resultados da Análise Local",

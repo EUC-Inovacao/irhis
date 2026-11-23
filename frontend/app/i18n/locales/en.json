@@ -577,7 +577,17 @@
     "liveReps": "Repetitions",
     "liveSensorsOk": "All sensors working",
     "liveSensorReconnecting": "A sensor disconnected. Reconnecting…",
-    "liveSensorLost": "A sensor disconnected. Check that it is switched on."
+    "liveSensorLost": "A sensor disconnected. Check that it is switched on.",
+    "submitExercise": "Submit Exercise",
+    "submittingExercise": "Submitting...",
+    "exerciseSubmitted": "Exercise submitted",
+    "alertSubmitted": "Exercise submitted",
+    "submittedMessage": "The exercise was saved and is now visible to the clinician.",
+    "submitFailed": "The exercise could not be submitted. Check the internet connection and try again.",
+    "submitMissingContext": "Patient or exercise missing. Go back, choose them and record again.",
+    "analysisReadyToSubmit": "Review the results below, then tap Submit Exercise to save them.\n\nMissing sensors: {{missing}}",
+    "showSensorDetails": "Show sensors",
+    "hideSensorDetails": "Hide sensors"
   },
   "analysisResults": {
     "title": "Local Analysis Results",
