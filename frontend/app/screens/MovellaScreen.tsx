@@ -1425,8 +1425,7 @@ const MovellaScreen = () => {
               style={[
                 styles.modeButton,
                 {
-                  backgroundColor:
-                    dataSourceMode === "ble" ? colors.primary : colors.gray[200],
+                  backgroundColor: colors.primary,
                 },
               ]}
               onPress={() => {
@@ -1470,15 +1469,12 @@ const MovellaScreen = () => {
               <Ionicons
                 name="bluetooth"
                 size={18}
-                color={dataSourceMode === "ble" ? colors.white : colors.textSecondary}
+                color={colors.white}
               />
               <Text
                 style={[
                   styles.modeButtonText,
-                  {
-                    color:
-                      dataSourceMode === "ble" ? colors.white : colors.textSecondary,
-                  },
+                  { color: colors.white },
                 ]}
               >
                 {t("movella.bleStream")}
@@ -1490,7 +1486,7 @@ const MovellaScreen = () => {
             <TouchableOpacity
               style={[
                 styles.uploadButton,
-                { backgroundColor: colors.primary },
+                { backgroundColor: colors.gray[200] },
               ]}
               onPress={handleFileUpload}
               disabled={isAnalyzing}
@@ -1500,9 +1496,9 @@ const MovellaScreen = () => {
                   isAnalyzing ? "hourglass-outline" : "cloud-upload-outline"
                 }
                 size={20}
-                color={colors.white}
+                color={colors.textSecondary}
               />
-              <Text style={[styles.buttonText, { color: colors.white }]}>
+              <Text style={[styles.buttonText, { color: colors.textSecondary }]}>
                 {isAnalyzing ? t("movella.analyzing") : t("movella.uploadData")}
               </Text>
             </TouchableOpacity>
