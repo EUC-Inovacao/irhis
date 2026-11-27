@@ -2,8 +2,8 @@
   "expo": {
     "name": "IRHIS",
     "slug": "demoirhisn",
-    "version": "1.1.0",
-    "runtimeVersion": "1.1.1",
+    "version": "1.2.0",
+    "runtimeVersion": "1.1.2",
     "updates": {
       "url": "https://u.expo.dev/5f6b9979-1140-45fc-bd2b-1a2bef360758",
       "checkAutomatically": "ON_LOAD",
@@ -23,7 +23,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.eucinno.irhis",
-      "buildNumber": "9",
+      "buildNumber": "10",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSMotionUsageDescription": "This app uses motion/accelerometer data to improve the experience.",
@@ -60,7 +60,7 @@
     ],
     "android": {
       "package": "com.eucinno.irhis",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/logo.png",
         "backgroundColor": "#ffffff"

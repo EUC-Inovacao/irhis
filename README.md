@@ -74,9 +74,9 @@ Details: [docs/architecture.md](docs/architecture.md).
 
 | Version | Current | What it is |
 |---|---|---|
-| App version | 1.1.0 | Shown to users; bump for each new build |
-| Android version code / iOS build number | 2 / 9 | Must increase for every store upload |
-| Runtime version | 1.1.1 | Which builds can receive which OTA updates; bump only when native code changes |
+| App version | 1.2.0 | Shown to users; bump for each new build |
+| Android version code / iOS build number | 3 / 10 | Must increase for every store upload |
+| Runtime version | 1.1.2 | Which builds can receive which OTA updates; bump only when native code changes |
 
 See [docs/deployment.md](docs/deployment.md).
 

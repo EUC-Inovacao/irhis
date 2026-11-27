@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "@theme/ThemeContext";
 import { useFocusEffect, useRoute } from "@react-navigation/native";
+import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -217,6 +218,15 @@ const BleConnectionScreen: React.FC<BleConnectionScreenProps> = ({
       }
     };
   }, [bleService, setRecording]);
+
+  // Keep the screen on while recording (the phone is often put down meanwhile)
+  useEffect(() => {
+    if (!isExerciseActive) return;
+    activateKeepAwakeAsync("ble-recording").catch((e) => console.warn("[UI] keep awake:", e));
+    return () => {
+      deactivateKeepAwake("ble-recording").catch(() => undefined);
+    };
+  }, [isExerciseActive]);
 
   // Live feedback: refresh the count and the clock a few times a second
   useEffect(() => {

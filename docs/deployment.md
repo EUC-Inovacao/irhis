@@ -46,8 +46,8 @@ The login limit (10/min per IP) is stored in memory. If the App Service is scale
 
   | Version | `app.json` | Android `android/app/build.gradle` | iOS `ios/demoirhisn/Info.plist` |
   |---|---|---|---|
-  | App version (currently 1.1.0) | `version` | `versionName` | `CFBundleShortVersionString` |
-  | Build number (currently 2 / 9) | `android.versionCode` / `ios.buildNumber` | `versionCode` | `CFBundleVersion` |
+  | App version (currently 1.2.0) | `version` | `versionName` | `CFBundleShortVersionString` |
+  | Build number (currently 3 / 10) | `android.versionCode` / `ios.buildNumber` | `versionCode` | `CFBundleVersion` |
 
   `eas.json` uses `appVersionSource: local` and `autoIncrement: false`, so nothing is bumped automatically. Increase the build number before every store upload. The OTA **runtime version** is separate; see [Over-the-air updates](#over-the-air-updates).
 
@@ -88,7 +88,7 @@ The backend workflow (`main_irhis-api.yml`) also runs the backend tests before d
 
 **Runtime version: when a new build is needed**
 
-An OTA update only contains JavaScript and assets, and only reaches builds with the same **runtime version** (currently `1.1.1`). It is set in three places that must match:
+An OTA update only contains JavaScript and assets, and only reaches builds with the same **runtime version** (currently `1.1.2`). It is set in three places that must match:
 
 - `frontend/app.json` → `expo.runtimeVersion`
 - `frontend/android/app/src/main/res/values/strings.xml` → `expo_runtime_version`

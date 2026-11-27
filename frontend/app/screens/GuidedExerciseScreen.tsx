@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRoute } from "@react-navigation/native";
+import { useKeepAwake } from "expo-keep-awake";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "@theme/ThemeContext";
@@ -51,6 +52,8 @@ const GuidedExerciseScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
   const { sessionsByPatient, fetchAssignedExercises } = usePatients();
   const { isReady, reconnecting, connectKit, autoConnecting, connectedSensors } = useSensors();
   const recorder = useExerciseRecorder();
+  // The patient is away from the phone during the exercise: never let it lock
+  useKeepAwake("guided-exercise");
 
   const plan = useMemo(() => {
     const sessions = user ? sessionsByPatient?.[user.id] : undefined;
