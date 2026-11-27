@@ -672,5 +672,41 @@
     "searchingKit": "Looking for your sensors…",
     "countSummary": "{{connected}}/{{total}} sensors connected",
     "countSummaryMissing": "{{connected}}/{{total}} sensors connected · {{missing}} missing"
+  },
+  "guided": {
+    "connectTitle": "Sensors",
+    "hello": "Hello,",
+    "startExercises": "Start exercises",
+    "doAgain": "Do the exercises again",
+    "allDoneToday": "Today's exercises are done. Well done!",
+    "todayTitle": "Today ({{done}} of {{total}} done)",
+    "target": "{{count}} repetitions",
+    "targetPerLeg": "{{count}} repetitions per leg",
+    "doneToday": "Done today",
+    "toDo": "To do",
+    "checklistTitle": "Before you start",
+    "placementImageAlt": "Where the sensors go, seen from behind: 1 and 3 just above the knees, 2 and 4 just above the ankles, 5 on the lower back",
+    "checkStep1": "Switch on the 5 sensors.",
+    "checkStep2": "Put them on as in the picture, on the outer side of each leg and on the lower back.",
+    "checkStep3": "Keep the phone close to you.",
+    "checklistContinue": "Everything is ready",
+    "connectingTitle": "Connecting the sensors",
+    "connectingHint": "This takes a few seconds. Keep the sensors switched on.",
+    "sensorConnected": "Connected",
+    "sensorSearching": "Searching…",
+    "sensorNotFound": "Not found",
+    "notFoundHint": "Some sensors were not found. Check that they are switched on and close to the phone.",
+    "tryAgain": "Try again",
+    "manageSensors": "Problems? Manage sensors",
+    "allConnected": "All sensors connected!",
+    "start": "Start"
+  },
+  "exercises": {
+    "squat": "Squat",
+    "squatInstruction": "Stand with your feet apart and bend both knees, then stand up again.",
+    "kneeExtension": "Knee extension (sitting)",
+    "kneeExtensionInstruction": "Sitting, straighten one leg and lower it again. First the right leg, then the left.",
+    "march": "March in place",
+    "marchInstruction": "Lift one knee, then the other, as if walking in place. Each pair of steps counts as one."
   }
 }

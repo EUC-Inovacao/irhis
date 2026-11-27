@@ -57,6 +57,8 @@ export interface Session {
   repetitions?: number | null;
   duration?: string | null;
   timeCreated: string;
+  /** When the exercise was actually recorded (time of its metrics), if known. */
+  performedAt?: string;
   metrics?: SessionMetric[];
   feedback?: SessionFeedback[];
 }
@@ -268,6 +270,7 @@ export type RootStackParamList = {
   SensorSetup: undefined;
   /** Clinician screen to register a sensor kit (writes kit + position names to the sensors). */
   RegisterKit: undefined;
+  GuidedConnect: undefined;
   
   ExerciseDetail: { exercise: any };
   ExerciseHistory: undefined;

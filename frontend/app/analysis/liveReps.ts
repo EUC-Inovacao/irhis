@@ -15,6 +15,7 @@
  */
 
 import { BONE_AXIS, rotateVecByQuat } from "./kinematics";
+import type { CountingMode, Side } from "../exercises/catalog";
 
 type Quat = [number, number, number, number];
 type Vec = [number, number, number];
@@ -130,6 +131,27 @@ export class LiveRepTracker {
       const thighBone = unit(rotateVecByQuat(thighQ, BONE_AXIS));
       const counter = tag === RIGHT_SHANK ? this.counters.rightKnee : this.counters.leftKnee;
       counter.push(t, angleDeg(thighBone, bone));
+    }
+  }
+
+  /**
+   * Repetitions for a known protocol exercise (exercises/catalog.ts):
+   * - squat: the knee that moves most (both bend together)
+   * - knee-extension: the knee of the given side
+   * - march: lifts completed by both legs (one lift of each leg = one rep)
+   */
+  repsFor(mode: CountingMode, side?: Side): number {
+    const active = (c: PeakCounter) => (c.rom >= MIN_ACTIVE_ROM_DEG ? c.reps : 0);
+    const { rightKnee, leftKnee, rightHip, leftHip } = this.counters;
+    switch (mode) {
+      case "squat":
+        return active(rightKnee.rom >= leftKnee.rom ? rightKnee : leftKnee);
+      case "knee-extension":
+        return active(side === "left" ? leftKnee : rightKnee);
+      case "march":
+        return Math.min(active(rightHip), active(leftHip));
+      default:
+        return this.reps;
     }
   }
 

@@ -672,5 +672,41 @@
     "searchingKit": "À procura dos sensores…",
     "countSummary": "{{connected}}/{{total}} sensores ligados",
     "countSummaryMissing": "{{connected}}/{{total}} sensores ligados · {{missing}} em falta"
+  },
+  "guided": {
+    "connectTitle": "Sensores",
+    "hello": "Olá,",
+    "startExercises": "Iniciar exercícios",
+    "doAgain": "Fazer os exercícios novamente",
+    "allDoneToday": "Os exercícios de hoje estão feitos. Muito bem!",
+    "todayTitle": "Hoje ({{done}} de {{total}} feitos)",
+    "target": "{{count}} repetições",
+    "targetPerLeg": "{{count}} repetições por perna",
+    "doneToday": "Feito hoje",
+    "toDo": "Por fazer",
+    "checklistTitle": "Antes de começar",
+    "placementImageAlt": "Onde colocar os sensores, vistos de trás: 1 e 3 logo acima dos joelhos, 2 e 4 logo acima dos tornozelos, 5 no fundo das costas",
+    "checkStep1": "Ligue os 5 sensores.",
+    "checkStep2": "Coloque-os como na imagem, na parte de fora de cada perna e no fundo das costas.",
+    "checkStep3": "Mantenha o telemóvel perto de si.",
+    "checklistContinue": "Está tudo pronto",
+    "connectingTitle": "A ligar os sensores",
+    "connectingHint": "Demora alguns segundos. Mantenha os sensores ligados.",
+    "sensorConnected": "Ligado",
+    "sensorSearching": "A procurar…",
+    "sensorNotFound": "Não encontrado",
+    "notFoundHint": "Alguns sensores não foram encontrados. Verifique se estão ligados e perto do telemóvel.",
+    "tryAgain": "Tentar novamente",
+    "manageSensors": "Problemas? Gerir sensores",
+    "allConnected": "Todos os sensores ligados!",
+    "start": "Começar"
+  },
+  "exercises": {
+    "squat": "Agachamento",
+    "squatInstruction": "De pé, com os pés afastados, dobre os dois joelhos e volte a levantar-se.",
+    "kneeExtension": "Extensão do joelho (sentado)",
+    "kneeExtensionInstruction": "Sentado, estique uma perna e volte a baixá-la. Primeiro a perna direita, depois a esquerda.",
+    "march": "Marcha no lugar",
+    "marchInstruction": "Levante um joelho e depois o outro, como se andasse sem sair do lugar. Cada par de passos conta como um."
   }
 }

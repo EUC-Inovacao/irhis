@@ -57,3 +57,37 @@ describe("LiveRepTracker", () => {
     expect(tr.reps).toBe(0);
   });
 });
+
+describe("LiveRepTracker.repsFor", () => {
+  it("march counts one lift of each leg as one repetition", () => {
+    const tr = new LiveRepTracker();
+    // Alternating lifts: right at 0.5 s, left at 1.25 s, ... (one cycle = 1.5 s)
+    for (let i = 0; i < 60 * 8; i++) {
+      const t = i / 60;
+      const phase = 2 * Math.PI * (t - 0.5) / 1.5;
+      const right = t < 0.5 ? 0 : Math.max(0, 30 * Math.sin(phase));
+      const left = t < 0.5 ? 0 : Math.max(0, -30 * Math.sin(phase));
+      tr.push(1, t, rotX(right));
+      tr.push(3, t, rotX(left));
+    }
+    const right = tr.counters.rightHip.reps;
+    const left = tr.counters.leftHip.reps;
+    expect(tr.repsFor("march")).toBe(Math.min(right, left));
+    expect(tr.repsFor("march")).toBeGreaterThanOrEqual(4);
+  });
+
+  it("knee extension counts only the requested side", () => {
+    const tr = new LiveRepTracker();
+    for (let i = 0; i < 60 * 8; i++) {
+      const t = i / 60;
+      // Seated: thighs horizontal-ish and still; right shank extends 4 times
+      const ext = 45 - 45 * Math.cos(2 * Math.PI * 0.5 * t);
+      tr.push(1, t, rotX(0));
+      tr.push(3, t, rotX(0));
+      tr.push(2, t, rotX(ext));
+      tr.push(4, t, rotX(0));
+    }
+    expect(tr.repsFor("knee-extension", "right")).toBe(4);
+    expect(tr.repsFor("knee-extension", "left")).toBe(0);
+  });
+});

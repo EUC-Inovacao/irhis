@@ -1,55 +1,57 @@
-import React, { useEffect, useCallback, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList, RefreshControl } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '@theme/ThemeContext';
 import { useAuth } from '@context/AuthContext';
 import { usePatients } from '@context/PatientContext';
-import { useHealth } from '@context/HealthContext';
-import { Ionicons } from '@expo/vector-icons';
-import ActivityRings from '@components/ActivityRings';
-import ChartCard from '@components/ChartCard';
-import WeeklyFeedbackCard from '@components/WeeklyFeedbackCard';
-import ExerciseCard from '@components/ExerciseCard';
-import { useTranslation } from 'react-i18next';
+import { buildTodayPlan, PlannedExercise } from '../exercises/todayPlan';
 
+/**
+ * Patient home: one large button to start today's exercises and the list of
+ * exercises with today's status. Built for older patients using the app alone:
+ * large text, one main action, no red "failed" states.
+ */
 const PatientHomeScreen = ({ navigation }: any) => {
     const { colors } = useTheme();
     const { t } = useTranslation();
     const { user } = useAuth();
-    const { patients, assignedExercises, loading, patientDashboardError, fetchAssignedExercises, fetchPatients } = usePatients();
-    const { healthData, dailyData, isConnected, isLoading, connectDevice, refreshHealthData } = useHealth();
+    const { patients, sessionsByPatient, loading, patientDashboardError, fetchAssignedExercises, fetchPatients } = usePatients();
     const patient = user ? patients[user.id] : null;
-    const exercises = user ? (assignedExercises[user.id] || []) : [];
-
     const [refreshing, setRefreshing] = useState(false);
+
+    const plan: PlannedExercise[] = useMemo(() => {
+        const sessions = user ? sessionsByPatient?.[user.id] : undefined;
+        return sessions ? buildTodayPlan(sessions) : [];
+    }, [sessionsByPatient, user]);
+    const doneCount = plan.filter((p) => p.doneToday).length;
+    const allDone = plan.length > 0 && doneCount === plan.length;
+
+    // Refresh today's status when coming back from an exercise
+    useFocusEffect(
+        useCallback(() => {
+            if (user?.id) fetchAssignedExercises(user.id);
+        }, [user?.id, fetchAssignedExercises])
+    );
 
     const refreshDashboard = useCallback(async () => {
         if (!user?.id) return;
         setRefreshing(true);
         try {
             await fetchPatients();
-            if (refreshHealthData) refreshHealthData();
+            await fetchAssignedExercises(user.id);
         } finally {
             setRefreshing(false);
         }
-    }, [user?.id, fetchPatients, refreshHealthData]);
-
-    // Removed useFocusEffect - it was causing race with PatientContext's useEffect.
-    // Data loads via PatientContext when user is set; use pull-to-refresh to refresh.
-
-    // Debug logging
-    useEffect(() => {
-        console.log('Current user:', user);
-        console.log('All patients:', patients);
-        console.log('Current patient:', patient);
-        console.log('Assigned exercises:', exercises);
-    }, [user, patients, patient, exercises]);
+    }, [user?.id, fetchPatients, fetchAssignedExercises]);
 
     if (!patient) {
         if (patientDashboardError) {
             return (
                 <SafeAreaView edges={["left", "right"]} style={[styles.safeArea, { backgroundColor: colors.background }]}>
-                    <View style={[styles.container, styles.errorContainer]}>
+                    <View style={[styles.container, styles.centered]}>
                         <Ionicons name="cloud-offline-outline" size={48} color={colors.textSecondary} />
                         <Text style={[styles.errorTitle, { color: colors.text }]}>{t('patientHome.loadFailedTitle')}</Text>
                         <Text style={[styles.errorText, { color: colors.textSecondary }]}>{patientDashboardError}</Text>
@@ -65,8 +67,8 @@ const PatientHomeScreen = ({ navigation }: any) => {
         }
         return (
             <SafeAreaView edges={["left", "right"]} style={[styles.safeArea, { backgroundColor: colors.background }]}>
-                <View style={styles.container}>
-                    <Text style={[styles.title, { color: colors.text }]}>
+                <View style={[styles.container, styles.centered]}>
+                    <Text style={[styles.greeting, { color: colors.text }]}>
                         {loading ? t('patientHome.loading') : t('patientHome.loadingDashboard')}
                     </Text>
                     {!loading && (
@@ -82,417 +84,154 @@ const PatientHomeScreen = ({ navigation }: any) => {
         );
     }
 
-    const assignedList = exercises.filter((ex: any) => ex.completed !== 1);
-    const completedList = exercises.filter((ex: any) => ex.completed === 1);
-    const completedExercises = completedList.length;
-    const totalExercises = exercises.length;
-
-    const activityData = {
-        move: {
-            goal: dailyData?.goals.calories || 400,
-            current: dailyData?.calories || 0,
-        },
-        exercise: {
-            goal: dailyData?.goals.activeMinutes || 30,
-            current: dailyData?.activeMinutes || 0,
-        },
-        stand: {
-            goal: 12,
-            current: Math.round((dailyData?.activeMinutes || 0) / 60) || 0,
-        },
-    };
-
-    const handleWeeklyFeedbackSubmit = async (feedback: any) => {
-        try {
-            console.log('Submitting feedback for user:', user?.id);
-            console.log('Patient data:', patient);
-            
-            if (!user?.id) {
-                console.error('No user ID available');
-                return;
-            }
-
-            const newFeedback = {
-                ...feedback,
-                sessionId: `weekly_${Date.now()}`,
-                timestamp: new Date().toISOString(),
-            };
-
-            // Note: This would need to be updated to use local storage
-            // For now, we'll just log it
-            console.log('Feedback submitted:', newFeedback);
-        } catch (error) {
-            console.error('Failed to submit weekly feedback:', error);
-        }
-    };
-
-    const renderExerciseItem = ({ item }: { item: any }) => (
-        <ExerciseCard
-            exercise={item}
-            patientId={user?.id || ''}
-            onPress={() => navigation.navigate('Live Session')}
-            showDetails={true}
-        />
-    );
+    const exerciseName = (p: PlannedExercise) => (p.protocol ? t(p.protocol.nameKey) : p.storedName);
+    const targetText = (p: PlannedExercise) =>
+        p.protocol?.counting === 'knee-extension'
+            ? t('guided.targetPerLeg', { count: p.targetReps })
+            : t('guided.target', { count: p.targetReps });
 
     return (
-        // Use only bottom safe area, the top is already handled by the navigation header
-        <SafeAreaView
-            style={[styles.safeArea, { backgroundColor: colors.background }]}
-            edges={['bottom']}
-        >
+        <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.safeArea, { backgroundColor: colors.background }]}>
             <ScrollView
-                style={styles.container}
+                contentContainerStyle={styles.container}
                 refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={refreshDashboard}
-                        tintColor={colors.primary}
-                    />
+                    <RefreshControl refreshing={refreshing} onRefresh={refreshDashboard} tintColor={colors.primary} />
                 }
             >
-                <View style={styles.header}>
-                    <View>
-                        <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>{t('patientHome.welcomeBack')}</Text>
-                        <Text style={[styles.title, { color: colors.text }]}>{patient.name}</Text>
-                    </View>
-                    {/* Botão Connect Watch removido conforme ticket IRHIS-18 */}
-                    <TouchableOpacity 
-                        style={[styles.refreshButton, { backgroundColor: colors.card }]}
-                        onPress={refreshDashboard}
-                        disabled={refreshing || isLoading}
-                    >
-                        <Ionicons 
-                            name={refreshing || isLoading ? "sync" : "refresh-outline"} 
-                            size={24} 
-                            color={colors.text} 
-                        />
-                    </TouchableOpacity>
-                </View>
+                <Text style={[styles.welcome, { color: colors.textSecondary }]}>{t('guided.hello')}</Text>
+                <Text style={[styles.greeting, { color: colors.text }]}>{patient.name}</Text>
 
-                <View style={[styles.progressCard, { backgroundColor: colors.primary, marginBottom: 20 }]}>
-                    {/* <ActivityRings data={activityData} size={180} /> */}
-                    <View style={styles.progressInfo}>
-                        <Text style={[styles.progressTitle, { color: "#FFF" }]}>{t('patientHome.todaysProgress')}</Text>
-                        <Text style={[styles.progressText, { color: "rgba(255,255,255,0.9)" }]}>
-                        {t('patientHome.progressSummary', { completed: completedExercises, total: totalExercises })}
-                        </Text>
-                    </View>
-                </View>
-
-                {/*
-                {isConnected && healthData && (
-                <View style={styles.statsGrid}>
-                    <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-                    <View style={[styles.statIcon, { backgroundColor: colors.primary + '15' }]}>
-                        <Ionicons name="walk-outline" size={24} color={colors.primary} />
-                    </View>
-                    <Text style={[styles.statValue, { color: colors.text }]}>
-                        {healthData.steps.toLocaleString()}
-                    </Text>
-                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Steps</Text>
-                    </View>
-
-                    <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-                            <View style={[styles.statIcon, { backgroundColor: colors.success + '15' }]}>
-                        <Ionicons name="flame-outline" size={24} color={colors.success} />
-                    </View>
-                    <Text style={[styles.statValue, { color: colors.text }]}>
-                        {healthData.calories}
-                    </Text>
-                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Calories</Text>
-                    </View>
-
-                    <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-                    <View style={[styles.statIcon, { backgroundColor: colors.info + '15' }]}>
-                        <Ionicons name="heart-outline" size={24} color={colors.info} />
-                    </View>
-                    <Text style={[styles.statValue, { color: colors.text }]}>
-                        {healthData.heartRate?.current || '--'}
-                    </Text>
-                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>BPM</Text>
-                    </View>
-
-                    <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-                            <View style={[styles.statIcon, { backgroundColor: colors.warning + '15' }]}>
-                        <Ionicons name="walk-outline" size={24} color={colors.warning} />
-                    </View>
-                    <Text style={[styles.statValue, { color: colors.text }]}>
-                        {(healthData.distance / 1000).toFixed(1)}
-                    </Text>
-                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>KM</Text>
-                    </View>
-                </View>
-                ))}
-                */}
-
-
-                <WeeklyFeedbackCard onSubmit={handleWeeklyFeedbackSubmit} />
-
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('patientHome.yourExercises')}</Text>
-                {assignedList.length > 0 ? (
+                {plan.length > 0 ? (
                     <>
-                        <Text style={[styles.subsectionTitle, { color: colors.textSecondary }]}>{t('patientHome.assigned')}</Text>
-                        <FlatList
-                            data={assignedList}
-                            renderItem={renderExerciseItem}
-                            keyExtractor={(item: any) => item.id}
-                            contentContainerStyle={styles.exerciseList}
-                            scrollEnabled={false}
-                        />
-                    </>
-                ) : null}
-                {completedList.length > 0 ? (
-                    <>
-                        <Text style={[styles.subsectionTitle, { color: colors.textSecondary }]}>{t('patientHome.completed')}</Text>
-                        <FlatList
-                            data={completedList}
-                            renderItem={renderExerciseItem}
-                            keyExtractor={(item: any) => item.id}
-                            contentContainerStyle={styles.exerciseList}
-                            scrollEnabled={false}
-                        />
+                        {allDone && (
+                            <View style={[styles.doneBanner, { backgroundColor: colors.success + '1F', borderColor: colors.success }]}>
+                                <Ionicons name="checkmark-circle" size={32} color={colors.success} />
+                                <Text style={[styles.doneBannerText, { color: colors.text }]}>{t('guided.allDoneToday')}</Text>
+                            </View>
+                        )}
                         <TouchableOpacity
-                            style={[styles.historyLink, { borderColor: colors.primary }]}
-                            onPress={() => navigation.navigate('History')}
+                            style={[styles.startButton, { backgroundColor: colors.primary }]}
+                            onPress={() => navigation.navigate('GuidedConnect')}
+                            accessibilityRole="button"
                         >
-                            <Ionicons name="time-outline" size={20} color={colors.primary} />
-                            <Text style={[styles.historyLinkText, { color: colors.primary }]}>{t('patientHome.viewFullHistory')}</Text>
+                            <Ionicons name="play-circle" size={40} color="#FFFFFF" />
+                            <Text style={styles.startButtonText}>
+                                {allDone ? t('guided.doAgain') : t('guided.startExercises')}
+                            </Text>
                         </TouchableOpacity>
+
+                        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                            {t('guided.todayTitle', { done: doneCount, total: plan.length })}
+                        </Text>
+                        {plan.map((p) => (
+                            <View
+                                key={p.key}
+                                style={[
+                                    styles.exerciseRow,
+                                    {
+                                        backgroundColor: p.doneToday ? colors.success + '1F' : colors.card,
+                                        borderColor: p.doneToday ? colors.success : colors.border,
+                                    },
+                                ]}
+                            >
+                                <View style={styles.exerciseText}>
+                                    <Text style={[styles.exerciseName, { color: colors.text }]}>{exerciseName(p)}</Text>
+                                    <Text style={[styles.exerciseTarget, { color: colors.textSecondary }]}>{targetText(p)}</Text>
+                                </View>
+                                {p.doneToday ? (
+                                    <View style={styles.status}>
+                                        <Ionicons name="checkmark-circle" size={28} color={colors.success} />
+                                        <Text style={[styles.statusText, { color: colors.success }]}>{t('guided.doneToday')}</Text>
+                                    </View>
+                                ) : (
+                                    <View style={styles.status}>
+                                        <Ionicons name="ellipse-outline" size={26} color={colors.textSecondary} />
+                                        <Text style={[styles.statusText, { color: colors.textSecondary }]}>{t('guided.toDo')}</Text>
+                                    </View>
+                                )}
+                            </View>
+                        ))}
                     </>
-                ) : null}
-                {assignedList.length === 0 && completedList.length === 0 ? (
+                ) : (
                     <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
                         <Ionicons name="fitness-outline" size={48} color={colors.textSecondary} />
-                        <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                            {t('patientHome.noExercisesAssigned')}
-                        </Text>
-                        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                            {t('patientHome.noExercisesDescription')}
-                        </Text>
+                        <Text style={[styles.emptyTitle, { color: colors.text }]}>{t('patientHome.noExercisesAssigned')}</Text>
+                        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{t('patientHome.noExercisesDescription')}</Text>
                     </View>
-                ) : null}
+                )}
+
+                <TouchableOpacity
+                    style={[styles.historyLink, { borderColor: colors.primary }]}
+                    onPress={() => navigation.navigate('History')}
+                >
+                    <Ionicons name="calendar-outline" size={22} color={colors.primary} />
+                    <Text style={[styles.historyLinkText, { color: colors.primary }]}>{t('patientHome.viewFullHistory')}</Text>
+                </TouchableOpacity>
             </ScrollView>
         </SafeAreaView>
     );
 };
 
 const styles = StyleSheet.create({
-    safeArea: {
-        flex: 1,
-    },
-    container: {
-        flex: 1,
-        padding: 16,
-    },
-    errorContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 24,
-    },
-    errorTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        marginTop: 16,
-        marginBottom: 8,
-        textAlign: 'center',
-    },
-    errorText: {
-        fontSize: 14,
-        textAlign: 'center',
-        marginBottom: 24,
-    },
-    retryButton: {
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 12,
-    },
-    retryButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 24,
-    },
-    welcomeText: {
-        fontSize: 16,
-        marginBottom: 4,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-    },
-    connectButton: {
+    safeArea: { flex: 1 },
+    container: { padding: 20, paddingBottom: 40 },
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    errorTitle: { fontSize: 20, fontWeight: '600', marginTop: 16, marginBottom: 8, textAlign: 'center' },
+    errorText: { fontSize: 16, textAlign: 'center', marginBottom: 24 },
+    retryButton: { paddingHorizontal: 24, paddingVertical: 14, borderRadius: 12 },
+    retryButtonText: { color: '#fff', fontSize: 18, fontWeight: '600' },
+    welcome: { fontSize: 20 },
+    greeting: { fontSize: 30, fontWeight: '700', marginBottom: 20 },
+    doneBanner: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 20,
-        gap: 6,
-    },
-    connectButtonText: {
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    refreshButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    progressCard: {
-        borderRadius: 14,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-    },
-    progressInfo: {
-        gap: 1,
-    },
-    progressTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        marginBottom: 8,
-        textAlign: 'center',
-    },
-    progressText: {
-        fontSize: 14,
-        textAlign: 'center',
-    },
-    statsGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
         gap: 12,
-        marginBottom: 24,
-    },
-    statCard: {
-        flex: 1,
-        minWidth: '45%',
-        borderRadius: 12,
+        borderWidth: 2,
+        borderRadius: 16,
         padding: 16,
-        alignItems: 'center',
-    },
-    statIcon: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 12,
-    },
-    statValue: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 4,
-    },
-    statLabel: {
-        fontSize: 14,
-    },
-    sectionTitle: {
-        fontSize: 20,
-        fontWeight: '600',
         marginBottom: 16,
     },
-    subsectionTitle: {
-        fontSize: 14,
-        fontWeight: '500',
-        marginBottom: 8,
-        marginTop: 8,
+    doneBannerText: { flex: 1, fontSize: 20, fontWeight: '600' },
+    startButton: {
+        minHeight: 96,
+        borderRadius: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 14,
+        paddingHorizontal: 20,
+        marginBottom: 28,
     },
-    exerciseList: {
+    startButtonText: { color: '#FFFFFF', fontSize: 28, fontWeight: '700' },
+    sectionTitle: { fontSize: 22, fontWeight: '700', marginBottom: 12 },
+    exerciseRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
         gap: 12,
     },
+    exerciseText: { flex: 1 },
+    exerciseName: { fontSize: 22, fontWeight: '700' },
+    exerciseTarget: { fontSize: 17, marginTop: 4 },
+    status: { alignItems: 'center', minWidth: 84 },
+    statusText: { fontSize: 15, fontWeight: '600', marginTop: 2, textAlign: 'center' },
+    emptyState: { alignItems: 'center', padding: 24, borderRadius: 16, marginTop: 8 },
+    emptyTitle: { fontSize: 20, fontWeight: '600', marginTop: 12, textAlign: 'center' },
+    emptyText: { fontSize: 16, marginTop: 6, textAlign: 'center' },
     historyLink: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-        paddingVertical: 12,
-        marginTop: 12,
-        marginBottom: 68-16,
-        borderRadius: 8,
-        borderWidth: 1,
+        borderWidth: 2,
+        borderRadius: 14,
+        paddingVertical: 14,
+        marginTop: 20,
     },
-    historyLinkText: {
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    exerciseCard: {
-        borderRadius: 12,
-        overflow: 'hidden',
-    },
-    exerciseContent: {
-        padding: 16,
-    },
-    exerciseHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    exerciseInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    exerciseIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    exerciseName: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 4,
-    },
-    exerciseStatus: {
-        fontSize: 14,
-    },
-    statusBadge: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 16,
-    },
-    statusText: {
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    startButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 12,
-        borderRadius: 8,
-        gap: 8,
-    },
-    buttonText: {
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    emptyState: {
-        borderRadius: 12,
-        padding: 32,
-        alignItems: 'center',
-        marginTop: 8,
-    },
-    emptyTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        marginTop: 16,
-        marginBottom: 8,
-    },
-    emptyText: {
-        fontSize: 14,
-        textAlign: 'center',
-        color: '#6B7280', // textSecondary color
-    },
+    historyLinkText: { fontSize: 18, fontWeight: '600' },
 });
 
-export default PatientHomeScreen; 
+export default PatientHomeScreen;

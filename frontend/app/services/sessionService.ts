@@ -48,6 +48,8 @@ type MetricRow = {
   MaxVelocity?: number;
   P95Velocity?: number;
   CenterMassDisplacement?: number;
+  /** When the metric row was saved, i.e. when the exercise was recorded. */
+  TimeCreated?: string;
 };
 
 function toNum(v: unknown): number | null {
@@ -106,16 +108,23 @@ function toSession(row: SessionRow, metrics?: MetricRow, metricsList?: MetricRow
 export async function getPatientSessions(patientId: string): Promise<SessionsResponse> {
   const [sessionsRes, metricsRes] = await Promise.all([
     api.get<SessionRow[]>(`/patients/${patientId}/sessions`),
-    api.get<MetricRow[]>(`/patients/${patientId}/metrics`, { params: { limit: 50 } }).catch(() => ({ data: [] as MetricRow[] })),
+    // Every metric row is needed: a session without metrics is treated as an
+    // assignment (plan), so a cut-off list would turn old results into plans.
+    api.get<MetricRow[]>(`/patients/${patientId}/metrics`, { params: { limit: 2000 } }).catch(() => ({ data: [] as MetricRow[] })),
   ]);
 
   const sessions = Array.isArray(sessionsRes.data) ? sessionsRes.data : [];
   const metrics = Array.isArray(metricsRes.data) ? metricsRes.data : [];
 
   const metricsBySessionId = new Map<string, MetricRow>();
+  const performedAtBySessionId = new Map<string, string>();
   for (const m of metrics) {
     const sid = typeof m.SessionID === "string" ? m.SessionID : "";
     if (!sid) continue;
+    // Latest metric time = when the exercise was recorded
+    const mt = typeof m.TimeCreated === "string" ? m.TimeCreated : "";
+    const prevT = performedAtBySessionId.get(sid);
+    if (mt && (!prevT || mt > prevT)) performedAtBySessionId.set(sid, mt);
     const existing = metricsBySessionId.get(sid);
     const joint = String(m.Joint ?? (m as any).joint ?? "").toLowerCase();
     const existingJoint = existing ? String((existing as any).Joint ?? (existing as any).joint ?? "").toLowerCase() : "";
@@ -130,6 +139,8 @@ export async function getPatientSessions(patientId: string): Promise<SessionsRes
   for (const s of sessions) {
     const m = metricsBySessionId.get(s.ID);
     const mapped = toSession(s, m);
+    const performedAt = performedAtBySessionId.get(s.ID);
+    if (performedAt) mapped.performedAt = performedAt;
     if (m) completed.push(mapped);
     else assigned.push(mapped);
   }
@@ -438,14 +449,14 @@ export async function createSessionFromAnalysisResult(
     }
   }
 
-  const existingSession = await findUncompletedSession(patientId, exerciseTypeId);
-
+  // Every recording is saved as a new session. The clinician's assignment row
+  // (exercise + target repetitions, no metrics) stays as the plan, so the same
+  // exercise can be done again the next day.
   try {
     const session = await createSessionWithMetrics(patientId, {
       patientId,
       exerciseTypeId,
       exerciseDescription: exerciseName,
-      existingSessionId: existingSession?.id ?? undefined,
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString(),
       repetitions: reps,

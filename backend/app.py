@@ -321,9 +321,12 @@ def resolve_login_identifier(identifier, role):
 def ensure_patient_resource_access(current_user, patient_id, message="Unauthorized"):
     if current_user.get('role') == 'patient' and current_user.get('id') != str(patient_id):
         return jsonify({"error": message}), 403
-    return None
-
-
+    return None
+
+
+
+
+
 def ensure_patient_access(current_user, patient_id, message="Unauthorized"):
     """
     Access rule for patient data:
@@ -1368,7 +1371,9 @@ def get_patient_metrics(current_user, patient_id):
     if forbidden:
         return forbidden
 
-    limit = min(request.args.get('limit', default=50, type=int), 50)
+    # Callers that classify sessions (assigned vs done) need every metric row,
+    # so allow large limits; the default stays small for dashboards.
+    limit = max(1, min(request.args.get('limit', default=50, type=int), 2000))
     
     try:
         metrics = get_metrics_by_patient(patient_id, limit)
@@ -1461,55 +1466,33 @@ def fix_user_role(current_user):
 def get_exercise_types(current_user):
     """Get all available exercise types."""
     try:
-        # For now, return a default list of exercise types
+        # The exercises of the IRHIS clinical study protocol. Ids are stored in
+        # session.ExerciseType and drive the guided flow in the app
+        # (frontend/app/exercises/catalog.ts), so keep them stable.
         # TODO: Create exercise_types table and fetch from database
         exercise_types = [
             {
-                "id": "knee_flexion",
-                "name": "Knee Flexion",
-                "description": "Flexion exercise for knee rehabilitation",
-                "category": "knee",
-                "targetReps": 10,
-                "targetSets": 3,
-            },
-            {
-                "id": "knee_extension",
-                "name": "Knee Extension",
-                "description": "Extension exercise for knee rehabilitation",
-                "category": "knee",
-                "targetReps": 10,
-                "targetSets": 3,
-            },
-            {
-                "id": "hip_flexion",
-                "name": "Hip Flexion",
-                "description": "Flexion exercise for hip rehabilitation",
-                "category": "hip",
-                "targetReps": 10,
-                "targetSets": 3,
-            },
-            {
-                "id": "hip_abduction",
-                "name": "Hip Abduction",
-                "description": "Abduction exercise for hip rehabilitation",
-                "category": "hip",
-                "targetReps": 10,
-                "targetSets": 3,
-            },
-            {
-                "id": "ankle_dorsiflexion",
-                "name": "Ankle Dorsiflexion",
-                "description": "Dorsiflexion exercise for ankle rehabilitation",
-                "category": "ankle",
-                "targetReps": 10,
-                "targetSets": 3,
-            },
-            {
-                "id": "general_walking",
-                "name": "Walking",
-                "description": "General walking exercise",
+                "id": "squat",
+                "name": "Squat",
+                "description": "Standing squat, both legs together",
                 "category": "general",
-                "targetReps": None,
+                "targetReps": 10,
+                "targetSets": None,
+            },
+            {
+                "id": "seated_knee_extension",
+                "name": "Seated knee extension",
+                "description": "Sitting, extend one knee at a time: right leg, then left leg",
+                "category": "knee",
+                "targetReps": 10,
+                "targetSets": None,
+            },
+            {
+                "id": "march_in_place",
+                "name": "March in place",
+                "description": "Alternate leg lifts; one repetition is one lift of each leg",
+                "category": "hip",
+                "targetReps": 10,
                 "targetSets": None,
             },
         ]
