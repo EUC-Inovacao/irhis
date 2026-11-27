@@ -63,13 +63,8 @@ const GuidedConnectScreen: React.FC<{ navigation?: any }> = ({ navigation }) => 
   const handleStart = useCallback(() => {
     const next = plan.find((p) => !p.doneToday) ?? plan[0];
     if (!next || !user) return;
-    // Recording uses the existing screen until the guided exercise screens are in
-    navigation?.navigate("BleConnection", {
-      patientId: user.id,
-      exerciseTypeId: next.exerciseTypeId,
-      exerciseName: next.protocol ? t(next.protocol.nameKey) : next.storedName,
-    });
-  }, [navigation, plan, t, user]);
+    navigation?.replace("GuidedExercise", { exerciseKey: next.key });
+  }, [navigation, plan, user]);
 
   if (!checklistDone) {
     return (

@@ -271,6 +271,7 @@ export type RootStackParamList = {
   /** Clinician screen to register a sensor kit (writes kit + position names to the sensors). */
   RegisterKit: undefined;
   GuidedConnect: undefined;
+  GuidedExercise: { exerciseKey: string };
   
   ExerciseDetail: { exercise: any };
   ExerciseHistory: undefined;

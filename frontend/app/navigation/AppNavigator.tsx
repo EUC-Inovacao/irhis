@@ -29,6 +29,7 @@ import BleConnectionScreen from '@screens/BleConnectionScreen';
 import SensorsScreen from '@screens/SensorsScreen';
 import RegisterKitScreen from '@screens/RegisterKitScreen';
 import GuidedConnectScreen from '@screens/GuidedConnectScreen';
+import GuidedExerciseScreen from '@screens/GuidedExerciseScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import TwoFactorSetupScreen from '../screens/TwoFactorSetupScreen';
 import PrivacyNoticeScreen from '../screens/PrivacyNoticeScreen';
@@ -334,6 +335,14 @@ const AppNavigator = () => {
               component={GuidedConnectScreen}
               options={{
                 headerTitle: t('guided.connectTitle'),
+                headerBackTitle: t('common.back'),
+              }}
+            />
+            <Stack.Screen
+              name="GuidedExercise"
+              component={GuidedExerciseScreen}
+              options={{
+                headerTitle: t('guided.exerciseTitle'),
                 headerBackTitle: t('common.back'),
               }}
             />

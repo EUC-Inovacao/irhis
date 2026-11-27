@@ -12,6 +12,13 @@ Patients see a simplified home screen, made for using the app alone:
 2. **Before you start:** a checklist with the sensor placement picture (seen from behind: 1 and 3 above the knees, 2 and 4 above the ankles, 5 on the lower back).
 3. **Connecting the sensors:** the five positions turn green as the kit connects by itself. If some are not found, **Try again**; **Problems? Manage sensors** opens the Sensors tab.
 4. **All sensors connected!** → **Start** opens the first exercise not done today.
+5. **Exercise:** the name, a one-line instruction and the target, then **Start**.
+6. **Stand still**, then 3-2-1. The sensors already record during this time; the analysis uses it as the reference posture.
+7. **Counting:** a large count such as 4/10 and an **I'm done** button that always works. At the target the exercise ends by itself with **Exercise completed**. For the seated knee extension: right leg first, then **Now the left leg** → **Continue**, in the same recording.
+8. **Saving** happens automatically (analysis on the phone, then upload). Without internet: **The exercise was not saved** → **Try again** (stay on the screen until it works).
+9. **Next exercise: …?** → **Yes**, or **Back to home**. After the last one: **Today's exercises are done**.
+
+The live count is a guide; the repetitions saved come from the full analysis and can differ slightly. A count below the target is never shown as a failure.
 
 Each recording is saved as a new session; the clinician's assignment stays as the plan, so the same exercises can be done every day.
 
